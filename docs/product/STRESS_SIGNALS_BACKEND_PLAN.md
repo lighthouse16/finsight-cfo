@@ -270,8 +270,9 @@ Use careful contextual wording. Do not use words like:
 - "Lender approved"
 - "Guaranteed failure"
 - "Credit score impact"
-- "requires company data before quantification"
 - "Bank verified"
+
+Safe alternatives include: requires company data, context only, pending financial records, and before impact can be quantified.
 
 ---
 
