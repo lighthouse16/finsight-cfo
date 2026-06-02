@@ -1,5 +1,5 @@
 import { ArrowDownRight, ArrowRight, ArrowUpRight } from 'lucide-react'
-import { LiquidityEvent, RateSnapshot } from '../types'
+import { LiquidityEvent, RateSnapshot, CompanyProfile } from '../types'
 import { RatesSourceInfo } from '../MarketWatchPage'
 import clsx from 'clsx'
 
@@ -7,12 +7,14 @@ type RatesLiquidityTabProps = {
   rates: RateSnapshot[]
   liquidityEvents: LiquidityEvent[]
   ratesSource?: RatesSourceInfo | null
+  profile?: CompanyProfile | null
 }
 
 export default function RatesLiquidityTab({
   rates,
   liquidityEvents,
   ratesSource,
+  profile,
 }: RatesLiquidityTabProps) {
   const nonRatesWarnings =
     ratesSource?.warnings.filter(
@@ -185,8 +187,11 @@ export default function RatesLiquidityTab({
           CFO Takeaway
         </h4>
         <p className="text-xs text-softform-text-secondary leading-relaxed">
-          Use this context alongside uploaded financial records before lender
-          conversations. Connect company financials to quantify impact.
+          {profile ? (
+            `Your monthly debt service of HKD ${profile.monthlyDebtServiceHkd.toLocaleString()} is highly sensitive to HIBOR fluctuations. Leverage the connected debt schedule to review options for your HKD ${profile.floatingRateDebtHkd.toLocaleString()} facility.`
+          ) : (
+            'Use this context alongside uploaded financial records before lender conversations. Connect company financials to quantify impact.'
+          )}
         </p>
       </div>
     </div>

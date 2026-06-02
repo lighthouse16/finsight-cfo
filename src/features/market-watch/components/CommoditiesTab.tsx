@@ -1,15 +1,17 @@
 import { ArrowDownRight, ArrowRight, ArrowUpRight } from 'lucide-react'
-import { CommodityExposure, CommoditySourceInfo } from '../types'
+import { CommodityExposure, CommoditySourceInfo, CompanyProfile } from '../types'
 import clsx from 'clsx'
 
 type CommoditiesTabProps = {
   commodities: CommodityExposure[]
   commoditySource: CommoditySourceInfo | null
+  profile?: CompanyProfile | null
 }
 
 export default function CommoditiesTab({
   commodities,
   commoditySource,
+  profile,
 }: CommoditiesTabProps) {
   if (!commoditySource) {
     return (
@@ -303,9 +305,11 @@ export default function CommoditiesTab({
           CFO Takeaway
         </h4>
         <p className="text-xs text-softform-text-secondary leading-relaxed">
-          Use this context alongside treasury policy and advisor review before
-          making cross-border funding decisions. Connect company financials to
-          quantify impact.
+          {profile ? (
+            `Input-cost fluctuations in Copper and Energy affect your distribution margins. Review supplier agreements and pricing terms relative to your current gross margin of ${profile.grossMarginPercent}%.`
+          ) : (
+            'Use this context alongside treasury policy and advisor review before making cross-border funding decisions. Connect company financials to quantify impact.'
+          )}
         </p>
       </div>
     </div>

@@ -1,15 +1,17 @@
 import clsx from 'clsx'
-import { SectorBenchmarkItem, SectorSourceInfo } from '../types'
+import { SectorBenchmarkItem, SectorSourceInfo, CompanyProfile } from '../types'
 import SoftBarChart from './SoftBarChart'
 
 type SectorBenchmarksTabProps = {
   benchmarks: SectorBenchmarkItem[]
   sectorSource: SectorSourceInfo | null
+  profile?: CompanyProfile | null
 }
 
 export default function SectorBenchmarksTab({
   benchmarks,
   sectorSource,
+  profile,
 }: SectorBenchmarksTabProps) {
   if (!sectorSource) {
     return (
@@ -183,12 +185,36 @@ export default function SectorBenchmarksTab({
                         {benchmark.severity}
                       </span>
                     </div>
-                    <div className="text-2xl font-bold text-softform-navy-950 tracking-tight mb-2">
-                      {benchmark.displayValue}
-                    </div>
-                    <div className="text-[10px] italic text-softform-text-muted mb-2">
-                      {benchmark.comparison}
-                    </div>
+                    {profile ? (
+                      <div className="mb-2 flex items-baseline gap-3">
+                        <div>
+                          <p className="text-[10px] uppercase font-bold text-softform-teal-deep">Company</p>
+                          <div className="text-2xl font-bold text-softform-navy-950 tracking-tight">
+                            {benchmark.id === 'dso' && `${profile.dsoDays} days`}
+                            {benchmark.id === 'dio' && `${profile.inventoryDays} days`}
+                            {benchmark.id === 'dpo' && `${profile.dpoDays} days`}
+                            {benchmark.id === 'gross-margin' && `${profile.grossMarginPercent}%`}
+                            {benchmark.id === 'documentation-readiness' && '85%'}
+                          </div>
+                        </div>
+                        <div className="h-6 w-px bg-softform-navy-900/10 self-center" />
+                        <div>
+                          <p className="text-[10px] uppercase font-bold text-softform-text-muted">Sector</p>
+                          <div className="text-sm font-semibold text-softform-text-secondary">
+                            {benchmark.displayValue}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="text-2xl font-bold text-softform-navy-950 tracking-tight mb-2">
+                          {benchmark.displayValue}
+                        </div>
+                        <div className="text-[10px] italic text-softform-text-muted mb-2">
+                          {benchmark.comparison}
+                        </div>
+                      </>
+                    )}
                   </div>
                   <p className="text-xs text-softform-text-secondary leading-relaxed border-t border-softform-text-muted/5 pt-2">
                     {benchmark.context}
@@ -298,27 +324,28 @@ export default function SectorBenchmarksTab({
           data={[
             {
               label: 'Your DSO vs Sector',
-              value: 75,
-              displayValue: '45d / 38d',
+              value: profile ? Math.min(100, Math.round((45 / profile.dsoDays) * 100)) : 75,
+              displayValue: profile ? `${profile.dsoDays}d / 45d` : '45d / 38d',
               colorClass: 'bg-softform-amber-400',
             },
             {
               label: 'Your DPO vs Sector',
-              value: 40,
-              displayValue: '30d / 45d',
+              value: profile ? Math.min(100, Math.round((profile.dpoDays / 50) * 100)) : 40,
+              displayValue: profile ? `${profile.dpoDays}d / 50d` : '30d / 45d',
               colorClass: 'bg-softform-amber-400',
             },
             {
               label: 'Margin vs Sector',
-              value: 85,
-              displayValue: '18% / 15%',
+              value: profile ? Math.min(100, Math.round((profile.grossMarginPercent / 18.5) * 100)) : 85,
+              displayValue: profile ? `${profile.grossMarginPercent}% / 18.5%` : '18% / 15%',
               colorClass: 'bg-softform-teal-500',
             },
           ]}
         />
         <p className="mt-4 text-xs italic text-softform-text-muted">
-          *Note: Requires company financials connection to generate real
-          comparative metrics. Using UI seed values.
+          {profile
+            ? '*Note: Comparative metrics are generated using connected company financials.'
+            : '*Note: Requires company financials connection to generate real comparative metrics. Using UI seed values.'}
         </p>
       </div>
 
@@ -327,9 +354,11 @@ export default function SectorBenchmarksTab({
           CFO Takeaway
         </h4>
         <p className="text-xs text-softform-text-secondary leading-relaxed">
-          Use this context alongside treasury policy and advisor review before
-          making cross-border funding decisions. Connect company financials to
-          quantify impact.
+          {profile ? (
+            `Your DSO of ${profile.dsoDays} days exceeds the sector average of 45 days. Leverage receivables aging details to shorten collection terms and bridge the HKD ${profile.workingCapitalGapHkd.toLocaleString()} working capital gap.`
+          ) : (
+            'Use this context alongside treasury policy and advisor review before making cross-border funding decisions. Connect company financials to quantify impact.'
+          )}
         </p>
       </div>
     </div>

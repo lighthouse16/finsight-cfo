@@ -348,6 +348,12 @@ def test_refresh(monkeypatch):
     data_fixture = response_fixture.json()
     assert data_fixture["status"] == "success"
     assert "retained" in data_fixture["message"]
-
-
-
+def test_company_context():
+    response = client.get("/api/market-watch/company-context")
+    assert response.status_code == 200
+    data = response.json()
+    assert "profile" in data
+    assert "exposures" in data
+    assert "dataMode" in data
+    assert data["profile"]["companyName"] == "Harbour & Finch Trading Ltd."
+    assert len(data["exposures"]) > 0

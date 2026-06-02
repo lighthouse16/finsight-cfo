@@ -1,15 +1,17 @@
 import { AlertTriangle, TrendingDown } from 'lucide-react'
-import { StressScenario, StressSourceInfo } from '../types'
+import { StressScenario, StressSourceInfo, CompanyProfile } from '../types'
 import clsx from 'clsx'
 
 type StressSignalsTabProps = {
   scenarios: StressScenario[]
   stressSource: StressSourceInfo | null
+  profile?: CompanyProfile | null
 }
 
 export default function StressSignalsTab({
   scenarios,
   stressSource,
+  profile,
 }: StressSignalsTabProps) {
   if (!stressSource) {
     return (
@@ -29,6 +31,18 @@ export default function StressSignalsTab({
         w.toLowerCase().includes('seed data') ||
         w.toLowerCase().includes('fixture-backed'),
     )
+
+  const getScenarioDataStatus = (scen: StressScenario) => {
+    if (!profile) return scen.requiredDataStatus || 'Requires company financials'
+    const ids = scen.requiredDataIds || []
+    if (ids.length === 0) return 'Context Only'
+    const records = ids.map(id => profile.connectedRecords.find(r => r.id === id))
+    const allConnected = records.every(r => r && r.status === 'connected')
+    const anyConnected = records.some(r => r && r.status === 'connected')
+    if (allConnected) return 'Data Connected'
+    if (anyConnected) return 'Partial Data'
+    return 'Requires company financials'
+  }
 
   return (
     <div className="space-y-6">
@@ -143,10 +157,27 @@ export default function StressSignalsTab({
                     {scenario.affectedArea}
                   </span>
                 </div>
-                <div className="flex items-center justify-center gap-1.5 rounded-full bg-softform-amber-500/5 border border-softform-amber-200/20 py-2 text-xs font-semibold text-softform-amber-600 shadow-[inset_0_1px_2px_rgba(217,168,63,0.05)]">
-                  <span className="h-1.5 w-1.5 rounded-full bg-softform-amber-500 animate-pulse" />
-                  <span>{scenario.requiredDataStatus}</span>
-                </div>
+                {(() => {
+                  const status = getScenarioDataStatus(scenario)
+                  const isConnected = status === 'Data Connected'
+                  const isContext = status === 'Context Only'
+                  return (
+                    <div className={clsx(
+                      "flex items-center justify-center gap-1.5 rounded-full py-2 text-xs font-semibold shadow-[inset_0_1px_2px_rgba(8,17,31,0.05)] border",
+                      isConnected
+                        ? "bg-softform-emerald-soft/5 border-softform-emerald-soft/20 text-emerald-700"
+                        : isContext
+                        ? "bg-softform-navy-900/5 border-softform-navy-900/10 text-softform-text-secondary"
+                        : "bg-softform-amber-500/5 border-softform-amber-200/20 text-softform-amber-600"
+                    )}>
+                      <span className={clsx(
+                        "h-1.5 w-1.5 rounded-full",
+                        isConnected ? "bg-softform-emerald-soft" : isContext ? "bg-softform-text-muted" : "bg-softform-amber-500 animate-pulse"
+                      )} />
+                      <span>{status}</span>
+                    </div>
+                  )
+                })()}
               </div>
             </div>
           ))}
@@ -166,35 +197,45 @@ export default function StressSignalsTab({
               The following financial records are required before scenario impacts can be fully quantified.
             </p>
             <div className="grid gap-6 sm:grid-cols-2">
-              {stressSource.requiredData.map((dataItem) => (
-                <div
-                  key={dataItem.id}
-                  className="rounded-xl border border-white/50 bg-white/40 p-6 shadow-sm flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
-                      <h4 className="text-sm font-bold text-softform-navy-900">
-                        {dataItem.label}
-                      </h4>
-                      <span
-                        className={clsx(
-                          'rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider shrink-0',
-                          dataItem.status === 'requires_company_data'
-                            ? 'bg-purple-100 text-purple-700'
-                            : 'bg-softform-emerald-soft/10 text-emerald-700',
-                        )}
-                      >
-                        {dataItem.status === 'requires_company_data'
-                          ? 'Requires company data'
-                          : 'Connected'}
-                      </span>
+              {stressSource.requiredData.map((dataItem) => {
+                const profileRecord = profile?.connectedRecords.find(r => r.id === dataItem.id)
+                const isConnected = profileRecord ? profileRecord.status === 'connected' : (dataItem.status !== 'requires_company_data')
+                const isPartial = profileRecord ? profileRecord.status === 'partial' : false
+
+                return (
+                  <div
+                    key={dataItem.id}
+                    className="rounded-xl border border-white/50 bg-white/40 p-6 shadow-sm flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+                        <h4 className="text-sm font-bold text-softform-navy-900">
+                          {dataItem.label}
+                        </h4>
+                        <span
+                          className={clsx(
+                            'rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider shrink-0',
+                            isConnected
+                              ? 'bg-softform-emerald-soft/10 text-emerald-700'
+                              : isPartial
+                              ? 'bg-softform-amber-200/20 text-softform-amber-700'
+                              : 'bg-purple-100 text-purple-700',
+                          )}
+                        >
+                          {isConnected
+                            ? 'Connected'
+                            : isPartial
+                            ? 'Partial'
+                            : 'Requires company data'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-softform-text-secondary leading-relaxed">
+                        {dataItem.description}
+                      </p>
                     </div>
-                    <p className="text-xs text-softform-text-secondary leading-relaxed">
-                      {dataItem.description}
-                    </p>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
 
@@ -279,9 +320,11 @@ export default function StressSignalsTab({
           CFO Takeaway
         </h4>
         <p className="text-xs text-softform-text-secondary leading-relaxed">
-          Use this context alongside treasury policy and advisor review before
-          making cross-border funding decisions. Connect company financials to
-          quantify impact.
+          {profile ? (
+            `Your HKD ${profile.floatingRateDebtHkd.toLocaleString()} floating-rate facility is sensitive to interest rate shock. Ensure your debt schedule remains integrated and consult your banker regarding hedging options for the monthly HKD ${profile.monthlyDebtServiceHkd.toLocaleString()} debt service.`
+          ) : (
+            'Use this context alongside treasury policy and advisor review before making cross-border funding decisions. Connect company financials to quantify impact.'
+          )}
         </p>
       </div>
     </div>

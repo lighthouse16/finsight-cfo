@@ -1,5 +1,5 @@
 import { ArrowDownRight, ArrowRight, ArrowUpRight } from 'lucide-react'
-import { ExposureNote, FxPair, GbaFundingSignal } from '../types'
+import { ExposureNote, FxPair, GbaFundingSignal, CompanyProfile } from '../types'
 import { FxSourceInfo } from '../MarketWatchPage'
 import clsx from 'clsx'
 
@@ -8,6 +8,7 @@ type FxGbaTabProps = {
   gbaSignals: GbaFundingSignal[]
   exposureNotes?: ExposureNote[]
   fxSource?: FxSourceInfo | null
+  profile?: CompanyProfile | null
 }
 
 export default function FxGbaTab({
@@ -15,6 +16,7 @@ export default function FxGbaTab({
   gbaSignals,
   exposureNotes = [],
   fxSource,
+  profile,
 }: FxGbaTabProps) {
   const seedFallback = fxSource?.warnings.some(
     (w) =>
@@ -187,7 +189,11 @@ export default function FxGbaTab({
               <strong className="block text-softform-navy-900 mb-1">
                 Important Watch Signal:
               </strong>
-              FX rates are provider-backed. Cross-border funding context remains indicative until company exposure data is connected.
+              {profile ? (
+                `Your cross-border exposure consists of ${profile.cnySupplierPayablesPercent}% CNY supplier payables and ${profile.usdImportCostPercent}% USD import costs. FX rates are provider-backed; cross-border funding context is evaluated against these records.`
+              ) : (
+                'FX rates are provider-backed. Cross-border funding context remains indicative until company exposure data is connected.'
+              )}
             </div>
           </div>
 
@@ -196,8 +202,11 @@ export default function FxGbaTab({
               CFO Takeaway
             </h4>
             <p className="text-xs text-softform-text-secondary leading-relaxed">
-              Use this context alongside uploaded financial records before lender
-              conversations. Connect company financials to quantify impact.
+              {profile ? (
+                `Manage foreign exchange risks actively using hedging contracts. CNY weakening impacts your ${profile.cnySupplierPayablesPercent}% CNY payables structure, while USD strength increases landed cost base for your ${profile.usdImportCostPercent}% USD import costs.`
+              ) : (
+                'Use this context alongside uploaded financial records before lender conversations. Connect company financials to quantify impact.'
+              )}
             </p>
           </div>
         </div>

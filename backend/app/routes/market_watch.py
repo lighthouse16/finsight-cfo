@@ -94,4 +94,21 @@ async def refresh_endpoint(request: RefreshRequest):
     )
 
 
+from app.models.market_watch import CompanyContextResponse
+from app.services.market_watch.company_context import (
+    get_demo_company_profile,
+    get_company_exposures
+)
+
+@router.get("/company-context", response_model=CompanyContextResponse)
+async def get_company_context_endpoint():
+    profile = get_demo_company_profile()
+    exposures = get_company_exposures()
+    return CompanyContextResponse(
+        profile=profile,
+        exposures=exposures,
+        dataMode="demo_workspace"
+    )
+
+
 

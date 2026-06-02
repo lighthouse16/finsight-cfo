@@ -272,4 +272,48 @@ export interface RefreshResponse {
   sources: ConsolidatedSourceStatusItem[]
 }
 
+export interface ConnectedRecord {
+  id: string
+  label: string
+  status: string
+}
+
+export interface CompanyProfile {
+  companyName: string
+  sector: string
+  geography: string
+  revenueTtmHkd: number
+  cashBalanceHkd: number
+  receivablesHkd: number
+  payablesHkd: number
+  inventoryHkd: number
+  dsoDays: number
+  dpoDays: number
+  inventoryDays: number
+  grossMarginPercent: number
+  floatingRateDebtHkd: number
+  monthlyDebtServiceHkd: number
+  cnySupplierPayablesPercent: number
+  usdImportCostPercent: number
+  topCustomerConcentrationPercent: number
+  workingCapitalGapHkd: number
+  connectedRecords: ConnectedRecord[]
+}
+
+export interface CompanyExposure {
+  id: string
+  category: string
+  label: string
+  value: string
+  severity: SignalSeverity
+  context: string
+}
+
+export interface CompanyContext {
+  profile: CompanyProfile
+  exposures: CompanyExposure[]
+  dataMode: string
+}
+
+
 

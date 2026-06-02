@@ -25,6 +25,8 @@ import {
   StressSourceInfo,
   ConsolidatedSourceStatusItem,
   RefreshResponse,
+  CompanyProfile,
+  CompanyExposure,
 } from '../types'
 
 const API_BASE_URL =
@@ -622,13 +624,20 @@ function getLocalSectorBenchmarksFallback(): {
   }
 }
 
-export async function getSectorBenchmarks(): Promise<{
+export async function getSectorBenchmarks(
+  sector?: string,
+  geography?: string
+): Promise<{
   benchmarks: SectorBenchmarkItem[]
   sectorSource: SectorSourceInfo
 }> {
   try {
+    const params = new URLSearchParams()
+    if (sector) params.append('sector', sector)
+    if (geography) params.append('geography', geography)
+    const queryString = params.toString() ? `?${params.toString()}` : ''
     const res = await fetch(
-      `${API_BASE_URL}/api/market-watch/sector-benchmarks`,
+      `${API_BASE_URL}/api/market-watch/sector-benchmarks${queryString}`,
       { signal: AbortSignal.timeout(5000) },
     )
 
@@ -759,13 +768,20 @@ function getLocalCommoditiesFallback(): {
   }
 }
 
-export async function getCommodities(): Promise<{
+export async function getCommodities(
+  sector?: string,
+  geography?: string
+): Promise<{
   commodities: CommodityExposure[]
   commoditySource: CommoditySourceInfo
 }> {
   try {
+    const params = new URLSearchParams()
+    if (sector) params.append('sector', sector)
+    if (geography) params.append('geography', geography)
+    const queryString = params.toString() ? `?${params.toString()}` : ''
     const res = await fetch(
-      `${API_BASE_URL}/api/market-watch/commodities`,
+      `${API_BASE_URL}/api/market-watch/commodities${queryString}`,
       { signal: AbortSignal.timeout(5000) },
     )
 
@@ -906,13 +922,20 @@ function getLocalStressSignalsFallback(): {
   }
 }
 
-export async function getStressSignals(): Promise<{
+export async function getStressSignals(
+  companyId?: string,
+  sector?: string
+): Promise<{
   scenarios: StressScenario[]
   stressSource: StressSourceInfo
 }> {
   try {
+    const params = new URLSearchParams()
+    if (companyId) params.append('companyId', companyId)
+    if (sector) params.append('sector', sector)
+    const queryString = params.toString() ? `?${params.toString()}` : ''
     const res = await fetch(
-      `${API_BASE_URL}/api/market-watch/stress-signals`,
+      `${API_BASE_URL}/api/market-watch/stress-signals${queryString}`,
       { signal: AbortSignal.timeout(5000) },
     )
 
@@ -1001,3 +1024,27 @@ export async function refreshData(scope: string = 'all'): Promise<RefreshRespons
     }
   }
 }
+
+export async function getCompanyContext(): Promise<{
+  profile: CompanyProfile
+  exposures: CompanyExposure[]
+  dataMode: string
+} | null> {
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/api/market-watch/company-context`,
+      { signal: AbortSignal.timeout(5000) }
+    )
+    
+    if (!res.ok) {
+      throw new Error(`Backend returned ${res.status}`)
+    }
+    
+    const body = await res.json()
+    return body
+  } catch (error) {
+    console.warn('Company context fetch failed', error)
+    return null
+  }
+}
+

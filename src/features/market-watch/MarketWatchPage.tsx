@@ -11,8 +11,10 @@ import {
   getSectorBenchmarks,
   getStressSignals,
   refreshData,
+  getCompanyContext,
 } from './api/marketWatchApi'
 import CommoditiesTab from './components/CommoditiesTab'
+import CompanyStrip from './components/CompanyStrip'
 import FxGbaTab from './components/FxGbaTab'
 import MarketMetricCard from './components/MarketMetricCard'
 import MarketPulseTab from './components/MarketPulseTab'
@@ -36,6 +38,7 @@ import {
   CommoditySourceInfo,
   StressSourceInfo,
   FreshnessStatus,
+  CompanyContext,
 } from './types'
 
 export type RatesSourceInfo = {
@@ -75,6 +78,7 @@ export default function MarketWatchPage() {
   const [scenarios, setScenarios] = useState<StressScenario[]>([])
   const [stressSource, setStressSource] = useState<StressSourceInfo | null>(null)
   const [sources, setSources] = useState<SourceStatusItem[]>([])
+  const [companyContext, setCompanyContext] = useState<CompanyContext | null>(null)
   const [loading, setLoading] = useState(true)
 
   // Auto-refresh states
@@ -84,6 +88,19 @@ export default function MarketWatchPage() {
   async function loadData(isSilent = false) {
     if (!isSilent) setRefreshing(true)
     try {
+      let sectorParam: string | undefined = undefined
+      let geoParam: string | undefined = undefined
+      let companyIdParam: string | undefined = undefined
+
+      const context = await getCompanyContext()
+      if (context) {
+        setCompanyContext(context)
+        const profile = context.profile
+        companyIdParam = profile.companyName
+        sectorParam = profile.sector.toLowerCase().includes('electronics') ? 'electronics-import' : 'trading-distribution'
+        geoParam = 'HK'
+      }
+
       const [
         overview,
         ratesLiq,
@@ -96,9 +113,9 @@ export default function MarketWatchPage() {
         getMarketOverview(),
         getRatesLiquidity(),
         getFxGba(),
-        getSectorBenchmarks(),
-        getCommodities(),
-        getStressSignals(),
+        getSectorBenchmarks(sectorParam, geoParam),
+        getCommodities(sectorParam, geoParam),
+        getStressSignals(companyIdParam, sectorParam),
         getMarketSourceStatus(),
       ])
 
@@ -172,7 +189,9 @@ export default function MarketWatchPage() {
       return {
         ...m,
         value: HIBOR_1M ? HIBOR_1M.value : m.value,
-        interpretation: isFallback ? 'Floating-rate debt is cost-sensitive.' : 'HKMA base reference rates connected.',
+        interpretation: companyContext
+          ? 'HIBOR rates affect HKD 6.5M floating-rate facility.'
+          : (isFallback ? 'Floating-rate debt is cost-sensitive.' : 'HKMA base reference rates connected.'),
         severity: isFallback ? ('Caution' as const) : ('High' as const),
         freshness: isFallback ? ('Workspace' as const) : ('Daily' as const),
         source: ratesSource.label,
@@ -185,7 +204,9 @@ export default function MarketWatchPage() {
         ...m,
         label: 'CNY/HKD',
         value: cnyHkd ? `${cnyHkd.rate}` : m.value,
-        interpretation: isFallback ? 'CNY operations watch.' : 'Frankfurter FX provider connected.',
+        interpretation: companyContext
+          ? 'Payables: 38% CNY. Imports: 72% USD cost base.'
+          : (isFallback ? 'CNY operations watch.' : 'Frankfurter FX provider connected.'),
         severity: isFallback ? ('Neutral' as const) : ('Caution' as const),
         freshness: fxSource ? (fxSource.freshness as FreshnessStatus) : ('Workspace' as const),
         source: fxSource ? fxSource.label : 'Fixture',
@@ -196,7 +217,9 @@ export default function MarketWatchPage() {
       return {
         ...m,
         value: sectorSource ? `${sectorSource.sectorHealth.score}/100` : m.value,
-        interpretation: sectorSource ? sectorSource.sectorHealth.label : m.interpretation,
+        interpretation: companyContext
+          ? 'DSO at 52d vs sector benchmark of 45d.'
+          : (sectorSource ? sectorSource.sectorHealth.label : m.interpretation),
         severity: sectorSource ? sectorSource.sectorHealth.severity : m.severity,
         freshness: isFallback ? ('Workspace' as const) : ('Monthly' as const),
         source: sectorSource ? sectorSource.label : 'Fixture',
@@ -206,6 +229,9 @@ export default function MarketWatchPage() {
       const isFallback = !stressSource || stressSource.label.toLowerCase().includes('workspace') || stressSource.warnings.length > 0
       return {
         ...m,
+        interpretation: companyContext
+          ? 'Cash: HKD 3.2M. Debt service: HKD 420K/mo.'
+          : m.interpretation,
         freshness: isFallback ? ('Workspace' as const) : ('Daily' as const),
         source: stressSource ? stressSource.label : 'Fixture',
       }
@@ -261,6 +287,13 @@ export default function MarketWatchPage() {
         </div>
       ) : (
         <>
+          {companyContext && (
+            <CompanyStrip
+              profile={companyContext.profile}
+              dataMode={companyContext.dataMode}
+            />
+          )}
+
           <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {derivedMetrics.map((metric) => (
               <MarketMetricCard key={metric.id} metric={metric} />
@@ -282,13 +315,18 @@ export default function MarketWatchPage() {
 
           <div className="min-h-[400px]">
             {activeTab === 'pulse' && (
-              <MarketPulseTab signals={signals} sources={sources} />
+              <MarketPulseTab
+                signals={signals}
+                sources={sources}
+                profile={companyContext?.profile}
+              />
             )}
             {activeTab === 'rates' && (
               <RatesLiquidityTab
                 rates={rates}
                 liquidityEvents={liquidityEvents}
                 ratesSource={ratesSource}
+                profile={companyContext?.profile}
               />
             )}
             {activeTab === 'fx' && (
@@ -297,19 +335,29 @@ export default function MarketWatchPage() {
                 gbaSignals={gbaSignals}
                 exposureNotes={exposureNotes}
                 fxSource={fxSource}
+                profile={companyContext?.profile}
               />
             )}
             {activeTab === 'sectors' && (
               <SectorBenchmarksTab
                 benchmarks={benchmarks}
                 sectorSource={sectorSource}
+                profile={companyContext?.profile}
               />
             )}
             {activeTab === 'commodities' && (
-              <CommoditiesTab commodities={commodities} commoditySource={commoditySource} />
+              <CommoditiesTab
+                commodities={commodities}
+                commoditySource={commoditySource}
+                profile={companyContext?.profile}
+              />
             )}
             {activeTab === 'stress' && (
-              <StressSignalsTab scenarios={scenarios} stressSource={stressSource} />
+              <StressSignalsTab
+                scenarios={scenarios}
+                stressSource={stressSource}
+                profile={companyContext?.profile}
+              />
             )}
           </div>
         </>

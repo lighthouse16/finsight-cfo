@@ -281,4 +281,48 @@ class RefreshResponse(BaseModel):
     sources: List[ConsolidatedSourceStatusItem]
 
 
+class ConnectedRecord(BaseModel):
+    id: str
+    label: str
+    status: str  # connected, partial, missing
+
+
+class CompanyProfile(BaseModel):
+    companyName: str
+    sector: str
+    geography: str
+    revenueTtmHkd: int
+    cashBalanceHkd: int
+    receivablesHkd: int
+    payablesHkd: int
+    inventoryHkd: int
+    dsoDays: int
+    dpoDays: int
+    inventoryDays: int
+    grossMarginPercent: float
+    floatingRateDebtHkd: int
+    monthlyDebtServiceHkd: int
+    cnySupplierPayablesPercent: int
+    usdImportCostPercent: int
+    topCustomerConcentrationPercent: int
+    workingCapitalGapHkd: int
+    connectedRecords: List[ConnectedRecord]
+
+
+class CompanyExposure(BaseModel):
+    id: str
+    category: str
+    label: str
+    value: str
+    severity: SignalSeverity
+    context: str
+
+
+class CompanyContextResponse(BaseModel):
+    profile: CompanyProfile
+    exposures: List[CompanyExposure]
+    dataMode: str  # "demo_workspace", "connected", "seed_only"
+
+
+
 
