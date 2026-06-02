@@ -621,14 +621,14 @@ def get_commodities_fixture(sector: Optional[str] = None, geography: Optional[st
         CommodityWatchSignal(
             id="metals-exposure-watch",
             title="Metals exposure watch",
-            description="Monitor copper and steel price trends if sourcing raw components or casings. Consider forward contract review.",
+            description="Monitor copper and steel price trends if sourcing raw components or casings. Track whether supplier contracts include commodity-linked pricing terms.",
             affectedArea="Procurement / Casings",
             severity="Caution"
         ),
         CommodityWatchSignal(
             id="freight-energy-sensitivity",
             title="Freight and energy cost sensitivity",
-            description="Utility rates and ocean/air freight spot rates remain volatile. Review shipping terms (FOB vs CIF).",
+            description="Utility rates and ocean/air freight spot rates remain volatile. Review how shipping terms may affect landed-cost exposure.",
             affectedArea="Landed Cost / Shipping",
             severity="Caution"
         ),

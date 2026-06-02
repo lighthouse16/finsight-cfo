@@ -32,6 +32,7 @@ import {
   SectorSourceInfo,
   SourceStatusItem,
   StressScenario,
+  CommoditySourceInfo,
 } from './types'
 
 export type RatesSourceInfo = {
@@ -66,6 +67,7 @@ export default function MarketWatchPage() {
   const [benchmarks, setBenchmarks] = useState<SectorBenchmarkItem[]>([])
   const [sectorSource, setSectorSource] = useState<SectorSourceInfo | null>(null)
   const [commodities, setCommodities] = useState<CommodityExposure[]>([])
+  const [commoditySource, setCommoditySource] = useState<CommoditySourceInfo | null>(null)
   const [scenarios, setScenarios] = useState<StressScenario[]>([])
   const [sources, setSources] = useState<SourceStatusItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -112,6 +114,9 @@ export default function MarketWatchPage() {
           setSectorSource(sectors.sectorSource)
         }
         setCommodities(comms.commodities)
+        if (comms.commoditySource) {
+          setCommoditySource(comms.commoditySource)
+        }
         setScenarios(stress.scenarios)
         setSources(sourceStatus.sources)
       } catch (error) {
@@ -198,7 +203,7 @@ export default function MarketWatchPage() {
               />
             )}
             {activeTab === 'commodities' && (
-              <CommoditiesTab commodities={commodities} />
+              <CommoditiesTab commodities={commodities} commoditySource={commoditySource} />
             )}
             {activeTab === 'stress' && (
               <StressSignalsTab scenarios={scenarios} />

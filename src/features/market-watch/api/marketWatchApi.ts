@@ -1,5 +1,4 @@
 import {
-  seedCommodityExposures,
   seedFxPairs,
   seedGbaSignals,
   seedLiquidityEvents,
@@ -23,6 +22,7 @@ import {
   SectorSourceInfo,
   SectorBenchmarkItem,
   FreshnessStatus,
+  CommoditySourceInfo,
 } from '../types'
 
 const API_BASE_URL =
@@ -103,6 +103,58 @@ type BackendFxGbaResponse = {
   exposureNotes: BackendExposureNote[]
 }
 
+type BackendCommodityExposure = {
+  id: string
+  commodity: string
+  category: string
+  value: number | null
+  unit: 'percent' | 'index' | 'price' | 'text'
+  displayValue: string
+  trend: 'up' | 'down' | 'flat' | 'unknown'
+  severity: 'Neutral' | 'Caution' | 'High' | 'Positive'
+  exposedSectors: string[]
+  marginContext: string
+  sourceTimestamp: string | null
+}
+
+type BackendMarginPressureSignal = {
+  id: string
+  label: string
+  severity: 'Neutral' | 'Caution' | 'High' | 'Positive'
+  description: string
+  affectedArea: string
+  requiresCompanyData: boolean
+}
+
+type BackendCommodityWatchSignal = {
+  id: string
+  title: string
+  description: string
+  affectedArea: string
+  severity: 'Neutral' | 'Caution' | 'High' | 'Positive'
+}
+
+type BackendCommoditiesResponse = {
+  metadata: BackendResponseMetadata
+  selectedSector: {
+    id: string
+    name: string
+    code: string | null
+    geography: string
+    description: string
+  }
+  commodityExposures: BackendCommodityExposure[]
+  marginPressureSignal: BackendMarginPressureSignal[]
+  watchSignals: BackendCommodityWatchSignal[]
+  sourceStatus: {
+    id: string
+    label: string
+    status: 'connected' | 'seed_data' | 'requires_backend' | 'requires_company_data' | 'unavailable' | 'stale'
+    provider?: string
+    lastUpdatedAt?: string | null
+  }[]
+}
+
 // ------------------------------------------------------------------
 // Adapter
 // ------------------------------------------------------------------
@@ -164,7 +216,19 @@ function adaptExposureNote(backend: BackendExposureNote): ExposureNote {
   }
 }
 
+function adaptCommodityExposure(backend: BackendCommodityExposure): CommodityExposure {
+  return {
+    commodity: backend.commodity,
+    priceTrend: backend.trend === 'unknown' ? 'flat' : backend.trend,
+    yoyChange: backend.displayValue.replace(/\s*YoY$/i, ''),
+    affectedSectors: backend.exposedSectors,
+    marginSensitivity: backend.marginContext,
+    displayValue: backend.displayValue,
+  }
+}
+
 // ------------------------------------------------------------------
+// Exported API functions
 // Exported API functions
 // ------------------------------------------------------------------
 
@@ -517,14 +581,142 @@ export async function getSectorBenchmarks(): Promise<{
 }
 
 
-export async function getCommodities(): Promise<{
+function getLocalCommoditiesFallback(): {
   commodities: CommodityExposure[]
-}> {
-  await delay(300)
+  commoditySource: CommoditySourceInfo
+} {
   return {
-    commodities: seedCommodityExposures,
+    commodities: [
+      {
+        commodity: 'Copper (LME)',
+        priceTrend: 'up',
+        yoyChange: '+14%',
+        displayValue: '+14% YoY',
+        affectedSectors: ['Electronics', 'Construction', 'Machinery'],
+        marginSensitivity: 'High impact on raw material COGS.',
+      },
+      {
+        commodity: 'Brent Crude',
+        priceTrend: 'flat',
+        yoyChange: '+2%',
+        displayValue: '+2% YoY',
+        affectedSectors: ['Logistics', 'Manufacturing'],
+        marginSensitivity: 'Moderate transport cost impact.',
+      },
+      {
+        commodity: 'Steel / Iron Ore',
+        priceTrend: 'down',
+        yoyChange: '-8%',
+        displayValue: '-8% YoY',
+        affectedSectors: ['Construction', 'Heavy Machinery', 'Infrastructure'],
+        marginSensitivity: 'Softening reduces raw material pressures for developers and builders.',
+      },
+      {
+        commodity: 'Cotton',
+        priceTrend: 'up',
+        yoyChange: '+6%',
+        displayValue: '+6% YoY',
+        affectedSectors: ['Textiles', 'Apparel', 'Retail'],
+        marginSensitivity: 'Rising input costs squeeze margins for apparel manufacturers.',
+      },
+    ],
+    commoditySource: {
+      label: 'Workspace Seed Data',
+      asOf: null,
+      freshness: 'Workspace',
+      warnings: ['Backend unavailable. Showing workspace seed data.'],
+      selectedSector: {
+        id: 'electronics-import',
+        name: 'Electronics Import',
+        code: 'HK-SME-ELEC',
+        geography: 'HK',
+        description: 'Import-driven electronics SMEs with raw material and freight cost sensitivities.',
+      },
+      marginPressureSignal: [
+        {
+          id: 'mod-input-cost-press',
+          label: 'Moderate input-cost pressure',
+          severity: 'Caution',
+          description: 'Sector-level commodity exposure may pressure margins; company-specific impact requires financial records and supplier contracts.',
+          affectedArea: 'Gross margin / working capital',
+          requiresCompanyData: true,
+        },
+      ],
+      watchSignals: [
+        {
+          id: 'metals-exposure-watch',
+          title: 'Metals exposure watch',
+          description: 'Monitor copper and steel price trends if sourcing raw components or casings. Track whether supplier contracts include commodity-linked pricing terms.',
+          affectedArea: 'Procurement / Casings',
+          severity: 'Caution',
+        },
+        {
+          id: 'freight-energy-sensitivity',
+          title: 'Freight and energy cost sensitivity',
+          description: 'Utility rates and ocean/air freight spot rates remain volatile. Review how shipping terms may affect landed-cost exposure.',
+          affectedArea: 'Landed Cost / Shipping',
+          severity: 'Caution',
+        },
+      ],
+      sourceStatus: [
+        {
+          id: 'commodity-provider',
+          label: 'Commodity Provider',
+          status: 'Seed data',
+        },
+        {
+          id: 'sector-exposure-map',
+          label: 'Sector Exposure Map',
+          status: 'Seed data',
+        },
+        {
+          id: 'company-margin-data',
+          label: 'Company Margin Data',
+          status: 'Requires company data',
+        },
+      ],
+      isFallback: true,
+    },
   }
 }
+
+export async function getCommodities(): Promise<{
+  commodities: CommodityExposure[]
+  commoditySource: CommoditySourceInfo
+}> {
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/api/market-watch/commodities`,
+      { signal: AbortSignal.timeout(5000) },
+    )
+
+    if (!res.ok) {
+      throw new Error(`Backend returned ${res.status}`)
+    }
+
+    const body: BackendCommoditiesResponse = await res.json()
+
+    return {
+      commodities: body.commodityExposures.map(adaptCommodityExposure),
+      commoditySource: {
+        label: body.metadata.source.name,
+        asOf: body.metadata.asOf,
+        warnings: body.metadata.warnings ?? [],
+        freshness: body.metadata.freshness as FreshnessStatus,
+        selectedSector: body.selectedSector,
+        marginPressureSignal: body.marginPressureSignal,
+        watchSignals: body.watchSignals,
+        sourceStatus: body.sourceStatus,
+        isFallback: false,
+      },
+    }
+  } catch (error) {
+    console.warn('Commodities fetch failed, using fallback', error)
+    await delay(300)
+    return getLocalCommoditiesFallback()
+  }
+}
+
 
 export async function getStressSignals(): Promise<{
   scenarios: StressScenario[]

@@ -82,6 +82,7 @@ export type CommodityExposure = {
   yoyChange: string
   affectedSectors: string[]
   marginSensitivity: string
+  displayValue?: string
 }
 
 export type StressScenario = {
@@ -165,4 +166,46 @@ export interface SectorSourceInfo {
   }[]
   isFallback?: boolean
 }
+
+export interface MarginPressureSignal {
+  id: string
+  label: string
+  severity: SignalSeverity
+  description: string
+  affectedArea: string
+  requiresCompanyData: boolean
+}
+
+export interface CommodityWatchSignal {
+  id: string
+  title: string
+  description: string
+  affectedArea: string
+  severity: SignalSeverity
+}
+
+export interface CommoditySourceInfo {
+  label: string
+  asOf: string | null
+  warnings: string[]
+  freshness: FreshnessStatus
+  selectedSector: {
+    id: string
+    name: string
+    code: string | null
+    geography: string
+    description: string
+  }
+  marginPressureSignal: MarginPressureSignal[]
+  watchSignals: CommodityWatchSignal[]
+  sourceStatus: {
+    id: string
+    label: string
+    status: string
+    provider?: string
+    lastUpdatedAt?: string | null
+  }[]
+  isFallback?: boolean
+}
+
 
