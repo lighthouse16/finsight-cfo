@@ -1,47 +1,120 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import {
+  LayoutDashboard,
+  TrendingUp,
+  FolderOpen,
+  HeartPulse,
+  ShieldCheck,
+  Landmark,
+  BarChart3,
+  BotMessageSquare,
+  FileText,
+  Settings,
+} from 'lucide-react'
+import { type ElementType } from 'react'
 import LandingPage from '../pages/LandingPage'
 import PlatformPlaceholderPage from '../pages/PlatformPlaceholderPage'
+import NotFoundPage from '../pages/NotFoundPage'
+import PlatformShell from '../components/platform/PlatformShell'
 
-const platformRoutes = [
+type PlatformRoute = {
+  path: string
+  title: string
+  subtitle: string
+  icon: ElementType
+  modulePurpose: string
+}
+
+const platformRoutes: PlatformRoute[] = [
+  {
+    path: 'overview',
+    title: 'Overview',
+    subtitle:
+      'Your CFO command center for financial health, market pressure, credit readiness, and next actions.',
+    icon: LayoutDashboard,
+    modulePurpose:
+      'The Overview module will consolidate key indicators from across your workspace into a single decision-ready view.',
+  },
   {
     path: 'market-watch',
     title: 'Market Watch',
-    description: 'Market Watch is reserved for a future product build. This route is ready, but the real interface has not been implemented yet.',
-  },
-  {
-    path: 'cashflow',
-    title: 'Cashflow',
-    description: 'Cashflow workspace routing is prepared for future product screens. No cashflow logic has been added in this structure pass.',
-  },
-  {
-    path: 'credit-readiness',
-    title: 'Credit Readiness',
-    description: 'Credit Readiness routing is prepared for a future workspace. No credit scoring, eligibility, or finance logic has been added.',
-  },
-  {
-    path: 'advisor',
-    title: 'Advisor',
-    description: 'Advisor routing is prepared for future recommendation workflows. No advisory logic has been added.',
-  },
-  {
-    path: 'ai-cfo',
-    title: 'AI CFO',
-    description: 'AI CFO routing is prepared for future workspace UI. No AI workflow or backend integration has been added.',
-  },
-  {
-    path: 'reports',
-    title: 'Reports',
-    description: 'Reports routing is prepared for future report screens. No reporting logic has been added.',
+    subtitle:
+      'Track rates, FX, sector benchmarks, and market pressure signals that may affect cashflow and funding decisions.',
+    icon: TrendingUp,
+    modulePurpose:
+      'Market Watch will surface rate movements, sector benchmarks, and external pressure signals relevant to your funding and cashflow planning.',
   },
   {
     path: 'data-room',
     title: 'Data Room',
-    description: 'Data Room routing is prepared for future document workflows. No upload or storage logic has been added.',
+    subtitle:
+      'Upload, organize, and review the financial records that power your CFO workspace.',
+    icon: FolderOpen,
+    modulePurpose:
+      'The Data Room will provide a secure workspace for uploading, organizing, and reviewing the financial records that drive your analysis.',
+  },
+  {
+    path: 'financial-health',
+    title: 'Financial Health',
+    subtitle:
+      'Understand liquidity, leverage, coverage, receivables, and cashflow quality.',
+    icon: HeartPulse,
+    modulePurpose:
+      'Financial Health will present liquidity, leverage, coverage, and cashflow quality indicators derived from your uploaded records.',
+  },
+  {
+    path: 'credit-readiness',
+    title: 'Credit Readiness',
+    subtitle:
+      'See how your financial profile may appear before lender conversations.',
+    icon: ShieldCheck,
+    modulePurpose:
+      'Credit Readiness will help you understand how your financial profile may be perceived in lender conversations, based on available records.',
+  },
+  {
+    path: 'funding-strategy',
+    title: 'Funding Strategy',
+    subtitle:
+      'Compare timing, channels, approval fit, loan structure, and stress scenarios.',
+    icon: Landmark,
+    modulePurpose:
+      'Funding Strategy will help compare timing, channels, structure options, and stress scenarios to support funding decisions.',
+  },
+  {
+    path: 'valuation',
+    title: 'Valuation',
+    subtitle:
+      'Build an indicative valuation view from financial forecasts, market inputs, and conservative assumptions.',
+    icon: BarChart3,
+    modulePurpose:
+      'The Valuation module will support indicative valuation views built from financial forecasts, market inputs, and conservative assumptions.',
+  },
+  {
+    path: 'ai-cfo',
+    title: 'AI CFO',
+    subtitle:
+      'Ask questions across your financial records, market context, and funding strategy.',
+    icon: BotMessageSquare,
+    modulePurpose:
+      'AI CFO will provide a conversational interface to explore questions across your financial records, market context, and funding strategy.',
+  },
+  {
+    path: 'reports',
+    title: 'Reports',
+    subtitle:
+      'Generate CFO snapshots, funding-readiness summaries, and lender-facing reports.',
+    icon: FileText,
+    modulePurpose:
+      'Reports will generate CFO snapshots, funding-readiness summaries, and lender-facing documents from your workspace data.',
   },
   {
     path: 'settings',
     title: 'Settings',
-    description: 'Settings routing is prepared for future account and workspace preferences. No settings logic has been added.',
+    subtitle:
+      'Manage workspace preferences, data sources, and product configuration.',
+    icon: Settings,
+    modulePurpose:
+      'Settings will allow you to manage workspace preferences, data source connections, and product configuration.',
   },
 ]
 
@@ -49,22 +122,40 @@ export default function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Landing page — untouched */}
         <Route path="/" element={<LandingPage />} />
-        <Route path="/platform" element={<Navigate to="/platform/market-watch" replace />} />
-        {platformRoutes.map((route) => (
-          <Route
-            key={route.path}
-            path={`/platform/${route.path}`}
-            element={
-              <PlatformPlaceholderPage
-                eyebrow="Prepared route"
-                title={route.title}
-                description={route.description}
-              />
-            }
-          />
-        ))}
-        <Route path="*" element={<PlatformPlaceholderPage isNotFound />} />
+
+        {/* Platform shell with nested routes */}
+        <Route path="/platform" element={<PlatformShell />}>
+          <Route index element={<Navigate to="market-watch" replace />} />
+          {platformRoutes.map((route) => (
+            <Route
+              key={route.path}
+              path={route.path}
+              element={
+                <PlatformPlaceholderPage
+                  title={route.title}
+                  subtitle={route.subtitle}
+                  icon={route.icon}
+                  modulePurpose={route.modulePurpose}
+                />
+              }
+            />
+          ))}
+          <Route path="*" element={<NotFoundPage />} />
+        </Route>
+
+        {/* Global not-found fallback — standalone wrapper */}
+        <Route
+          path="*"
+          element={
+            <div className="softform-page flex min-h-dvh items-center justify-center px-4 text-softform-text-primary">
+              <div className="w-full max-w-2xl">
+                <NotFoundPage />
+              </div>
+            </div>
+          }
+        />
       </Routes>
     </BrowserRouter>
   )
