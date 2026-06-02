@@ -55,6 +55,7 @@ Alternatively, set `MARKET_WATCH_USE_FIXTURES=true` in `backend/.env`.
 |--------|------|-------------|
 | GET | `/health` | Health check |
 | GET | `/api/market-watch/rates-liquidity` | Rates & liquidity data |
+| GET | `/api/market-watch/fx-gba` | FX & GBA data (fixture-backed, provider pending) |
 
 ### Test
 

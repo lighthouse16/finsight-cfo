@@ -67,3 +67,33 @@ class MarketWatchError(BaseModel):
     retryable: bool
     fallbackUsed: bool
     details: Optional[dict] = None
+
+class FxPair(BaseModel):
+    id: str
+    pair: str
+    value: Optional[float] = None
+    unit: Literal["price", "percent"]
+    displayValue: str
+    trend: Trend
+    changePips: Optional[float] = None
+    context: str
+    sourceTimestamp: Optional[str] = None
+
+class GbaFundingSignal(BaseModel):
+    id: str
+    title: str
+    description: str
+    severity: SignalSeverity
+
+class ExposureNote(BaseModel):
+    id: str
+    category: str
+    note: str
+    severity: SignalSeverity
+
+class FxGbaResponse(BaseModel):
+    metadata: ResponseMetadata
+    fxPairs: List[FxPair]
+    gbaFundingSignal: List[GbaFundingSignal]
+    exposureNotes: List[ExposureNote]
+    sourceStatus: List[SourceStatusItem]
