@@ -5,13 +5,18 @@ from app.models.market_watch import (
     FxGbaResponse,
     SectorBenchmarksResponse,
     CommoditiesResponse,
-    StressSignalsResponse
+    StressSignalsResponse,
+    ConsolidatedSourceStatusResponse,
+    RefreshRequest,
+    RefreshResponse
 )
 from app.services.market_watch.rates_liquidity_service import get_rates_liquidity
 from app.services.market_watch.fx_gba_service import get_fx_gba
 from app.services.market_watch.sector_benchmarks_service import get_sector_benchmarks
 from app.services.market_watch.commodities_service import get_commodities
 from app.services.market_watch.stress_signals_service import get_stress_signals
+from app.services.market_watch.source_status import get_consolidated_source_status
+from app.services.market_watch.cache import cache
 
 router = APIRouter()
 
@@ -43,6 +48,50 @@ async def get_stress_signals_endpoint(
     sector: Optional[str] = None
 ):
     return await get_stress_signals(company_id=companyId, sector=sector)
+
+@router.get("/source-status", response_model=ConsolidatedSourceStatusResponse)
+async def get_source_status_endpoint():
+    sources = await get_consolidated_source_status()
+    return ConsolidatedSourceStatusResponse(sources=sources)
+
+@router.post("/refresh", response_model=RefreshResponse)
+async def refresh_endpoint(request: RefreshRequest):
+    scope = request.scope or "all"
+    
+    refreshed_any = False
+    fixture_retained = False
+    
+    if scope in ("rates-liquidity", "all"):
+        cache.delete("rates_liquidity")
+        await get_rates_liquidity()
+        refreshed_any = True
+        
+    if scope in ("fx-gba", "all"):
+        cache.delete("fx_gba")
+        await get_fx_gba()
+        refreshed_any = True
+        
+    if scope in ("commodities", "all"):
+        cache.delete("commodities")
+        await get_commodities()
+        refreshed_any = True
+        
+    if scope in ("sector-benchmarks", "stress-signals", "overview"):
+        fixture_retained = True
+        
+    sources = await get_consolidated_source_status()
+    
+    if fixture_retained and not refreshed_any:
+        msg = "No live provider configured; fixture data retained."
+    else:
+        msg = f"Successfully refreshed scope: {scope}"
+        
+    return RefreshResponse(
+        status="success",
+        message=msg,
+        refreshedScope=scope,
+        sources=sources
+    )
 
 
 

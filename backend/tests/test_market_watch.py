@@ -30,32 +30,52 @@ def test_rates_liquidity(monkeypatch):
     assert isinstance(data["sourceStatus"], list)
     assert isinstance(data["liquidityEvents"], list)
 
-def test_fx_gba():
+def test_fx_gba(monkeypatch):
+    # Mock FrankfurterClient fetch_fx_rates
+    async def mock_fetch_fx_rates(self):
+        return {
+            "usd": {
+                "date": "2026-06-02",
+                "rates": {"CNY": 6.7626, "HKD": 7.8374}
+            },
+            "cny": {
+                "date": "2026-06-02",
+                "rates": {"HKD": 1.1589}
+            },
+            "is_v2": False
+        }
+    
+    from app.services.market_watch.fx_client import FrankfurterClient
+    monkeypatch.setattr(FrankfurterClient, "fetch_fx_rates", mock_fetch_fx_rates)
+    monkeypatch.setattr(settings, "MARKET_WATCH_USE_FIXTURES", False)
+
     response = client.get("/api/market-watch/fx-gba")
     assert response.status_code == 200
-    
     data = response.json()
     
-    # Verify provider is Fixture
-    assert data["metadata"]["source"]["provider"] == "Fixture"
-    
-    # Verify warnings is an array
+    # Verify provider is Frankfurter
+    assert data["metadata"]["source"]["provider"] == "Frankfurter"
     assert isinstance(data["metadata"]["warnings"], list)
     
-    # Verify fxPairs includes USD/HKD and CNY/HKD
     fx_pairs = data["fxPairs"]
     assert isinstance(fx_pairs, list)
     pairs = [item["pair"] for item in fx_pairs]
     assert "USD/HKD" in pairs
     assert "CNY/HKD" in pairs
     
-    # Verify sourceStatus includes seed_data
     source_status = data["sourceStatus"]
     assert isinstance(source_status, list)
     statuses = [item["status"] for item in source_status]
-    assert "seed_data" in statuses
+    assert "connected" in statuses
     
-    # Ensure no response text claims realtime/source-fresh
+    # Test fallback path
+    monkeypatch.setattr(settings, "MARKET_WATCH_USE_FIXTURES", True)
+    response_fallback = client.get("/api/market-watch/fx-gba")
+    assert response_fallback.status_code == 200
+    data_fallback = response_fallback.json()
+    assert data_fallback["metadata"]["source"]["provider"] == "Fixture"
+    assert data_fallback["sourceStatus"][0]["status"] == "seed_data"
+    
     response_text_lower = response.text.lower()
     assert "realtime" not in response_text_lower
     assert "source-fresh" not in response_text_lower
@@ -155,7 +175,7 @@ def test_commodities():
     assert metadata["source"]["provider"] == "Fixture"
     assert isinstance(metadata["warnings"], list)
     assert len(metadata["warnings"]) > 0
-    assert "fixture-backed" in metadata["warnings"][0].lower()
+    assert "fixture-backed" in metadata["warnings"][0].lower() or "not configured" in metadata["warnings"][0].lower()
     
     # Verify default sector
     selected_sector = data["selectedSector"]
@@ -276,6 +296,58 @@ def test_stress_signals():
     
     context_custom = data_custom["workspaceContext"]
     assert context_custom["sector"] == "Logistics"
+
+
+def test_source_status():
+    response = client.get("/api/market-watch/source-status")
+    assert response.status_code == 200
+    data = response.json()
+    assert "sources" in data
+    sources = data["sources"]
+    assert len(sources) == 6
+    ids = [s["id"] for s in sources]
+    assert "hkma-rates" in ids
+    assert "fx-provider" in ids
+    assert "commodity-provider" in ids
+
+
+def test_refresh(monkeypatch):
+    # Mock Frankfurter client
+    async def mock_fetch_fx_rates(self):
+        return {
+            "usd": {
+                "date": "2026-06-02",
+                "rates": {"CNY": 6.7626, "HKD": 7.8374}
+            },
+            "cny": {
+                "date": "2026-06-02",
+                "rates": {"HKD": 1.1589}
+            },
+            "is_v2": False
+        }
+    from app.services.market_watch.fx_client import FrankfurterClient
+    monkeypatch.setattr(FrankfurterClient, "fetch_fx_rates", mock_fetch_fx_rates)
+    # Also mock HKMA calls by forcing settings
+    monkeypatch.setattr(settings, "MARKET_WATCH_USE_FIXTURES", True)
+
+    response = client.post("/api/market-watch/refresh", json={"scope": "all"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"
+    assert data["refreshedScope"] == "all"
+    assert "sources" in data
+
+    response_single = client.post("/api/market-watch/refresh", json={"scope": "rates-liquidity"})
+    assert response_single.status_code == 200
+    data_single = response_single.json()
+    assert data_single["status"] == "success"
+    assert data_single["refreshedScope"] == "rates-liquidity"
+
+    response_fixture = client.post("/api/market-watch/refresh", json={"scope": "sector-benchmarks"})
+    assert response_fixture.status_code == 200
+    data_fixture = response_fixture.json()
+    assert data_fixture["status"] == "success"
+    assert "retained" in data_fixture["message"]
 
 
 

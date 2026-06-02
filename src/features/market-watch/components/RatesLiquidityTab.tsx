@@ -65,7 +65,7 @@ export default function RatesLiquidityTab({
       {/* Seed fallback message */}
       {seedFallback && (
         <div className="rounded-2xl border border-softform-amber-200/60 bg-softform-amber-200/10 px-5 py-3 text-xs leading-relaxed text-softform-amber-800">
-          Backend unavailable. Using workspace seed data.
+          Backend unavailable. Showing workspace seed data.
         </div>
       )}
 

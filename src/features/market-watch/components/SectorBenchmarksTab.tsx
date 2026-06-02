@@ -159,11 +159,11 @@ export default function SectorBenchmarksTab({
             <h3 className="text-base font-bold text-softform-navy-900">
               Benchmark Indicators
             </h3>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-6 sm:grid-cols-2">
               {benchmarks.map((benchmark) => (
                 <div
                   key={benchmark.id}
-                  className="rounded-2xl border border-white/50 bg-[linear-gradient(145deg,rgba(255,255,255,0.7),rgba(234,247,244,0.5))] p-4 shadow-sm flex flex-col justify-between"
+                  className="rounded-2xl border border-white/50 bg-[linear-gradient(145deg,rgba(255,255,255,0.7),rgba(234,247,244,0.5))] p-6 shadow-sm flex flex-col justify-between"
                 >
                   <div>
                     <div className="flex items-center justify-between mb-1">

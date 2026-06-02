@@ -26,6 +26,36 @@ const statusConfig: Record<
     colorClass: 'text-softform-navy-800',
     bgClass: 'bg-softform-navy-900/10',
   },
+  'connected': {
+    icon: Plug,
+    colorClass: 'text-emerald-700',
+    bgClass: 'bg-softform-emerald-soft/10',
+  },
+  'seed_data': {
+    icon: Database,
+    colorClass: 'text-softform-navy-950/70',
+    bgClass: 'bg-softform-navy-900/5',
+  },
+  'requires_backend': {
+    icon: Server,
+    colorClass: 'text-softform-amber-700',
+    bgClass: 'bg-softform-amber-200/20',
+  },
+  'requires_company_data': {
+    icon: Link2,
+    colorClass: 'text-softform-navy-800',
+    bgClass: 'bg-softform-navy-900/10',
+  },
+  'unavailable': {
+    icon: Server,
+    colorClass: 'text-red-700',
+    bgClass: 'bg-red-500/10',
+  },
+  'stale': {
+    icon: Database,
+    colorClass: 'text-softform-amber-700',
+    bgClass: 'bg-softform-amber-200/20',
+  },
 }
 
 type SourceStatusPanelProps = {

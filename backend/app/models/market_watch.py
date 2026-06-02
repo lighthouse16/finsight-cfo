@@ -248,4 +248,37 @@ class StressSignalsResponse(BaseModel):
     sourceStatus: List[SourceStatusItem]
 
 
+class ConsolidatedSourceStatusItem(BaseModel):
+    id: str
+    label: str
+    status: SourceStatus
+    provider: Optional[str] = None
+    freshness: Optional[str] = None
+    lastUpdatedAt: Optional[str] = None
+    message: Optional[str] = None
+
+
+class ConsolidatedSourceStatusResponse(BaseModel):
+    sources: List[ConsolidatedSourceStatusItem]
+
+
+class RefreshRequest(BaseModel):
+    scope: Optional[Literal[
+        "overview", 
+        "rates-liquidity", 
+        "fx-gba", 
+        "sector-benchmarks", 
+        "commodities", 
+        "stress-signals", 
+        "all"
+    ]] = "all"
+
+
+class RefreshResponse(BaseModel):
+    status: str
+    message: str
+    refreshedScope: str
+    sources: List[ConsolidatedSourceStatusItem]
+
+
 

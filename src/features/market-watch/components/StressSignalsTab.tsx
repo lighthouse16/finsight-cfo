@@ -101,7 +101,7 @@ export default function StressSignalsTab({
           {scenarios.map((scenario) => (
             <div
               key={scenario.id}
-              className="softform-card flex flex-col justify-between rounded-2xl border-l-4 border-l-softform-amber-400 p-5"
+              className="softform-card flex flex-col justify-between rounded-2xl border-l-4 border-l-softform-amber-400 p-6"
             >
               <div>
                 <div className="mb-3 flex items-start justify-between">
@@ -165,11 +165,11 @@ export default function StressSignalsTab({
             <p className="mb-4 text-xs leading-relaxed text-softform-text-secondary">
               The following financial records are required before scenario impacts can be fully quantified.
             </p>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-6 sm:grid-cols-2">
               {stressSource.requiredData.map((dataItem) => (
                 <div
                   key={dataItem.id}
-                  className="rounded-xl border border-white/50 bg-white/40 p-4 shadow-sm flex flex-col justify-between"
+                  className="rounded-xl border border-white/50 bg-white/40 p-6 shadow-sm flex flex-col justify-between"
                 >
                   <div>
                     <div className="flex flex-wrap items-center justify-between gap-2 mb-1">

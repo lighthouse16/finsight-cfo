@@ -7,6 +7,12 @@ export type SourceStatus =
   | 'Seed data'
   | 'Requires backend'
   | 'Requires company data'
+  | 'connected'
+  | 'seed_data'
+  | 'requires_backend'
+  | 'requires_company_data'
+  | 'unavailable'
+  | 'stale'
 
 export type MarketMetric = {
   id: string
@@ -246,6 +252,24 @@ export interface CommoditySourceInfo {
     lastUpdatedAt?: string | null
   }[]
   isFallback?: boolean
+}
+
+
+export interface ConsolidatedSourceStatusItem {
+  id: string
+  label: string
+  status: SourceStatus
+  provider?: string
+  freshness?: string
+  lastUpdatedAt?: string | null
+  message?: string
+}
+
+export interface RefreshResponse {
+  status: string
+  message: string
+  refreshedScope: string
+  sources: ConsolidatedSourceStatusItem[]
 }
 
 

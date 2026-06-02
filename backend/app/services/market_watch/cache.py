@@ -29,5 +29,12 @@ class SimpleCache:
             return item.value
         return None
 
+    def delete(self, key: str) -> None:
+        if key in self._store:
+            del self._store[key]
+
+    def clear(self) -> None:
+        self._store.clear()
+
 # Singleton instance for now
 cache = SimpleCache()

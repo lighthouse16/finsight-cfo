@@ -97,11 +97,11 @@ export default function CommoditiesTab({
           </div>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-6 sm:grid-cols-2">
           {commodities.map((item, idx) => (
             <div
               key={idx}
-              className="softform-card flex flex-col justify-between rounded-2xl p-5"
+              className="softform-card flex flex-col justify-between rounded-2xl p-6"
             >
               <div className="mb-4 flex items-start justify-between">
                 <div>
