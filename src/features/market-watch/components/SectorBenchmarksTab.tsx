@@ -2,17 +2,20 @@ import clsx from 'clsx'
 import { SectorBenchmarkItem, SectorSourceInfo, CompanyProfile } from '../types'
 import SoftBarChart from './SoftBarChart'
 import SourceBanner from './SourceBanner'
+import { MarketWatchInsightSet } from '../insights/types'
 
 type SectorBenchmarksTabProps = {
   benchmarks: SectorBenchmarkItem[]
   sectorSource: SectorSourceInfo | null
   profile?: CompanyProfile | null
+  insights?: MarketWatchInsightSet
 }
 
 export default function SectorBenchmarksTab({
   benchmarks,
   sectorSource,
   profile,
+  insights,
 }: SectorBenchmarksTabProps) {
   if (!sectorSource) {
     return (
@@ -184,16 +187,32 @@ export default function SectorBenchmarksTab({
                   </div>
                   {(() => {
                     let shortContext = benchmark.context
-                    if (benchmark.id === 'dso') {
-                      shortContext = "Receivables cycle slightly elevated. Maintain collection discipline."
-                    } else if (benchmark.id === 'dio') {
-                      shortContext = "Inventory turnaround stable. Monitor storage and holding costs."
-                    } else if (benchmark.id === 'dpo') {
-                      shortContext = "Leverage supplier payment terms to match receivables cycles."
-                    } else if (benchmark.id === 'gross-margin') {
-                      shortContext = "Input cost pressure watch on raw components."
-                    } else if (benchmark.id === 'documentation-readiness') {
-                      shortContext = "Invoice records complete; declarations pending final review."
+                    if (insights?.sector) {
+                      const allSecInsights = [
+                        ...(insights.sector.watchSignals || []),
+                        ...(insights.sector.supportingInsights || [])
+                      ]
+                      const matched = allSecInsights.find(
+                        (i) => i.metricRefs.includes(benchmark.id === 'dso' ? 'dsoDays' : benchmark.id === 'dio' ? 'inventoryDays' : benchmark.id === 'dpo' ? 'dpoDays' : benchmark.id === 'gross-margin' ? 'grossMarginPercent' : '')
+                      )
+                      if (matched) {
+                        shortContext = matched.description
+                      } else if (benchmark.id === 'documentation-readiness') {
+                        const docReady = allSecInsights.find(i => i.id === 'sector-doc-readiness')
+                        if (docReady) shortContext = docReady.description
+                      }
+                    } else {
+                      if (benchmark.id === 'dso') {
+                        shortContext = "Receivables cycle slightly elevated. Maintain collection discipline."
+                      } else if (benchmark.id === 'dio') {
+                        shortContext = "Inventory turnaround stable. Monitor storage and holding costs."
+                      } else if (benchmark.id === 'dpo') {
+                        shortContext = "Leverage supplier payment terms to match receivables cycles."
+                      } else if (benchmark.id === 'gross-margin') {
+                        shortContext = "Input cost pressure watch on raw components."
+                      } else if (benchmark.id === 'documentation-readiness') {
+                        shortContext = "Invoice records complete; declarations pending final review."
+                      }
                     }
                     return (
                       <p className="text-xs text-softform-text-secondary leading-relaxed opacity-95">
@@ -216,7 +235,10 @@ export default function SectorBenchmarksTab({
             Sector Watch Signals
           </h3>
           <div className="space-y-4">
-            {watchSignals.map((signal) => (
+            {(insights?.sector?.watchSignals && insights.sector.watchSignals.length > 0
+              ? insights.sector.watchSignals
+              : watchSignals
+            ).map((signal) => (
               <div
                 key={signal.id}
                 className={clsx(
@@ -250,9 +272,11 @@ export default function SectorBenchmarksTab({
                     {signal.description}
                   </p>
                 </div>
-                <div className="shrink-0 text-[10px] font-semibold text-softform-text-muted bg-softform-navy-900/5 rounded-md px-2 py-1">
-                  Area: {signal.affectedArea}
-                </div>
+                {'affectedArea' in signal && signal.affectedArea && (
+                  <div className="shrink-0 text-[10px] font-semibold text-softform-text-muted bg-softform-navy-900/5 rounded-md px-2 py-1">
+                    Area: {signal.affectedArea}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -335,7 +359,9 @@ export default function SectorBenchmarksTab({
           CFO Takeaway
         </h4>
         <p className="text-xs text-softform-text-secondary leading-relaxed">
-          {profile ? (
+          {insights?.sector?.takeaway ? (
+            insights.sector.takeaway.description
+          ) : profile ? (
             `Your DSO of ${profile.dsoDays} days exceeds the sector average of 45 days. Leverage receivables aging details to shorten collection terms and bridge the HKD ${profile.workingCapitalGapHkd.toLocaleString()} working capital gap.`
           ) : (
             'Use this context alongside treasury policy and advisor review before making cross-border funding decisions. Connect company financials to quantify impact.'

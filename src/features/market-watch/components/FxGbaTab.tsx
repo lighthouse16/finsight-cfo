@@ -3,6 +3,7 @@ import { ExposureNote, FxPair, GbaFundingSignal, CompanyProfile } from '../types
 import { FxSourceInfo } from '../MarketWatchPage'
 import clsx from 'clsx'
 import SourceBanner from './SourceBanner'
+import { MarketWatchInsightSet } from '../insights/types'
 
 type FxGbaTabProps = {
   fxPairs: FxPair[]
@@ -10,6 +11,7 @@ type FxGbaTabProps = {
   exposureNotes?: ExposureNote[]
   fxSource?: FxSourceInfo | null
   profile?: CompanyProfile | null
+  insights?: MarketWatchInsightSet
 }
 
 export default function FxGbaTab({
@@ -18,6 +20,7 @@ export default function FxGbaTab({
   exposureNotes = [],
   fxSource,
   profile,
+  insights,
 }: FxGbaTabProps) {
 
 
@@ -83,27 +86,43 @@ export default function FxGbaTab({
               GBA Watch Signals
             </h3>
             <div className="flex flex-col gap-3">
-              {(profile 
-                ? [
-                    { id: 'import', category: 'Import', note: 'Import: 72% import costs are USD-linked.' },
-                    { id: 'supplier', category: 'Supplier Payables', note: 'Supplier payables: 38% supplier payables are CNY-linked.' },
-                    { id: 'repatriation', category: 'Repatriation', note: 'Repatriation: Monitor only if onshore receivables increase.' },
-                    { id: 'volatility', category: 'Volatility', note: 'Volatility: Track landed-cost variance.' },
-                  ]
-                : exposureNotes
-              ).map((note) => (
-                <div
-                  key={note.id}
-                  className="rounded-xl bg-white/40 border border-white/50 p-4 shadow-sm"
-                >
-                  <span className="inline-block rounded-full bg-softform-navy-900/5 px-2.5 py-0.5 text-xs font-semibold text-softform-text-secondary mb-2">
-                    {note.category}
-                  </span>
-                  <p className="text-xs text-softform-text-primary leading-relaxed">
-                    {note.note}
-                  </p>
-                </div>
-              ))}
+              {insights?.fx?.watchSignals && insights.fx.watchSignals.length > 0 ? (
+                insights.fx.watchSignals.map((signal) => (
+                  <div
+                    key={signal.id}
+                    className="rounded-xl bg-white/40 border border-white/50 p-4 shadow-sm"
+                  >
+                    <span className="inline-block rounded-full bg-softform-navy-900/5 px-2.5 py-0.5 text-xs font-semibold text-softform-text-secondary mb-2">
+                      {signal.title}
+                    </span>
+                    <p className="text-xs text-softform-text-primary leading-relaxed">
+                      {signal.description}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                (profile 
+                  ? [
+                      { id: 'import', category: 'Import', note: 'Import: 72% import costs are USD-linked.' },
+                      { id: 'supplier', category: 'Supplier Payables', note: 'Supplier payables: 38% supplier payables are CNY-linked.' },
+                      { id: 'repatriation', category: 'Repatriation', note: 'Repatriation: Monitor only if onshore receivables increase.' },
+                      { id: 'volatility', category: 'Volatility', note: 'Volatility: Track landed-cost variance.' },
+                    ]
+                  : exposureNotes
+                ).map((note) => (
+                  <div
+                    key={note.id}
+                    className="rounded-xl bg-white/40 border border-white/50 p-4 shadow-sm"
+                  >
+                    <span className="inline-block rounded-full bg-softform-navy-900/5 px-2.5 py-0.5 text-xs font-semibold text-softform-text-secondary mb-2">
+                      {note.category}
+                    </span>
+                    <p className="text-xs text-softform-text-primary leading-relaxed">
+                      {note.note}
+                    </p>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -171,7 +190,9 @@ export default function FxGbaTab({
               CFO Takeaway
             </h4>
             <p className="text-xs text-softform-text-secondary leading-relaxed">
-              {profile ? (
+              {insights?.fx?.takeaway ? (
+                insights.fx.takeaway.description
+              ) : profile ? (
                 `Manage foreign exchange risks actively using hedging contracts. CNY weakening impacts your ${profile.cnySupplierPayablesPercent}% CNY payables structure, while USD strength increases landed cost base for your ${profile.usdImportCostPercent}% USD import costs.`
               ) : (
                 'Use this context alongside uploaded financial records before lender conversations. Connect company financials to quantify impact.'

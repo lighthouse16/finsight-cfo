@@ -2,12 +2,14 @@ import { LiquidityEvent, RateSnapshot, CompanyProfile } from '../types'
 import { RatesSourceInfo } from '../MarketWatchPage'
 import clsx from 'clsx'
 import SourceBanner from './SourceBanner'
+import { MarketWatchInsightSet } from '../insights/types'
 
 type RatesLiquidityTabProps = {
   rates: RateSnapshot[]
   liquidityEvents: LiquidityEvent[]
   ratesSource?: RatesSourceInfo | null
   profile?: CompanyProfile | null
+  insights?: MarketWatchInsightSet
 }
 
 export default function RatesLiquidityTab({
@@ -15,6 +17,7 @@ export default function RatesLiquidityTab({
   liquidityEvents,
   ratesSource,
   profile,
+  insights,
 }: RatesLiquidityTabProps) {
 
 
@@ -79,17 +82,30 @@ export default function RatesLiquidityTab({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <span className="text-[10px] uppercase font-bold text-softform-text-muted block">Floating-Rate debt</span>
-              <span className="text-lg font-bold text-softform-navy-950">HKD 6.5M</span>
+              <span className="text-lg font-bold text-softform-navy-950">
+                {profile ? `HKD ${(profile.floatingRateDebtHkd / 1000000).toFixed(1)}M` : 'HKD 6.5M'}
+              </span>
             </div>
             <div>
               <span className="text-[10px] uppercase font-bold text-softform-text-muted block">Monthly Debt Service</span>
-              <span className="text-lg font-bold text-softform-navy-950">HKD 420K</span>
+              <span className="text-lg font-bold text-softform-navy-950">
+                {profile ? `HKD ${(profile.monthlyDebtServiceHkd / 1000).toFixed(0)}K` : 'HKD 420K'}
+              </span>
             </div>
           </div>
+          {insights?.rates?.watchSignals && insights.rates.watchSignals.length > 0 && (
+            <div className="mt-3 border-t border-softform-navy-950/5 pt-2 text-xs text-softform-text-secondary leading-snug">
+              {insights.rates.watchSignals.map(sig => (
+                <div key={sig.id} className="font-semibold text-softform-amber-700">
+                  • {sig.description}
+                </div>
+              ))}
+            </div>
+          )}
           <div className="mt-4 pt-3 border-t border-softform-navy-950/5">
             <span className="text-[10px] uppercase font-bold text-softform-text-muted block mb-1">Sensitivity status</span>
             <span className="text-[10px] font-bold text-softform-amber-700 bg-softform-amber-500/10 rounded px-2 py-0.5 inline-block">
-              demo workspace context
+              {profile ? 'connected workspace context' : 'demo workspace context'}
             </span>
           </div>
         </div>
@@ -169,7 +185,9 @@ export default function RatesLiquidityTab({
           CFO Takeaway
         </h4>
         <p className="text-xs text-softform-text-secondary leading-relaxed">
-          {profile ? (
+          {insights?.rates?.takeaway ? (
+            insights.rates.takeaway.description
+          ) : profile ? (
             `Your monthly debt service of HKD ${profile.monthlyDebtServiceHkd.toLocaleString()} is highly sensitive to HIBOR fluctuations. Leverage the connected debt schedule to review options for your HKD ${profile.floatingRateDebtHkd.toLocaleString()} facility.`
           ) : (
             'Use this context alongside uploaded financial records before lender conversations. Connect company financials to quantify impact.'

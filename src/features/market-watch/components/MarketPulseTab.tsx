@@ -1,17 +1,54 @@
 import { AlertCircle, ArrowUpRight, ShieldAlert, Zap } from 'lucide-react'
 import { MarketSignal, SourceStatusItem, CompanyProfile } from '../types'
 import SourceStatusPanel from './SourceStatusPanel'
+import { MarketWatchInsightSet } from '../insights/types'
 
 type MarketPulseTabProps = {
   signals: MarketSignal[]
   sources: SourceStatusItem[]
   profile?: CompanyProfile | null
+  insights?: MarketWatchInsightSet
 }
 
 export default function MarketPulseTab({
   sources,
   profile,
+  insights,
 }: MarketPulseTabProps) {
+  // Derive latest signals from rules engine
+  const derivedLatestSignals = insights
+    ? [
+        ...(insights.rates.watchSignals || []),
+        ...(insights.sector.watchSignals || []),
+        ...(insights.fx.watchSignals || []),
+        ...(insights.commodities.watchSignals || []),
+        ...(insights.stress.watchSignals || []),
+        ...(insights.rates.supportingInsights || []),
+        ...(insights.sector.supportingInsights || []),
+        ...(insights.commodities.supportingInsights || []),
+        ...(insights.stress.supportingInsights || [])
+      ].slice(0, 5)
+    : [];
+
+  // Derive takeaway dynamically from highest severity takeaway
+  const activeTakeaway = insights
+    ? [
+        insights.rates.takeaway,
+        insights.sector.takeaway,
+        insights.fx.takeaway,
+        insights.commodities.takeaway,
+        insights.stress.takeaway
+      ].find(t => t && t.severity === 'High') || 
+      [
+        insights.rates.takeaway,
+        insights.sector.takeaway,
+        insights.fx.takeaway,
+        insights.commodities.takeaway,
+        insights.stress.takeaway
+      ].find(t => t && t.severity === 'Caution') ||
+      insights.rates.takeaway
+    : null;
+
   return (
     <div className="grid gap-6 lg:grid-cols-3">
       <div className="space-y-6 lg:col-span-2">
@@ -23,7 +60,53 @@ export default function MarketPulseTab({
           </h2>
           
           <div className="space-y-4">
-            {profile ? (
+            {insights?.executivePriorities && insights.executivePriorities.length > 0 ? (
+              insights.executivePriorities.slice(0, 3).map((item) => {
+                const isHigh = item.severity === 'High'
+                const isCaution = item.severity === 'Caution'
+                const isPositive = item.severity === 'Positive'
+                
+                const bgClass = isHigh 
+                  ? 'bg-red-500/5 border-red-500/10' 
+                  : isCaution 
+                  ? 'bg-softform-amber-500/5 border-softform-amber-500/10' 
+                  : isPositive
+                  ? 'bg-softform-emerald-soft/5 border-softform-emerald-soft/10'
+                  : 'bg-blue-50/70 border-blue-100'
+                  
+                const textClass = isHigh 
+                  ? 'text-red-800' 
+                  : isCaution 
+                  ? 'text-softform-amber-800' 
+                  : isPositive
+                  ? 'text-emerald-800'
+                  : 'text-blue-800'
+                  
+                const iconColor = isHigh 
+                  ? 'text-red-600' 
+                  : isCaution 
+                  ? 'text-softform-amber-600' 
+                  : isPositive
+                  ? 'text-emerald-600'
+                  : 'text-blue-600'
+
+                const IconComponent = isHigh ? ShieldAlert : isCaution ? Zap : ArrowUpRight
+
+                return (
+                  <div key={item.id} className={`flex items-start gap-3 rounded-2xl border p-4 ${bgClass}`}>
+                    <IconComponent size={18} className={`${iconColor} shrink-0 mt-0.5`} />
+                    <div>
+                      <h4 className={`text-xs font-bold uppercase tracking-wider ${textClass}`}>
+                        {item.title}
+                      </h4>
+                      <p className="text-sm font-semibold text-softform-navy-950 mt-0.5">
+                        {item.description}
+                      </p>
+                    </div>
+                  </div>
+                )
+              })
+            ) : profile ? (
               <>
                 <div className="flex items-start gap-3 rounded-2xl bg-red-500/5 border border-red-500/10 p-4">
                   <ShieldAlert size={18} className="text-red-600 shrink-0 mt-0.5" />
@@ -75,18 +158,40 @@ export default function MarketPulseTab({
             Latest Signals
           </h3>
           <ul className="space-y-3 text-sm text-softform-navy-900 font-medium">
-            <li className="flex items-center gap-2 border-b border-softform-navy-950/5 pb-2.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-softform-amber-500 shrink-0" />
-              <span>HIBOR remains relevant to HKD 6.5M facility.</span>
-            </li>
-            <li className="flex items-center gap-2 border-b border-softform-navy-950/5 pb-2.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-softform-amber-500 shrink-0" />
-              <span>DSO remains above sector benchmark.</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" />
-              <span>Copper and energy costs remain input-cost watch items.</span>
-            </li>
+            {derivedLatestSignals.length > 0 ? (
+              derivedLatestSignals.map((item) => {
+                const bulletBg = item.severity === 'High'
+                  ? 'bg-red-500'
+                  : item.severity === 'Caution'
+                  ? 'bg-softform-amber-500'
+                  : item.severity === 'Positive'
+                  ? 'bg-softform-emerald-soft'
+                  : 'bg-blue-500'
+                return (
+                  <li key={item.id} className="flex items-start gap-2 border-b border-softform-navy-950/5 pb-2.5 last:border-b-0 last:pb-0">
+                    <span className={`h-1.5 w-1.5 rounded-full shrink-0 mt-2 ${bulletBg}`} />
+                    <span>
+                      <strong className="text-softform-navy-950 font-semibold">{item.title}</strong>: {item.description}
+                    </span>
+                  </li>
+                )
+              })
+            ) : (
+              <>
+                <li className="flex items-center gap-2 border-b border-softform-navy-950/5 pb-2.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-softform-amber-500 shrink-0" />
+                  <span>HIBOR remains relevant to HKD 6.5M facility.</span>
+                </li>
+                <li className="flex items-center gap-2 border-b border-softform-navy-950/5 pb-2.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-softform-amber-500 shrink-0" />
+                  <span>DSO remains above sector benchmark.</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" />
+                  <span>Copper and energy costs remain input-cost watch items.</span>
+                </li>
+              </>
+            )}
           </ul>
         </div>
       </div>
@@ -137,7 +242,9 @@ export default function MarketPulseTab({
           CFO Takeaway
         </h4>
         <p className="text-xs text-softform-text-secondary leading-relaxed">
-          {profile ? (
+          {activeTakeaway ? (
+            activeTakeaway.description
+          ) : profile ? (
             `Floating-rate HIBOR debt and receivables stretch of ${profile.dsoDays} days are the primary drivers of working capital pressure. Active hedging and collection controls should be reviewed.`
           ) : (
             'Use this context alongside treasury policy and advisor review before making cross-border funding decisions. Connect company financials to quantify impact.'

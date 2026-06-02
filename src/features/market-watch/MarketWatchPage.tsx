@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { Activity, AlertTriangle, Box, Globe, PieChart, TrendingUp } from 'lucide-react'
 import PageHeader from '../../components/platform/PageHeader'
 import InfoTooltip from '../../components/ui/InfoTooltip'
@@ -22,6 +22,7 @@ import MarketWatchTabs, { TabId } from './components/MarketWatchTabs'
 import RatesLiquidityTab from './components/RatesLiquidityTab'
 import SectorBenchmarksTab from './components/SectorBenchmarksTab'
 import StressSignalsTab from './components/StressSignalsTab'
+import { buildMarketWatchSnapshot, buildMarketWatchInsights } from './insights'
 import {
   CommodityExposure,
   ExposureNote,
@@ -181,8 +182,102 @@ export default function MarketWatchPage() {
     }
   }
 
+  // Derive snapshot and insights from states using rules engine
+  const snapshot = useMemo(() => {
+    try {
+      return buildMarketWatchSnapshot({
+        companyContext: companyContext
+          ? {
+              profile: companyContext.profile,
+              dataMode: companyContext.dataMode,
+            }
+          : null,
+        ratesData: rates,
+        fxData: fxPairs,
+        sectorData: benchmarks,
+        commoditiesData: commodities,
+        stressData: scenarios,
+        sourceStatus: sources,
+        refreshedAt: lastRefreshed.toISOString(),
+      })
+    } catch (e) {
+      console.error('Failed to build snapshot', e)
+      return null
+    }
+  }, [companyContext, rates, fxPairs, benchmarks, commodities, scenarios, sources, lastRefreshed])
+
+  const insights = useMemo(() => {
+    if (!snapshot) return null
+    try {
+      return buildMarketWatchInsights(snapshot)
+    } catch (e) {
+      console.error('Failed to build insights', e)
+      return null
+    }
+  }, [snapshot])
+
   // Derive metrics dynamically based on active data and source status
   const derivedMetrics = metrics.map((m) => {
+    if (insights) {
+      if (m.id === 'funding-conditions') {
+        const card = insights.executiveCards.find(c => c.id === 'exec-card-funding')
+        if (card) {
+          const isFallback = !stressSource || stressSource.label.toLowerCase().includes('workspace') || stressSource.warnings.length > 0
+          return {
+            ...m,
+            value: card.value,
+            interpretation: card.description,
+            severity: card.severity,
+            freshness: isFallback ? ('Workspace' as const) : ('Daily' as const),
+            source: stressSource ? stressSource.label : 'Fixture',
+          }
+        }
+      }
+      if (m.id === 'rate-pressure') {
+        const card = insights.executiveCards.find(c => c.id === 'exec-card-rates')
+        if (card) {
+          const isFallback = ratesSource.label.toLowerCase().includes('workspace') || ratesSource.warnings.length > 0
+          return {
+            ...m,
+            value: card.value,
+            interpretation: card.description,
+            severity: card.severity,
+            freshness: isFallback ? ('Workspace' as const) : ('Daily' as const),
+            source: ratesSource.label,
+          }
+        }
+      }
+      if (m.id === 'sector-health') {
+        const card = insights.executiveCards.find(c => c.id === 'exec-card-sector')
+        if (card) {
+          const isFallback = !sectorSource || sectorSource.label.toLowerCase().includes('workspace') || sectorSource.warnings.length > 0
+          return {
+            ...m,
+            value: card.value,
+            interpretation: card.description,
+            severity: card.severity,
+            freshness: isFallback ? ('Workspace' as const) : ('Monthly' as const),
+            source: sectorSource ? sectorSource.label : 'Fixture',
+          }
+        }
+      }
+      if (m.id === 'fx-gba-signal') {
+        const card = insights.executiveCards.find(c => c.id === 'exec-card-fx')
+        if (card) {
+          return {
+            ...m,
+            label: 'FX / GBA Signal',
+            value: card.value,
+            interpretation: card.description,
+            severity: card.severity,
+            freshness: fxSource ? (fxSource.freshness as FreshnessStatus) : ('Workspace' as const),
+            source: fxSource ? fxSource.label : 'Fixture',
+          }
+        }
+      }
+    }
+
+    // Defensive fallback to existing logic if insights are missing
     if (m.id === 'rate-pressure') {
       const isFallback = ratesSource.label.toLowerCase().includes('workspace') || ratesSource.warnings.length > 0
       const HIBOR_1M = rates.find(r => r.label.includes('1M HIBOR') || r.label.includes('HIBOR 1-Month'))
@@ -319,6 +414,7 @@ export default function MarketWatchPage() {
                 signals={signals}
                 sources={sources}
                 profile={companyContext?.profile}
+                insights={insights || undefined}
               />
             )}
             {activeTab === 'rates' && (
@@ -327,6 +423,7 @@ export default function MarketWatchPage() {
                 liquidityEvents={liquidityEvents}
                 ratesSource={ratesSource}
                 profile={companyContext?.profile}
+                insights={insights || undefined}
               />
             )}
             {activeTab === 'fx' && (
@@ -336,6 +433,7 @@ export default function MarketWatchPage() {
                 exposureNotes={exposureNotes}
                 fxSource={fxSource}
                 profile={companyContext?.profile}
+                insights={insights || undefined}
               />
             )}
             {activeTab === 'sectors' && (
@@ -343,6 +441,7 @@ export default function MarketWatchPage() {
                 benchmarks={benchmarks}
                 sectorSource={sectorSource}
                 profile={companyContext?.profile}
+                insights={insights || undefined}
               />
             )}
             {activeTab === 'commodities' && (
@@ -350,6 +449,7 @@ export default function MarketWatchPage() {
                 commodities={commodities}
                 commoditySource={commoditySource}
                 profile={companyContext?.profile}
+                insights={insights || undefined}
               />
             )}
             {activeTab === 'stress' && (
@@ -357,6 +457,7 @@ export default function MarketWatchPage() {
                 scenarios={scenarios}
                 stressSource={stressSource}
                 profile={companyContext?.profile}
+                insights={insights || undefined}
               />
             )}
           </div>

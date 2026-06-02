@@ -2,17 +2,20 @@ import { AlertTriangle, TrendingDown } from 'lucide-react'
 import { StressScenario, StressSourceInfo, CompanyProfile } from '../types'
 import clsx from 'clsx'
 import SourceBanner from './SourceBanner'
+import { MarketWatchInsightSet } from '../insights/types'
 
 type StressSignalsTabProps = {
   scenarios: StressScenario[]
   stressSource: StressSourceInfo | null
   profile?: CompanyProfile | null
+  insights?: MarketWatchInsightSet
 }
 
 export default function StressSignalsTab({
   scenarios,
   stressSource,
   profile,
+  insights,
 }: StressSignalsTabProps) {
   if (!stressSource) {
     return (
@@ -59,13 +62,39 @@ export default function StressSignalsTab({
   // Split scenarios into priority vs secondary
   const priorityIds = ['rate-shock-150', 'receivables-delay-15', 'fx-volatility-5']
   
+  const mappedScenarios = scenarios.map(scen => {
+    if (!insights?.stress) return scen
+    const allStressInsights = [
+      ...(insights.stress.watchSignals || []),
+      ...(insights.stress.supportingInsights || [])
+    ]
+    const matched = allStressInsights.find(i => {
+      const title = i.title.toLowerCase()
+      const sTitle = scen.title.toLowerCase()
+      return (title.includes('rate') && sTitle.includes('rate')) ||
+             (title.includes('receivables') && sTitle.includes('receivables')) ||
+             (title.includes('cny') && sTitle.includes('cny')) ||
+             (title.includes('depreciation') && sTitle.includes('depreciation')) ||
+             (title.includes('commodity') && sTitle.includes('commodity')) ||
+             (title.includes('liquidity') && sTitle.includes('liquidity'))
+    })
+    if (matched) {
+      return {
+        ...scen,
+        severity: matched.severity,
+        description: matched.description
+      }
+    }
+    return scen
+  })
+
   const sortedPriorityScenarios = [
-    scenarios.find(s => s.id.includes('rate') || s.id.includes('150')),
-    scenarios.find(s => s.id.includes('receivables') || s.id.includes('delay')),
-    scenarios.find(s => s.id.includes('fx') || s.id.includes('cny') || s.id.includes('depreciation')),
+    mappedScenarios.find(s => s.id.includes('rate') || s.id.includes('150')),
+    mappedScenarios.find(s => s.id.includes('receivables') || s.id.includes('delay')),
+    mappedScenarios.find(s => s.id.includes('fx') || s.id.includes('cny') || s.id.includes('depreciation')),
   ].filter(Boolean) as StressScenario[]
 
-  const secondaryScenarios = scenarios.filter(s => {
+  const secondaryScenarios = mappedScenarios.filter(s => {
     const isPriority = priorityIds.includes(s.id) || 
                        s.id.includes('rate') || 
                        s.id.includes('receivables') || 
@@ -132,7 +161,7 @@ export default function StressSignalsTab({
                   </div>
 
                   <p className="mb-4 text-xs leading-relaxed text-softform-text-secondary">
-                    {getScenarioImplication(scenario.id)}
+                    {scenario.description || getScenarioImplication(scenario.id)}
                   </p>
                 </div>
 
@@ -188,7 +217,7 @@ export default function StressSignalsTab({
                         </span>
                       </div>
                       <span className="text-[11px] text-softform-text-muted leading-relaxed">
-                        {getScenarioImplication(scenario.id)}
+                        {scenario.description || getScenarioImplication(scenario.id)}
                       </span>
                     </div>
                     <div className="text-right shrink-0 ml-3">
@@ -331,7 +360,9 @@ export default function StressSignalsTab({
           CFO Takeaway
         </h4>
         <p className="text-xs text-softform-text-secondary leading-relaxed">
-          {profile ? (
+          {insights?.stress?.takeaway ? (
+            insights.stress.takeaway.description
+          ) : profile ? (
             `Your HKD ${profile.floatingRateDebtHkd.toLocaleString()} floating-rate facility is sensitive to interest rate shock. Ensure your debt schedule remains integrated relative to the monthly HKD ${profile.monthlyDebtServiceHkd.toLocaleString()} debt service.`
           ) : (
             'Use this context alongside treasury policy and advisor review before making cross-border funding decisions. Connect company financials to quantify impact.'

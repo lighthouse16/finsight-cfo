@@ -2,17 +2,20 @@ import { ArrowDownRight, ArrowRight, ArrowUpRight } from 'lucide-react'
 import { CommodityExposure, CommoditySourceInfo, CompanyProfile } from '../types'
 import clsx from 'clsx'
 import SourceBanner from './SourceBanner'
+import { MarketWatchInsightSet } from '../insights/types'
 
 type CommoditiesTabProps = {
   commodities: CommodityExposure[]
   commoditySource: CommoditySourceInfo | null
   profile?: CompanyProfile | null
+  insights?: MarketWatchInsightSet
 }
 
 export default function CommoditiesTab({
   commodities,
   commoditySource,
   profile,
+  insights,
 }: CommoditiesTabProps) {
   if (!commoditySource) {
     return (
@@ -214,7 +217,7 @@ export default function CommoditiesTab({
           )}
 
           {/* Watch Signals */}
-          {commoditySource.watchSignals && commoditySource.watchSignals.length > 0 && (
+          {((commoditySource.watchSignals && commoditySource.watchSignals.length > 0) || (insights?.commodities?.supportingInsights && insights.commodities.supportingInsights.length > 0)) && (
             <div className="border-t border-softform-navy-950/5 pt-6">
               <h3 className="mb-3 text-sm font-bold text-softform-navy-950 uppercase tracking-wider">
                 Commodity Watch Signals
@@ -240,6 +243,29 @@ export default function CommoditiesTab({
                     </div>
                     <div className="shrink-0 text-[9px] font-bold text-softform-text-muted uppercase tracking-wider bg-softform-navy-900/5 rounded px-2 py-1">
                       Area: {signal.affectedArea}
+                    </div>
+                  </div>
+                ))}
+                {insights?.commodities?.supportingInsights && insights.commodities.supportingInsights.map((insight) => (
+                  <div
+                    key={insight.id}
+                    className="rounded-xl border border-white/50 bg-white/40 p-4 shadow-sm flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="text-xs font-bold text-softform-navy-900 uppercase tracking-wider">
+                          {insight.title}
+                        </h4>
+                        <span className="rounded-full bg-softform-navy-900/5 text-softform-text-secondary px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider">
+                          {insight.severity}
+                        </span>
+                      </div>
+                      <p className="text-xs text-softform-text-secondary leading-relaxed">
+                        {insight.description}
+                      </p>
+                    </div>
+                    <div className="shrink-0 text-[9px] font-bold text-softform-text-muted uppercase tracking-wider bg-softform-navy-900/5 rounded px-2 py-1">
+                      Area: Sourcing Risk
                     </div>
                   </div>
                 ))}
@@ -294,7 +320,9 @@ export default function CommoditiesTab({
           CFO Takeaway
         </h4>
         <p className="text-xs text-softform-text-secondary leading-relaxed">
-          {profile ? (
+          {insights?.commodities?.takeaway ? (
+            insights.commodities.takeaway.description
+          ) : profile ? (
             `Input-cost fluctuations in Copper and Energy affect your distribution margins. Review supplier agreements relative to your current gross margin of ${profile.grossMarginPercent}%.`
           ) : (
             'Use this context alongside treasury policy and advisor review before making cross-border funding decisions. Connect company financials to quantify impact.'
