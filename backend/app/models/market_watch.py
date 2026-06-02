@@ -157,3 +157,44 @@ class SectorBenchmarksResponse(BaseModel):
     watchSignals: List[SectorWatchSignal]
     sourceStatus: List[SourceStatusItem]
 
+
+class CommodityExposure(BaseModel):
+    id: str
+    commodity: str
+    category: str
+    value: Optional[float] = None
+    unit: Literal["percent", "index", "price", "text"]
+    displayValue: str
+    trend: Trend
+    severity: SignalSeverity
+    exposedSectors: List[str]
+    marginContext: str
+    sourceTimestamp: Optional[str] = None
+
+
+class MarginPressureSignal(BaseModel):
+    id: str
+    label: str
+    severity: SignalSeverity
+    description: str
+    affectedArea: str
+    requiresCompanyData: bool
+
+
+class CommodityWatchSignal(BaseModel):
+    id: str
+    title: str
+    description: str
+    affectedArea: str
+    severity: SignalSeverity
+
+
+class CommoditiesResponse(BaseModel):
+    metadata: ResponseMetadata
+    selectedSector: SelectedSector
+    commodityExposures: List[CommodityExposure]
+    marginPressureSignal: List[MarginPressureSignal]
+    watchSignals: List[CommodityWatchSignal]
+    sourceStatus: List[SourceStatusItem]
+
+

@@ -17,7 +17,11 @@ from app.models.market_watch import (
     SectorHealthComponents,
     SectorHealthComponent,
     SectorBenchmark,
-    SectorWatchSignal
+    SectorWatchSignal,
+    CommoditiesResponse,
+    CommodityExposure,
+    MarginPressureSignal,
+    CommodityWatchSignal
 )
 
 def get_rates_liquidity_fixture() -> RatesLiquidityResponse:
@@ -496,4 +500,175 @@ def get_sector_benchmarks_fixture(sector: Optional[str] = None, geography: Optio
         watchSignals=watch_signals,
         sourceStatus=source_status
     )
+
+
+def get_commodities_fixture(sector: Optional[str] = None, geography: Optional[str] = None) -> CommoditiesResponse:
+    now = datetime.utcnow().isoformat() + "Z"
+    
+    target_sector = (sector or "electronics-import").lower().strip()
+    target_geo = geography or "HK"
+    
+    metadata = ResponseMetadata(
+        asOf="2026-05", # fixture month
+        fetchedAt=now,
+        freshness="Workspace",
+        isStale=False,
+        source=SourceInfo(
+            provider="Fixture",
+            name="Workspace commodity exposure seed data"
+        ),
+        warnings=["Commodities endpoint is currently fixture-backed. Production commodity provider is not connected yet."]
+    )
+    
+    if target_sector == "trading-distribution":
+        selected_sector = SelectedSector(
+            id="trading-distribution",
+            name="Trading & Distribution",
+            code="HK-SME-TRD",
+            geography=target_geo,
+            description="Import/export and distribution SMEs with working-capital sensitivity and commodity freight/energy exposure."
+        )
+    else:
+        # Default to Electronics Import
+        selected_sector = SelectedSector(
+            id="electronics-import",
+            name="Electronics Import",
+            code="HK-SME-ELEC",
+            geography=target_geo,
+            description="Import-driven electronics SMEs with exposure to metals, freight, and FX-linked input costs."
+        )
+        
+    commodity_exposures = [
+        CommodityExposure(
+            id="copper",
+            commodity="Copper (LME)",
+            category="Metals",
+            value=14.0,
+            unit="percent",
+            displayValue="+14% YoY",
+            trend="up",
+            severity="Caution",
+            exposedSectors=["Electronics Import", "Construction", "Manufacturing"],
+            marginContext="Higher copper prices pressure printed circuit board and wiring raw material costs.",
+            sourceTimestamp="2026-05"
+        ),
+        CommodityExposure(
+            id="steel",
+            commodity="Steel / Iron Ore",
+            category="Metals",
+            value=6.0,
+            unit="percent",
+            displayValue="+6% YoY",
+            trend="up",
+            severity="Neutral",
+            exposedSectors=["Construction", "Heavy Industry", "Hardware Distribution"],
+            marginContext="Moderate increase in structural metal components. Impact on electronic casings is limited.",
+            sourceTimestamp="2026-05"
+        ),
+        CommodityExposure(
+            id="cotton",
+            commodity="Cotton",
+            category="Soft Commodities",
+            value=-3.0,
+            unit="percent",
+            displayValue="-3% YoY",
+            trend="down",
+            severity="Neutral",
+            exposedSectors=["Apparel", "Textile Trading"],
+            marginContext="Slight easing in textile input costs; minor positive pressure on apparel distribution margins.",
+            sourceTimestamp="2026-05"
+        ),
+        CommodityExposure(
+            id="energy",
+            commodity="Energy / Oil (Brent)",
+            category="Energy",
+            value=9.0,
+            unit="percent",
+            displayValue="+9% YoY",
+            trend="up",
+            severity="Caution",
+            exposedSectors=["Logistics", "Chemicals", "Manufacturing", "Electronics Import"],
+            marginContext="Sustained oil price increases raise utility costs and regional transport surcharges.",
+            sourceTimestamp="2026-05"
+        ),
+        CommodityExposure(
+            id="freight",
+            commodity="Freight / Logistics",
+            category="Services",
+            value=None,
+            unit="text",
+            displayValue="Index watch",
+            trend="unknown",
+            severity="Caution",
+            exposedSectors=["Electronics Import", "Trading & Distribution", "Retail"],
+            marginContext="Container index volatility watch; spot rate adjustments affect cross-border landed cost.",
+            sourceTimestamp="2026-05"
+        )
+    ]
+    
+    margin_pressure_signal = [
+        MarginPressureSignal(
+            id="mod-input-cost-press",
+            label="Moderate input-cost pressure",
+            severity="Caution",
+            description="Sector-level commodity exposure may pressure margins; company-specific impact requires financial records and supplier contracts.",
+            affectedArea="Gross margin / working capital",
+            requiresCompanyData=True
+        )
+    ]
+    
+    watch_signals = [
+        CommodityWatchSignal(
+            id="metals-exposure-watch",
+            title="Metals exposure watch",
+            description="Monitor copper and steel price trends if sourcing raw components or casings. Consider forward contract review.",
+            affectedArea="Procurement / Casings",
+            severity="Caution"
+        ),
+        CommodityWatchSignal(
+            id="freight-energy-sensitivity",
+            title="Freight and energy cost sensitivity",
+            description="Utility rates and ocean/air freight spot rates remain volatile. Review shipping terms (FOB vs CIF).",
+            affectedArea="Landed Cost / Shipping",
+            severity="Caution"
+        ),
+        CommodityWatchSignal(
+            id="supplier-contract-context",
+            title="Supplier contract review context",
+            description="Review supplier contracts for price escalation clauses linked to commodity indexes.",
+            affectedArea="Supplier Relations / Legal",
+            severity="Neutral"
+        )
+    ]
+    
+    source_status = [
+        SourceStatusItem(
+            id="commodity-provider",
+            label="Commodity Provider",
+            status="seed_data",
+            provider="Fixture"
+        ),
+        SourceStatusItem(
+            id="sector-exposure-map",
+            label="Sector Exposure Map",
+            status="seed_data",
+            provider="Fixture"
+        ),
+        SourceStatusItem(
+            id="company-margin-data",
+            label="Company Margin Data",
+            status="requires_company_data",
+            provider="Pending"
+        )
+    ]
+    
+    return CommoditiesResponse(
+        metadata=metadata,
+        selectedSector=selected_sector,
+        commodityExposures=commodity_exposures,
+        marginPressureSignal=margin_pressure_signal,
+        watchSignals=watch_signals,
+        sourceStatus=source_status
+    )
+
 
