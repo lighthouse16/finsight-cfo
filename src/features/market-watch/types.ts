@@ -101,3 +101,68 @@ export type SourceStatusItem = {
   label: string
   status: SourceStatus
 }
+
+export interface SectorHealthComponent {
+  label: string
+  value: number | null
+  unit: 'index' | 'percent' | 'text'
+  displayValue: string
+  context: string
+}
+
+export interface SectorHealth {
+  score: number | null
+  label: string
+  severity: SignalSeverity
+  components: {
+    pmi: SectorHealthComponent | null
+    exportGrowth: SectorHealthComponent | null
+    industrialProduction: SectorHealthComponent | null
+    marginContext: SectorHealthComponent | null
+  }
+}
+
+export interface SectorBenchmarkItem {
+  id: string
+  label: string
+  value: number | null
+  unit: 'days' | 'percent' | 'ratio' | 'index'
+  displayValue: string
+  comparison: string
+  context: string
+  severity: SignalSeverity
+  sourceTimestamp: string | null
+}
+
+export interface SectorWatchSignal {
+  id: string
+  title: string
+  description: string
+  affectedArea: string
+  severity: SignalSeverity
+}
+
+export interface SectorSourceInfo {
+  label: string
+  asOf: string | null
+  warnings: string[]
+  freshness: FreshnessStatus
+  selectedSector: {
+    id: string
+    name: string
+    code: string | null
+    geography: string
+    description: string
+  }
+  sectorHealth: SectorHealth
+  watchSignals: SectorWatchSignal[]
+  sourceStatus: {
+    id: string
+    label: string
+    status: string
+    provider?: string
+    lastUpdatedAt?: string | null
+  }[]
+  isFallback?: boolean
+}
+

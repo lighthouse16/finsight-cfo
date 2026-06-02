@@ -28,7 +28,8 @@ import {
   MarketMetric,
   MarketSignal,
   RateSnapshot,
-  SectorBenchmark,
+  SectorBenchmarkItem,
+  SectorSourceInfo,
   SourceStatusItem,
   StressScenario,
 } from './types'
@@ -62,7 +63,8 @@ export default function MarketWatchPage() {
   const [gbaSignals, setGbaSignals] = useState<GbaFundingSignal[]>([])
   const [exposureNotes, setExposureNotes] = useState<ExposureNote[]>([])
   const [fxSource, setFxSource] = useState<FxSourceInfo | null>(null)
-  const [benchmarks, setBenchmarks] = useState<SectorBenchmark[]>([])
+  const [benchmarks, setBenchmarks] = useState<SectorBenchmarkItem[]>([])
+  const [sectorSource, setSectorSource] = useState<SectorSourceInfo | null>(null)
   const [commodities, setCommodities] = useState<CommodityExposure[]>([])
   const [scenarios, setScenarios] = useState<StressScenario[]>([])
   const [sources, setSources] = useState<SourceStatusItem[]>([])
@@ -106,6 +108,9 @@ export default function MarketWatchPage() {
           setFxSource(fx.fxSource)
         }
         setBenchmarks(sectors.benchmarks)
+        if (sectors.sectorSource) {
+          setSectorSource(sectors.sectorSource)
+        }
         setCommodities(comms.commodities)
         setScenarios(stress.scenarios)
         setSources(sourceStatus.sources)
@@ -187,7 +192,10 @@ export default function MarketWatchPage() {
               />
             )}
             {activeTab === 'sectors' && (
-              <SectorBenchmarksTab benchmarks={benchmarks} />
+              <SectorBenchmarksTab
+                benchmarks={benchmarks}
+                sectorSource={sectorSource}
+              />
             )}
             {activeTab === 'commodities' && (
               <CommoditiesTab commodities={commodities} />
