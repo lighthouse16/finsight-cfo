@@ -33,6 +33,7 @@ import {
   SourceStatusItem,
   StressScenario,
   CommoditySourceInfo,
+  StressSourceInfo,
 } from './types'
 
 export type RatesSourceInfo = {
@@ -69,6 +70,7 @@ export default function MarketWatchPage() {
   const [commodities, setCommodities] = useState<CommodityExposure[]>([])
   const [commoditySource, setCommoditySource] = useState<CommoditySourceInfo | null>(null)
   const [scenarios, setScenarios] = useState<StressScenario[]>([])
+  const [stressSource, setStressSource] = useState<StressSourceInfo | null>(null)
   const [sources, setSources] = useState<SourceStatusItem[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -118,6 +120,9 @@ export default function MarketWatchPage() {
           setCommoditySource(comms.commoditySource)
         }
         setScenarios(stress.scenarios)
+        if (stress.stressSource) {
+          setStressSource(stress.stressSource)
+        }
         setSources(sourceStatus.sources)
       } catch (error) {
         console.error('Failed to load market watch data', error)
@@ -206,7 +211,7 @@ export default function MarketWatchPage() {
               <CommoditiesTab commodities={commodities} commoditySource={commoditySource} />
             )}
             {activeTab === 'stress' && (
-              <StressSignalsTab scenarios={scenarios} />
+              <StressSignalsTab scenarios={scenarios} stressSource={stressSource} />
             )}
           </div>
         </>

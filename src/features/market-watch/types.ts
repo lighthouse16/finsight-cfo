@@ -94,6 +94,46 @@ export type StressScenario = {
   severity: SignalSeverity
   cfoQuestion: string
   requiredDataStatus: string
+  shockType?: 'rate' | 'fx' | 'commodity' | 'receivables' | 'liquidity'
+  requiresCompanyData?: boolean
+  requiredDataIds?: string[]
+  status?: 'context_only' | 'requires_company_data' | 'ready_for_model'
+  sourceTimestamp?: string | null
+}
+
+export interface StressSourceInfo {
+  label: string
+  asOf: string | null
+  warnings: string[]
+  freshness: FreshnessStatus
+  workspaceContext: {
+    id: string
+    companyLabel: string
+    sector: string
+    geography: string
+    description: string
+  }
+  requiredData: {
+    id: string
+    label: string
+    status: string
+    description: string
+  }[]
+  watchSignals: {
+    id: string
+    title: string
+    description: string
+    affectedArea: string
+    severity: SignalSeverity
+  }[]
+  sourceStatus: {
+    id: string
+    label: string
+    status: string
+    provider?: string
+    lastUpdatedAt?: string | null
+  }[]
+  isFallback?: boolean
 }
 
 export type SignalFeedItem = MarketSignal

@@ -6,7 +6,6 @@ import {
   seedMarketSignals,
   seedRateSnapshots,
   seedSourceStatus,
-  seedStressScenarios,
 } from '../data/marketWatchSeed'
 import {
   CommodityExposure,
@@ -23,6 +22,7 @@ import {
   SectorBenchmarkItem,
   FreshnessStatus,
   CommoditySourceInfo,
+  StressSourceInfo,
 } from '../types'
 
 const API_BASE_URL =
@@ -155,6 +155,56 @@ type BackendCommoditiesResponse = {
   }[]
 }
 
+type BackendStressScenario = {
+  id: string
+  title: string
+  shockType: 'rate' | 'fx' | 'commodity' | 'receivables' | 'liquidity'
+  severity: 'Neutral' | 'Caution' | 'High' | 'Positive'
+  affectedArea: string
+  description: string
+  cfoQuestion: string
+  requiresCompanyData: boolean
+  requiredDataIds: string[]
+  status: 'context_only' | 'requires_company_data' | 'ready_for_model'
+  sourceTimestamp: string | null
+}
+
+type BackendRequiredDataItem = {
+  id: string
+  label: string
+  status: 'connected' | 'seed_data' | 'requires_backend' | 'requires_company_data' | 'unavailable' | 'stale'
+  description: string
+}
+
+type BackendStressWatchSignal = {
+  id: string
+  title: string
+  description: string
+  affectedArea: string
+  severity: 'Neutral' | 'Caution' | 'High' | 'Positive'
+}
+
+type BackendStressSignalsResponse = {
+  metadata: BackendResponseMetadata
+  workspaceContext: {
+    id: string
+    companyLabel: string
+    sector: string
+    geography: string
+    description: string
+  }
+  scenarios: BackendStressScenario[]
+  requiredData: BackendRequiredDataItem[]
+  watchSignals: BackendStressWatchSignal[]
+  sourceStatus: {
+    id: string
+    label: string
+    status: 'connected' | 'seed_data' | 'requires_backend' | 'requires_company_data' | 'unavailable' | 'stale'
+    provider?: string
+    lastUpdatedAt?: string | null
+  }[]
+}
+
 // ------------------------------------------------------------------
 // Adapter
 // ------------------------------------------------------------------
@@ -224,6 +274,30 @@ function adaptCommodityExposure(backend: BackendCommodityExposure): CommodityExp
     affectedSectors: backend.exposedSectors,
     marginSensitivity: backend.marginContext,
     displayValue: backend.displayValue,
+  }
+}
+
+function adaptStressScenario(backend: BackendStressScenario): StressScenario {
+  const requiredDataStatus = (() => {
+    if (backend.status === 'context_only') return 'Context only'
+    if (backend.status === 'requires_company_data') return 'Requires company financials'
+    return 'Ready'
+  })()
+
+  return {
+    id: backend.id,
+    title: backend.title,
+    description: backend.description,
+    affectedArea: backend.affectedArea,
+    impactDirection: 'Negative',
+    severity: backend.severity,
+    cfoQuestion: backend.cfoQuestion,
+    requiredDataStatus,
+    shockType: backend.shockType,
+    requiresCompanyData: backend.requiresCompanyData,
+    requiredDataIds: backend.requiredDataIds,
+    status: backend.status,
+    sourceTimestamp: backend.sourceTimestamp,
   }
 }
 
@@ -718,12 +792,149 @@ export async function getCommodities(): Promise<{
 }
 
 
+function getLocalStressSignalsFallback(): {
+  scenarios: StressScenario[]
+  stressSource: StressSourceInfo
+} {
+  return {
+    scenarios: [
+      {
+        id: 'stress-1',
+        title: 'Rate Shock (+150 bps)',
+        description: 'Frames a placeholder rate-shock scenario for floating HIBOR/Prime-linked credit facilities. Debt schedules and revolving limit records are required before debt-service sensitivity can be quantified.',
+        affectedArea: 'Debt Service Coverage Ratio (DSCR)',
+        impactDirection: 'Negative',
+        severity: 'High',
+        cfoQuestion: 'Would our cashflow cover interest payments under this stress?',
+        requiredDataStatus: 'Requires company financials',
+      },
+      {
+        id: 'stress-2',
+        title: 'Receivables Delay (+15 Days)',
+        description: 'Models a placeholder shock scenario of payments stretching by two weeks. Illustrates where company data would be needed to map working-capital gap and revolving utilization.',
+        affectedArea: 'Working Capital Runway',
+        impactDirection: 'Negative',
+        severity: 'Caution',
+        cfoQuestion: 'Do we have sufficient revolving credit to bridge a 30-day gap?',
+        requiredDataStatus: 'Requires company financials',
+      },
+      {
+        id: 'stress-3',
+        title: 'CNY Depreciation (-5%)',
+        description: 'Models a placeholder shock scenario of the RMB against HKD/USD. Frames margin sensitivity on cross-border earnings and raises importing payables.',
+        affectedArea: 'Repatriated Earnings',
+        impactDirection: 'Negative',
+        severity: 'Caution',
+        cfoQuestion: 'Are our onshore revenues sufficiently hedged?',
+        requiredDataStatus: 'Requires company financials',
+      },
+    ],
+    stressSource: {
+      label: 'Workspace Seed Data',
+      asOf: null,
+      freshness: 'Workspace',
+      warnings: ['Backend unavailable. Showing workspace seed data.'],
+      workspaceContext: {
+        id: 'workspace-demo',
+        companyLabel: 'Workspace Demo Context (Trading & Distribution)',
+        sector: 'Trading & Distribution',
+        geography: 'HK',
+        description: 'Context-only workspace profile for scenario framing.',
+      },
+      requiredData: [
+        {
+          id: 'debt-schedule',
+          label: 'Debt Schedule',
+          status: 'requires_company_data',
+          description: 'Listing of all active bank loans, interest rates, and maturity dates.'
+        },
+        {
+          id: 'revolving-facility-limits',
+          label: 'Revolving Facility Limits',
+          status: 'requires_company_data',
+          description: 'Committed and uncommitted short-term borrowing facilities and limits.'
+        },
+        {
+          id: 'cross-border-payables',
+          label: 'Cross-Border Payables',
+          status: 'requires_company_data',
+          description: 'Outstanding liabilities invoiced in foreign currencies (e.g. CNY, USD).'
+        },
+        {
+          id: 'receivables-aging',
+          label: 'Receivables Aging',
+          status: 'requires_company_data',
+          description: 'Outstanding customer invoices grouped by days past invoice date.'
+        }
+      ],
+      watchSignals: [
+        {
+          id: 'rate-sensitivity-alert',
+          title: 'Floating Rate Exposure Watch',
+          description: 'SME facilities linked to HIBOR or Prime are sensitive to short-term rate shifts. Monitor base reference rates.',
+          affectedArea: 'Interest Expense',
+          severity: 'Caution'
+        }
+      ],
+      sourceStatus: [
+        {
+          id: 'stress-signal-fixture',
+          label: 'Stress Signal Fixture',
+          status: 'seed_data',
+          provider: 'Fixture'
+        },
+        {
+          id: 'company-financial-records',
+          label: 'Company Financial Records',
+          status: 'requires_company_data',
+          provider: 'Pending'
+        },
+        {
+          id: 'stress-engine',
+          label: 'Stress Engine',
+          status: 'requires_backend',
+          provider: 'Pending'
+        }
+      ],
+      isFallback: true,
+    }
+  }
+}
+
 export async function getStressSignals(): Promise<{
   scenarios: StressScenario[]
+  stressSource: StressSourceInfo
 }> {
-  await delay(400)
-  return {
-    scenarios: seedStressScenarios,
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/api/market-watch/stress-signals`,
+      { signal: AbortSignal.timeout(5000) },
+    )
+
+    if (!res.ok) {
+      throw new Error(`Backend returned ${res.status}`)
+    }
+
+    const body: BackendStressSignalsResponse = await res.json()
+
+    return {
+      scenarios: body.scenarios.map(adaptStressScenario),
+      stressSource: {
+        label: body.metadata.source.name,
+        asOf: body.metadata.asOf,
+        warnings: body.metadata.warnings ?? [],
+        freshness: body.metadata.freshness as FreshnessStatus,
+        workspaceContext: body.workspaceContext,
+        requiredData: body.requiredData,
+        watchSignals: body.watchSignals,
+        sourceStatus: body.sourceStatus,
+        isFallback: false,
+      },
+    }
+  } catch (error) {
+    console.warn('Stress Signals fetch failed, using fallback', error)
+    await delay(300)
+    return getLocalStressSignalsFallback()
   }
 }
 
