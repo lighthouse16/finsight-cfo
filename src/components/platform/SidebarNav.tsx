@@ -13,10 +13,9 @@ import {
   X,
   PanelLeftClose,
   PanelLeftOpen,
-  ArrowLeft,
 } from 'lucide-react'
 import clsx from 'clsx'
-import { type ElementType } from 'react'
+import { type ElementType, useState, useRef, useEffect } from 'react'
 import { useReducedMotion } from '../../hooks/useReducedMotion'
 
 type NavItem = {
@@ -25,17 +24,47 @@ type NavItem = {
   icon: ElementType
 }
 
-const navItems: NavItem[] = [
-  { label: 'Overview',         path: '/platform/overview',         icon: LayoutDashboard  },
-  { label: 'Market Watch',     path: '/platform/market-watch',     icon: TrendingUp       },
-  { label: 'Data Room',        path: '/platform/data-room',        icon: FolderOpen       },
-  { label: 'Financial Health', path: '/platform/financial-health', icon: HeartPulse       },
-  { label: 'Credit Readiness', path: '/platform/credit-readiness', icon: ShieldCheck      },
-  { label: 'Funding Strategy', path: '/platform/funding-strategy', icon: Landmark         },
-  { label: 'Valuation',        path: '/platform/valuation',        icon: BarChart3        },
-  { label: 'AI CFO',           path: '/platform/ai-cfo',           icon: BotMessageSquare },
-  { label: 'Reports',          path: '/platform/reports',          icon: FileText         },
-  { label: 'Settings',         path: '/platform/settings',         icon: Settings         },
+type NavGroup = {
+  label: string
+  items: NavItem[]
+}
+
+const navGroups: NavGroup[] = [
+  {
+    label: 'Workspace',
+    items: [
+      { label: 'Overview',  path: '/platform/overview',   icon: LayoutDashboard },
+      { label: 'Data Room', path: '/platform/data-room',  icon: FolderOpen      },
+    ],
+  },
+  {
+    label: 'Intelligence',
+    items: [
+      { label: 'Market Watch',     path: '/platform/market-watch',     icon: TrendingUp  },
+      { label: 'Financial Health', path: '/platform/financial-health', icon: HeartPulse  },
+      { label: 'Credit Readiness', path: '/platform/credit-readiness', icon: ShieldCheck },
+    ],
+  },
+  {
+    label: 'Funding',
+    items: [
+      { label: 'Funding Strategy', path: '/platform/funding-strategy', icon: Landmark },
+      { label: 'Valuation',        path: '/platform/valuation',        icon: BarChart3 },
+    ],
+  },
+  {
+    label: 'Assistant & Output',
+    items: [
+      { label: 'AI CFO',   path: '/platform/ai-cfo',   icon: BotMessageSquare },
+      { label: 'Reports',  path: '/platform/reports',  icon: FileText         },
+    ],
+  },
+  {
+    label: 'System',
+    items: [
+      { label: 'Settings', path: '/platform/settings', icon: Settings },
+    ],
+  },
 ]
 
 type SidebarNavProps = {
@@ -53,10 +82,30 @@ export default function SidebarNav({
   onToggleCollapse,
 }: SidebarNavProps) {
   const reducedMotion = useReducedMotion()
+  const [isScrolling, setIsScrolling] = useState(false)
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleScroll = () => {
+    setIsScrolling(true)
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current)
+    }
+    scrollTimeoutRef.current = setTimeout(() => {
+      setIsScrolling(false)
+    }, 800)
+  }
+
+  useEffect(() => {
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current)
+      }
+    }
+  }, [])
 
   return (
     <>
-      {/* Mobile backdrop — only shown when drawer is open on small screens */}
+      {/* Mobile backdrop */}
       {isOpen && (
         <div
           className="fixed inset-0 z-40 bg-softform-navy-950/20 backdrop-blur-sm lg:hidden"
@@ -66,49 +115,44 @@ export default function SidebarNav({
       )}
 
       {/*
-        Aside sizing strategy:
-        - Mobile: always 272px wide, transforms off-screen when closed
-        - Desktop (lg+): 272px expanded | 88px collapsed
-        Width drives the flex layout — main content expands automatically.
-        Transition applies only to width on desktop to avoid fighting the
-        mobile transform transition.
+        Aside sizing:
+        - Mobile: always 272px, transforms off-screen when closed
+        - Desktop lg+: 272px expanded | 88px collapsed
+        Main content area flexes to fill remaining width automatically.
       */}
       <aside
         className={clsx(
           'fixed inset-y-0 left-0 z-50 flex flex-col',
           'w-[272px]',
-          // Desktop width override
           collapsed ? 'lg:w-[88px]' : 'lg:w-[272px]',
-          // Desktop width transition (respects reduced motion)
           !reducedMotion && 'lg:transition-[width] lg:duration-300 lg:ease-out',
-          // Mobile: slide in/out; desktop: always in-flow, no transform
           'transition-transform duration-300 ease-out',
           isOpen ? 'translate-x-0' : '-translate-x-full',
           'lg:relative lg:z-auto lg:translate-x-0',
         )}
       >
-        {/* Floating capsule — 12px inset margin */}
+        {/* Floating capsule */}
         <div className="m-3 flex flex-1 flex-col overflow-hidden rounded-[28px] border border-white/70 bg-[linear-gradient(145deg,rgba(255,255,255,0.74),rgba(232,244,241,0.66))] shadow-[0_28px_86px_rgba(8,17,31,0.18),0_12px_30px_rgba(8,17,31,0.08),inset_0_1px_0_rgba(255,255,255,0.82)] backdrop-blur-[22px]">
 
-          {/* ── Header ─────────────────────────────────────────── */}
+          {/* ── Header ──────────────────────────────────────────── */}
           <div
             className={clsx(
               'flex shrink-0 items-center border-b border-white/50',
-              // Mobile always shows full header; desktop switches on collapsed
               collapsed
                 ? 'gap-3 px-5 pb-5 pt-6 lg:justify-center lg:gap-0 lg:px-3 lg:py-5'
                 : 'gap-3 px-5 pb-5 pt-6',
             )}
           >
-            {/* FS logo mark */}
-            <span
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[linear-gradient(145deg,#0d1726,#1c324b)] text-xs font-bold text-white shadow-[0_8px_24px_rgba(8,17,31,0.28)]"
-              aria-hidden="true"
+            {/* Logo mark — links to workspace home */}
+            <NavLink
+              to="/platform/overview"
+              aria-label="FinSight CFO workspace home"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[linear-gradient(145deg,#0d1726,#1c324b)] text-xs font-bold text-white shadow-[0_8px_24px_rgba(8,17,31,0.28)] transition hover:opacity-90"
             >
               FS
-            </span>
+            </NavLink>
 
-            {/* Product name — visible on mobile always; hidden on desktop when collapsed */}
+            {/* Product name */}
             <span
               className={clsx(
                 'truncate text-[15px] font-semibold text-softform-navy-950',
@@ -129,105 +173,101 @@ export default function SidebarNav({
             </button>
           </div>
 
-          {/* ── Navigation ─────────────────────────────────────── */}
+          {/* ── Navigation ──────────────────────────────────────── */}
           <nav
+            onScroll={handleScroll}
             className={clsx(
-              'flex-1 overflow-y-auto py-4',
-              // Mobile always has full padding; desktop narrowed when collapsed
+              'flex-1 overflow-y-auto overflow-x-hidden py-3 platform-sidebar-scroll',
+              isScrolling && 'is-scrolling',
               collapsed ? 'px-3 lg:px-2' : 'px-3',
             )}
             aria-label="Platform navigation"
           >
-            <ul className="space-y-1">
-              {navItems.map((item) => (
-                <li key={item.path}>
-                  <NavLink
-                    to={item.path}
-                    onClick={onClose}
-                    // Accessible name for icon-only mode on desktop
-                    title={item.label}
-                    aria-label={item.label}
-                    className={({ isActive }) =>
-                      clsx(
-                        'group flex items-center rounded-2xl text-[13.5px] font-medium transition-all duration-200',
-                        // Mobile always expanded; desktop switches on collapsed
-                        collapsed
-                          ? 'gap-3 px-3.5 py-2.5 lg:justify-center lg:gap-0 lg:px-2 lg:py-3'
-                          : 'gap-3 px-3.5 py-2.5',
-                        isActive
-                          ? 'bg-white/70 text-softform-navy-950 shadow-[0_4px_16px_rgba(8,17,31,0.08),inset_0_1px_0_rgba(255,255,255,0.9)]'
-                          : 'text-softform-text-secondary hover:bg-white/40 hover:text-softform-navy-900',
-                      )
-                    }
-                  >
-                    {({ isActive }) => (
-                      <>
-                        <item.icon
-                          size={18}
-                          strokeWidth={isActive ? 2 : 1.5}
-                          className={clsx(
-                            'shrink-0 transition-colors',
-                            isActive
-                              ? 'text-softform-teal-deep'
-                              : 'text-softform-text-muted group-hover:text-softform-text-secondary',
-                          )}
-                        />
-                        {/* Label: always visible on mobile; hidden on desktop when collapsed */}
-                        <span
-                          className={clsx(
-                            'truncate',
-                            collapsed ? 'lg:hidden' : '',
-                          )}
-                        >
-                          {item.label}
-                        </span>
-                      </>
+            {navGroups.map((group, groupIndex) => (
+              <div
+                key={group.label}
+                className={clsx(groupIndex > 0 && 'mt-1')}
+              >
+                {/* Group separator line — visible in both states, label only when expanded */}
+                {groupIndex > 0 && (
+                  <div
+                    className={clsx(
+                      'mb-1 mt-1',
+                      // Expanded: faint line + label; collapsed desktop: just a faint line
+                      collapsed
+                        ? 'mx-2 border-t border-white/40 lg:mx-1'
+                        : 'mx-1 border-t border-white/40',
                     )}
-                  </NavLink>
-                </li>
-              ))}
-            </ul>
+                    role="separator"
+                  />
+                )}
+
+                {/* Group label — hidden on desktop when collapsed */}
+                <p
+                  className={clsx(
+                    'mb-1 px-3.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-softform-text-muted/70',
+                    // On desktop collapsed state, hide label text entirely
+                    collapsed ? 'pt-1.5 lg:hidden' : 'pt-1.5',
+                  )}
+                  aria-hidden="true"
+                >
+                  {group.label}
+                </p>
+
+                <ul className="space-y-0.5">
+                  {group.items.map((item) => (
+                    <li key={item.path}>
+                      <NavLink
+                        to={item.path}
+                        onClick={onClose}
+                        title={item.label}
+                        aria-label={item.label}
+                        className={({ isActive }) =>
+                          clsx(
+                            'group flex items-center rounded-2xl text-[13.5px] font-medium transition-all duration-200',
+                            collapsed
+                              ? 'gap-3 px-3.5 py-2.5 lg:justify-center lg:gap-0 lg:px-2 lg:py-3'
+                              : 'gap-3 px-3.5 py-2.5',
+                            isActive
+                              ? 'bg-white/70 text-softform-navy-950 shadow-[0_4px_16px_rgba(8,17,31,0.08),inset_0_1px_0_rgba(255,255,255,0.9)]'
+                              : 'text-softform-text-secondary hover:bg-white/40 hover:text-softform-navy-900',
+                          )
+                        }
+                      >
+                        {({ isActive }) => (
+                          <>
+                            <item.icon
+                              size={18}
+                              strokeWidth={isActive ? 2 : 1.5}
+                              className={clsx(
+                                'shrink-0 transition-colors',
+                                isActive
+                                  ? 'text-softform-teal-deep'
+                                  : 'text-softform-text-muted group-hover:text-softform-text-secondary',
+                              )}
+                            />
+                            <span className={clsx('truncate', collapsed ? 'lg:hidden' : '')}>
+                              {item.label}
+                            </span>
+                          </>
+                        )}
+                      </NavLink>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </nav>
 
-          {/* ── Footer ─────────────────────────────────────────── */}
+          {/* ── Footer — collapse toggle only ───────────────────── */}
           <div
             className={clsx(
               'border-t border-white/50',
-              // Mobile always expanded layout; desktop switches on collapsed
               collapsed
-                ? 'flex flex-col gap-2 px-5 py-4 lg:items-center lg:px-2 lg:py-3'
-                : 'flex items-center px-5 py-4',
+                ? 'flex items-center justify-center px-2 py-3'
+                : 'flex items-center justify-end px-5 py-3',
             )}
           >
-            {/* Back to landing */}
-            <NavLink
-              to="/"
-              title="Back to landing"
-              aria-label="Back to landing"
-              className={clsx(
-                'flex items-center text-xs font-medium text-softform-text-muted transition hover:text-softform-navy-900',
-                collapsed
-                  ? 'gap-2 lg:justify-center'
-                  : 'gap-2',
-              )}
-            >
-              {/* Dot bullet — shown when expanded */}
-              <span
-                className={clsx(
-                  'inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-softform-aqua-300',
-                  collapsed ? 'lg:hidden' : '',
-                )}
-              />
-              {/* ArrowLeft icon — shown when collapsed on desktop */}
-              <ArrowLeft
-                size={14}
-                className={clsx('shrink-0', collapsed ? 'hidden lg:block' : 'hidden')}
-              />
-              <span className={clsx(collapsed ? 'lg:hidden' : '')}>
-                Back to landing
-              </span>
-            </NavLink>
-
             {/* Desktop collapse/expand toggle — never shown on mobile */}
             <button
               type="button"
@@ -242,7 +282,6 @@ export default function SidebarNav({
                 'transition-all duration-200',
                 'hover:bg-white/60 hover:text-softform-navy-900 hover:shadow-[0_4px_12px_rgba(8,17,31,0.10)]',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-softform-teal-500/40',
-                collapsed ? '' : 'ml-auto',
               )}
             >
               {collapsed
@@ -251,6 +290,7 @@ export default function SidebarNav({
               }
             </button>
           </div>
+
         </div>
       </aside>
     </>

@@ -1,5 +1,4 @@
 import { Menu, Search } from 'lucide-react'
-import StatusChip from './StatusChip'
 
 type TopCommandBarProps = {
   onMenuToggle: () => void
@@ -43,17 +42,12 @@ export default function TopCommandBar({ onMenuToggle }: TopCommandBarProps) {
           />
         </div>
 
-        {/* Right section */}
-        <div className="ml-auto flex shrink-0 items-center gap-3">
-          <StatusChip variant="neutral">Preview</StatusChip>
-
-          {/* Avatar placeholder */}
-          <div
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-[linear-gradient(145deg,#0d1726,#1c324b)] text-[11px] font-bold text-white/90"
-            aria-label="User menu placeholder"
-          >
-            U
-          </div>
+        {/* Avatar placeholder */}
+        <div
+          className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[linear-gradient(145deg,#0d1726,#1c324b)] text-[11px] font-bold text-white/90"
+          aria-label="User menu placeholder"
+        >
+          U
         </div>
       </div>
     </header>
