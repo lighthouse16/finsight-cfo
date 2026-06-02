@@ -294,3 +294,82 @@ Do not change text content.
 - Low contrast frosted text.
 - Overanimated WebGL.
 - Fake financial certainty.
+
+## 16. Platform Shell Patterns
+
+The platform shell provides the persistent visual framework and navigation container for the FinSight CFO workspace.
+
+- **Floating Softform Sidebar**: The sidebar is styled as a floating frosted container with soft shadows, resting elegantly on the page background.
+- **Collapsible Desktop Sidebar**: Users can collapse the sidebar to maximize screen workspace.
+- **Icon-Only Collapsed State**: When collapsed, the sidebar transitions to a narrow, space-efficient icon-only bar showing only the section/page icons.
+- **Grouped Navigation Sections**: Navigation items are logically grouped (e.g., Core Workspace, Market intelligence) to present structured access routes.
+- **Mobile Drawer Behavior**: On mobile screens, the sidebar transitions into a sliding drawer overlay controlled via a responsive menu button, ensuring a native-like mobile experience.
+- **Subtle Scrollbar Behavior**: Scrollbars in sidebars and scrollable areas must be hidden or extremely soft by default, and only become visible when explicitly hovered, scrolled, or focused.
+- **Top Command Bar**: The top command bar acts strictly as a workspace control surface (e.g., profile settings, workspace switching, or global controls) and should remain uncluttered.
+- **No Preview/Demo Badges**: No raw "preview" or "demo" badges should be displayed in the core product shell to preserve a premium, production-ready feel.
+
+## 17. Page Header Patterns
+
+The page header establishes the visual context and functional entry point for each module.
+
+- **Strong, Concise Titles**: Page titles should be clear, prominent, and concise.
+- **Minimize Subtitle Redundancy**: Avoid displaying long, static visible subtitles when the page context and active tab/workspace are already clear.
+- **Contextual Info Tooltips**: Instead of cluttering the page with permanent descriptive text, move detailed contextual explanations into a small info tooltip next to the title.
+- **Hover and Focus Accessibility**: The info tooltip must support both mouse hover and keyboard focus states to ensure complete accessibility.
+- **Responsive Action Alignment**: Primary action buttons align to the right on desktop, and automatically wrap or stack vertically on mobile screens to prevent overflow.
+
+## 18. Market Watch UI Patterns
+
+Market Watch serves as the external market pressure layer, providing SME decision-makers with critical signals affecting funding, lending, and cashflow.
+
+- **Purpose**: Tracks macroeconomic and sector-specific indicators to inform SME funding decisions.
+- **Finalized Tabs**:
+  - **Market Pulse**: Overview of broad market indicators.
+  - **Rates & Liquidity**: Bank rates, interbank liquidity, and central bank movements.
+  - **FX & GBA**: Volatility signals and currency trends in global markets and the Greater Bay Area.
+  - **Sector Benchmarks**: Industry-specific SME credit and growth indicators.
+  - **Commodities**: Material costs and resource pressure signals.
+  - **Stress Signals**: Financial distress metrics and tightening credit signals.
+- **Careful & Exact Language**: Utilize precise, realistic labeling. Use terms like `context signal`, `source-fresh`, `workspace`, and `requires company data`.
+- **No Realtime Claims**: Never claim data is "realtime" unless a live, direct backend source is connected and verified.
+- **No Deceptive Finance Metaphors**: Do not show simulated "approval probability," "credit score," or guarantee metrics which imply certainty the product does not possess.
+
+## 19. Executive Signal Card Pattern
+
+Used for high-level module summaries (e.g., the top summary cards in the Market Watch dashboard).
+
+- **Strict Card Anatomy**:
+  - **Top Row**: Contains the label (e.g., "Funding Conditions") and a soft, desaturated severity chip (e.g., "Caution").
+  - **Main Status Row**: Prominently displays the full status text (e.g., "Selective"). The status text must **never be ellipsized or truncated**.
+  - **Implication Line**: A single, concise sentence explaining what this status means for the user's business.
+  - **Subtle Visual Motif**: A highly integrated visual cue (such as a segmented signal bar, upward trend sparkline, split/divergence line, or currency-pair badge) rendered below the text. The visual motif supports the status and must **never compete** with it.
+  - **Footer**: Displays the source label and a freshness chip (e.g., "HKMA Rates • Daily").
+- **Severity Chip Focus**: Severity chips function strictly as supporting metadata and should not serve as the primary visual focus of the card.
+
+## 20. Chip/Badge Pattern
+
+Chips provide lightweight metadata tagging with zero visual clutter.
+
+- **Severity Chips**: Compact, soft labels representing system state: `caution`, `high`, `neutral`, and `positive`.
+- **Freshness Chips**: Indicate update frequencies: `daily`, `monthly`, `delayed`, `workspace`, and `seed data`.
+- **Source Status Chips**: Indicate integration readiness: `ready for connector`, `seed data`, `requires backend`, and `requires company data`.
+- **Aesthetic Rules**: Chips must be soft, compact, highly readable, and desaturated (never using overly saturated or harsh primary colors).
+
+## 21. Tooltip Pattern
+
+Used for progressive disclosure of instructions and definitions.
+
+- **Iconography**: Use a neutral info/help icon (such as a Lucide `Info` or `CircleHelp` icon), not warning or exclamation indicators.
+- **Trigger**: The trigger must be a keyboard-accessible visual button element.
+- **ARIA Compliance**: Must include an explicit `aria-label` or `aria-describedby` attribute to link the trigger to the tooltip content.
+- **Interaction**: The tooltip container must display smoothly on both hover and focus, and hide on mouse leave or blur.
+- **Styling**: Rendered as a frosted Softform surface (glassmorphic border, high blur, subtle shadow). Never rely on browser-default `title` attributes.
+
+## 22. Market Data and Source Language
+
+FinSight CFO prioritizes transparent source disclosure for all external market telemetry.
+
+- **V1 Data Abstraction**: The initial implementation (V1) runs on localized seed data routed through a structured API abstraction layer (`marketWatchApi.ts`).
+- **Data Integrity**: Future live or near-real-time data displays must clearly show the original publisher (source), a precise "as-of" timestamp, and an accurate freshness marker.
+- **Accurate Wording**: Avoid calling data "live" or "real-time" unless verified. Instead, use phrases like `source-fresh` or `near-real-time` only when technically accurate.
+- **Source & Freshness Microcopy**: Every individual card, module, or data point displaying external signals must expose visible source and freshness microcopy.

@@ -16,6 +16,7 @@ import LandingPage from '../pages/LandingPage'
 import PlatformPlaceholderPage from '../pages/PlatformPlaceholderPage'
 import NotFoundPage from '../pages/NotFoundPage'
 import PlatformShell from '../components/platform/PlatformShell'
+import MarketWatchPage from '../features/market-watch/MarketWatchPage'
 
 type PlatformRoute = {
   path: string
@@ -133,12 +134,16 @@ export default function AppRouter() {
               key={route.path}
               path={route.path}
               element={
-                <PlatformPlaceholderPage
-                  title={route.title}
-                  subtitle={route.subtitle}
-                  icon={route.icon}
-                  modulePurpose={route.modulePurpose}
-                />
+                route.path === 'market-watch' ? (
+                  <MarketWatchPage />
+                ) : (
+                  <PlatformPlaceholderPage
+                    title={route.title}
+                    subtitle={route.subtitle}
+                    icon={route.icon}
+                    modulePurpose={route.modulePurpose}
+                  />
+                )
               }
             />
           ))}

@@ -26,6 +26,9 @@ When scaling or modifying visual styles, use [SYSTEM_DESIGN.md](file:///d:/proje
 - responsive visual behavior
 - accessibility requirements
 - anti-patterns
+- platform shell patterns (e.g., floating Softform sidebar, collapsible states, top command bar)
+- page header patterns (e.g., strong concise titles, accessible info tooltips, action wrapping)
+- Market Watch UI patterns (e.g., executive signal cards, chip/badge conventions, tooltip patterns, market data source language)
 
 ## Content rule
 

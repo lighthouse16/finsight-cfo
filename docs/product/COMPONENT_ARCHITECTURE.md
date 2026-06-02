@@ -61,12 +61,12 @@ These components must not contain finance logic or backend calls.
 
 Shared platform-level components that are reusable across product routes.
 
-Examples:
-
-- platform navigation
-- product page headers
-- dashboard shell components
-- shared platform empty states
+Platform Component Responsibilities:
+- `src/components/platform/PlatformShell.tsx` owns the overall platform layout shell, collapsible sidebar states, subtle scrollbar behavior, and mobile drawer transitions.
+- `SidebarNav` owns navigation link rendering, navigation grouping, and receives the `collapsed` and `mobile` state props from `PlatformShell`.
+- `TopCommandBar` renders workspace switching, profile triggers, and global actions. It acts strictly as a workspace control surface and must not contain arbitrary preview or demo badges.
+- `PageHeader` handles page title, primary header actions layout, responsive wrapping, and the `titleAddon` slot (e.g. for accessible info tooltips).
+- `EmptyModuleState` is for intentional placeholders only (e.g., indicating modules awaiting company data connectors).
 
 Feature-specific widgets should stay inside their feature folder.
 
@@ -75,16 +75,25 @@ Feature-specific widgets should stay inside their feature folder.
 Market Watch feature module.
 
 Expected structure:
-
 ```text
 src/features/market-watch/
+  api/
+    marketWatchApi.ts
   components/
   data/
+    marketWatchSeed.ts
   types.ts
+  MarketWatchPage.tsx
 ```
 
-Rules:
+Directory and File Responsibilities:
+- `MarketWatchPage.tsx` acts as the root orchestrator that assembles the page header, summary metric cards, tab navigation, and responsive sub-views.
+- `components/` owns all tab views, card presentations, and feature-specific modular UI components.
+- `data/marketWatchSeed.ts` contains strictly safe local mockup/seed data only. No real or simulated live computations.
+- `api/marketWatchApi.ts` serves as the future backend swap point. All data retrieval should go through here.
+- `types.ts` owns the feature-specific data contracts and type definitions.
 
+Rules:
 - `components/` contains Market Watch-only UI.
 - `data/` contains static seed/config data only until real data integration exists.
 - `types.ts` contains feature-specific TypeScript types.
@@ -141,3 +150,13 @@ Keep a component feature-local when:
 - making it generic would add unnecessary abstraction
 
 When unsure, keep the component feature-local first. Promote it to shared only after a second real use case appears.
+
+## Platform Features & Engineering Rules
+
+### API Abstraction Rule
+
+Market Watch and other feature presentation components must never call backend endpoints, database systems, or external third-party APIs directly. All data access must be routed through the dedicated feature API boundary (e.g., `src/features/market-watch/api/marketWatchApi.ts` functions) or passed down strictly as props. This guarantees high testability, clean boundaries, and a singular swap point for future real data integration.
+
+### UI Safety Rule
+
+FinSight CFO is a decision-grade workspace built on trust. Feature components must never make fake real-time claims, show fake credit scoring, calculate speculative "approval probabilities," or present unverified bank/compliance claims. If features require connected company data to produce results, they should use `EmptyModuleState` or clearly marked "Requires Connected Workspace" states rather than mocking fake telemetry.
