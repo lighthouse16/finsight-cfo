@@ -23,6 +23,8 @@ import {
   FreshnessStatus,
   CommoditySourceInfo,
   StressSourceInfo,
+  ConsolidatedSourceStatusItem,
+  RefreshResponse,
 } from '../types'
 
 const API_BASE_URL =
@@ -349,7 +351,7 @@ export async function getRatesLiquidity(): Promise<{
         label: 'Workspace Seed Data',
         asOf: null,
         warnings: [
-          'Backend unavailable. Using workspace seed data.',
+          'Backend unavailable. Showing workspace seed data.',
         ],
       },
     }
@@ -375,6 +377,7 @@ export async function getFxGba(): Promise<{
     label: string
     asOf: string | null
     warnings: string[]
+    freshness: string
   }
 }> {
   try {
@@ -397,6 +400,7 @@ export async function getFxGba(): Promise<{
         label: body.metadata.source.name,
         asOf: body.metadata.asOf,
         warnings: body.metadata.warnings ?? [],
+        freshness: body.metadata.freshness,
       },
     }
   } catch {
@@ -405,11 +409,12 @@ export async function getFxGba(): Promise<{
       fxPairs: seedFxPairs,
       gbaSignals: seedGbaSignals,
       fxSource: {
-        label: 'Workspace Seed Data',
+        label: 'Local seed fallback',
         asOf: null,
         warnings: [
-          'Backend unavailable. Using workspace seed data.',
+          'Backend unavailable. Showing workspace seed data.',
         ],
+        freshness: 'Workspace',
       },
     }
   }
@@ -944,5 +949,55 @@ export async function getMarketSourceStatus(): Promise<{
   await delay(200)
   return {
     sources: seedSourceStatus,
+  }
+}
+
+export async function getSourceStatus(): Promise<ConsolidatedSourceStatusItem[]> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/market-watch/source-status`, {
+      signal: AbortSignal.timeout(5000),
+    })
+    if (!res.ok) {
+      throw new Error(`Status API returned ${res.status}`)
+    }
+    const data = await res.json()
+    return data.sources
+  } catch (error) {
+    console.warn('Failed to fetch source status, using local defaults', error)
+    return seedSourceStatus.map(s => ({
+      id: s.label.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      label: s.label,
+      status: s.status,
+      provider: s.status === 'Seed data' ? 'Fixture' : 'Pending',
+      freshness: 'Workspace',
+      lastUpdatedAt: null,
+      message: s.status === 'Seed data' ? 'Workspace seed data' : 'Pending record connection'
+    }))
+  }
+}
+
+export async function refreshData(scope: string = 'all'): Promise<RefreshResponse> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/market-watch/refresh`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ scope }),
+      signal: AbortSignal.timeout(10000),
+    })
+    if (!res.ok) {
+      throw new Error(`Refresh API returned ${res.status}`)
+    }
+    return await res.json()
+  } catch (error) {
+    console.warn('Refresh failed', error)
+    const sources = await getSourceStatus()
+    return {
+      status: 'error',
+      message: 'Failed to connect to backend refresh service.',
+      refreshedScope: scope,
+      sources
+    }
   }
 }

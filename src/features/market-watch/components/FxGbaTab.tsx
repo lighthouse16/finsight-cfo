@@ -39,13 +39,17 @@ export default function FxGbaTab({
             <span className="opacity-60">Source:</span>
             <span className="font-semibold">{fxSource.label}</span>
           </span>
-          {fxSource.asOf && (
+          {fxSource.asOf ? (
             <span className="flex items-center gap-1.5">
               <span className="opacity-60">As of:</span>
               <span className="font-semibold">{fxSource.asOf}</span>
             </span>
+          ) : (
+            <span className="font-semibold text-softform-amber-800">
+              Backend unavailable
+            </span>
           )}
-          <span className="text-xs opacity-50">Workspace</span>
+          <span className="text-xs opacity-50">{fxSource.freshness}</span>
         </div>
       )}
 
@@ -183,7 +187,7 @@ export default function FxGbaTab({
               <strong className="block text-softform-navy-900 mb-1">
                 Important Watch Signal:
               </strong>
-              This is a contextual indicator. Use this context alongside treasury policy and advisor review before making cross-border funding decisions.
+              FX rates are provider-backed. Cross-border funding context remains indicative until company exposure data is connected.
             </div>
           </div>
 
