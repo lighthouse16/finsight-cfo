@@ -198,3 +198,54 @@ class CommoditiesResponse(BaseModel):
     sourceStatus: List[SourceStatusItem]
 
 
+ShockType = Literal["rate", "fx", "commodity", "receivables", "liquidity"]
+ScenarioStatus = Literal["context_only", "requires_company_data", "ready_for_model"]
+
+
+class WorkspaceContext(BaseModel):
+    id: str
+    companyLabel: str
+    sector: str
+    geography: str
+    description: str
+
+
+class StressScenario(BaseModel):
+    id: str
+    title: str
+    shockType: ShockType
+    severity: SignalSeverity
+    affectedArea: str
+    description: str
+    cfoQuestion: str
+    requiresCompanyData: bool
+    requiredDataIds: List[str] = Field(default_factory=list)
+    status: ScenarioStatus
+    sourceTimestamp: Optional[str] = None
+
+
+class RequiredDataItem(BaseModel):
+    id: str
+    label: str
+    status: SourceStatus
+    description: str
+
+
+class StressWatchSignal(BaseModel):
+    id: str
+    title: str
+    description: str
+    affectedArea: str
+    severity: SignalSeverity
+
+
+class StressSignalsResponse(BaseModel):
+    metadata: ResponseMetadata
+    workspaceContext: WorkspaceContext
+    scenarios: List[StressScenario]
+    requiredData: List[RequiredDataItem]
+    watchSignals: List[StressWatchSignal]
+    sourceStatus: List[SourceStatusItem]
+
+
+

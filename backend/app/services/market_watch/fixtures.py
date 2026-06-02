@@ -21,7 +21,12 @@ from app.models.market_watch import (
     CommoditiesResponse,
     CommodityExposure,
     MarginPressureSignal,
-    CommodityWatchSignal
+    CommodityWatchSignal,
+    WorkspaceContext,
+    StressScenario,
+    RequiredDataItem,
+    StressWatchSignal,
+    StressSignalsResponse
 )
 
 def get_rates_liquidity_fixture() -> RatesLiquidityResponse:
@@ -670,5 +675,198 @@ def get_commodities_fixture(sector: Optional[str] = None, geography: Optional[st
         watchSignals=watch_signals,
         sourceStatus=source_status
     )
+
+
+def get_stress_signals_fixture(company_id: Optional[str] = None, sector: Optional[str] = None) -> StressSignalsResponse:
+    now = datetime.utcnow().isoformat() + "Z"
+    
+    target_sector = sector or "Trading & Distribution"
+    
+    metadata = ResponseMetadata(
+        asOf="2026-05",
+        fetchedAt=now,
+        freshness="Workspace",
+        isStale=False,
+        source=SourceInfo(
+            provider="Fixture",
+            name="Workspace stress signal seed data"
+        ),
+        warnings=["Stress Signals endpoint is currently fixture-backed. Company financial data is required before impact can be quantified."]
+    )
+    
+    workspace_context = WorkspaceContext(
+        id="workspace-demo",
+        companyLabel="Workspace Demo Context (Trading & Distribution)",
+        sector=target_sector,
+        geography="HK",
+        description="Context-only workspace profile for scenario framing."
+    )
+    
+    scenarios = [
+        StressScenario(
+            id="rate-shock-150",
+            title="Rate Shock (+150 bps)",
+            shockType="rate",
+            severity="High",
+            affectedArea="Debt Service Coverage Ratio (DSCR)",
+            description="Frames a placeholder rate-shock scenario for floating HIBOR/Prime-linked credit facilities. Debt schedules and revolving limit records are required before debt-service sensitivity can be quantified.",
+            cfoQuestion="Would current operational cashflow cover interest payments under a 150 bps facility rate increase?",
+            requiresCompanyData=True,
+            requiredDataIds=["debt-schedule", "revolving-facility-limits"],
+            status="requires_company_data",
+            sourceTimestamp="2026-05"
+        ),
+        StressScenario(
+            id="fx-volatility-5",
+            title="CNY Depreciation (-5%)",
+            shockType="fx",
+            severity="Caution",
+            affectedArea="Repatriated Onshore Earnings",
+            description="Models a placeholder shock scenario of the RMB against HKD/USD. Frames margin sensitivity on cross-border earnings and raises importing payables.",
+            cfoQuestion="Are our CNY revenues hedged, and how will USD importing costs be affected by a 5% CNY drop?",
+            requiresCompanyData=True,
+            requiredDataIds=["cross-border-payables", "hedging-contracts"],
+            status="requires_company_data",
+            sourceTimestamp="2026-05"
+        ),
+        StressScenario(
+            id="commodity-shock-10",
+            title="Raw Material Input Squeeze (+10%)",
+            shockType="commodity",
+            severity="Caution",
+            affectedArea="Gross Operating Margin",
+            description="Models a placeholder shock scenario for raw material increases in copper, energy, and freight indexes. Sector averages point to operating margin pressure.",
+            cfoQuestion="Can we pass a 10% raw material cost spike to buyers, or do supplier agreements have price-protection clauses?",
+            requiresCompanyData=True,
+            requiredDataIds=["supplier-contracts", "cost-of-goods-sold"],
+            status="requires_company_data",
+            sourceTimestamp="2026-05"
+        ),
+        StressScenario(
+            id="receivables-delay-15",
+            title="Receivables Delay (+15 Days)",
+            shockType="receivables",
+            severity="Caution",
+            affectedArea="Working Capital Runway",
+            description="Models a placeholder shock scenario of payments stretching by two weeks. Illustrates where company data would be needed to map working-capital gap and revolving utilization.",
+            cfoQuestion="Do we have sufficient revolving credit to bridge a 15-day gap in collection cycles?",
+            requiresCompanyData=True,
+            requiredDataIds=["receivables-aging", "operating-cash-runway"],
+            status="requires_company_data",
+            sourceTimestamp="2026-05"
+        ),
+        StressScenario(
+            id="liquidity-squeeze",
+            title="Liquidity Squeeze",
+            shockType="liquidity",
+            severity="Neutral",
+            affectedArea="Short-Term Revolving Access",
+            description="Models a placeholder shock scenario of interbank liquidity contraction. Rates spike briefly, narrowing secondary funding windows.",
+            cfoQuestion="Are credit lines committed or subject to immediate recall during regional liquidity dips?",
+            requiresCompanyData=False,
+            requiredDataIds=[],
+            status="context_only",
+            sourceTimestamp="2026-05"
+        )
+    ]
+    
+    required_data = [
+        RequiredDataItem(
+            id="debt-schedule",
+            label="Debt Schedule",
+            status="requires_company_data",
+            description="Listing of all active bank loans, interest rates, and maturity dates."
+        ),
+        RequiredDataItem(
+            id="revolving-facility-limits",
+            label="Revolving Facility Limits",
+            status="requires_company_data",
+            description="Committed and uncommitted short-term borrowing facilities and limits."
+        ),
+        RequiredDataItem(
+            id="cross-border-payables",
+            label="Cross-Border Payables",
+            status="requires_company_data",
+            description="Outstanding liabilities invoiced in foreign currencies (e.g. CNY, USD)."
+        ),
+        RequiredDataItem(
+            id="hedging-contracts",
+            label="Hedging Contracts",
+            status="requires_company_data",
+            description="Active forward contracts or option structures for foreign exchange."
+        ),
+        RequiredDataItem(
+            id="supplier-contracts",
+            label="Supplier Contracts",
+            status="requires_company_data",
+            description="Sourcing agreements containing price adjustment or escalation clauses."
+        ),
+        RequiredDataItem(
+            id="cost-of-goods-sold",
+            label="Cost of Goods Sold (COGS)",
+            status="requires_company_data",
+            description="Detailed raw material and landing cost breakdown."
+        ),
+        RequiredDataItem(
+            id="receivables-aging",
+            label="Receivables Aging",
+            status="requires_company_data",
+            description="Outstanding customer invoices grouped by days past invoice date."
+        ),
+        RequiredDataItem(
+            id="operating-cash-runway",
+            label="Operating Cash Runway",
+            status="requires_company_data",
+            description="Historical monthly operational cash burn and current liquid balances."
+        )
+    ]
+    
+    watch_signals = [
+        StressWatchSignal(
+            id="rate-sensitivity-alert",
+            title="Floating Rate Exposure Watch",
+            description="SME facilities linked to HIBOR or Prime are sensitive to short-term rate shifts. Monitor base reference rates.",
+            affectedArea="Interest Expense",
+            severity="Caution"
+        ),
+        StressWatchSignal(
+            id="receivables-cycle-watch",
+            title="DSO Expansion Risk",
+            description="Receivables payment delay scenario indicates working capital runway sensitivity. Focus on buyer term reviews.",
+            affectedArea="Working Capital Gap",
+            severity="Caution"
+        )
+    ]
+    
+    source_status = [
+        SourceStatusItem(
+            id="stress-signal-fixture",
+            label="Stress Signal Fixture",
+            status="seed_data",
+            provider="Fixture"
+        ),
+        SourceStatusItem(
+            id="company-financial-records",
+            label="Company Financial Records",
+            status="requires_company_data",
+            provider="Pending"
+        ),
+        SourceStatusItem(
+            id="stress-engine",
+            label="Stress Engine",
+            status="requires_backend",
+            provider="Pending"
+        )
+    ]
+    
+    return StressSignalsResponse(
+        metadata=metadata,
+        workspaceContext=workspace_context,
+        scenarios=scenarios,
+        requiredData=required_data,
+        watchSignals=watch_signals,
+        sourceStatus=source_status
+    )
+
 
 

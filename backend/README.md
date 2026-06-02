@@ -58,6 +58,8 @@ Alternatively, set `MARKET_WATCH_USE_FIXTURES=true` in `backend/.env`.
 | GET | `/api/market-watch/fx-gba` | FX & GBA data (fixture-backed, provider pending) |
 | GET | `/api/market-watch/sector-benchmarks` | Sector Benchmarks data (fixture-backed, production provider pending) |
 | GET | `/api/market-watch/commodities` | Commodities data (fixture-backed, production provider pending) |
+| GET | `/api/market-watch/stress-signals` | Stress Signals data (fixture-backed, production engine pending) |
+
 
 
 

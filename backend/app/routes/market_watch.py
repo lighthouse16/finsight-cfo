@@ -1,10 +1,17 @@
 from typing import Optional
 from fastapi import APIRouter
-from app.models.market_watch import RatesLiquidityResponse, FxGbaResponse, SectorBenchmarksResponse, CommoditiesResponse
+from app.models.market_watch import (
+    RatesLiquidityResponse,
+    FxGbaResponse,
+    SectorBenchmarksResponse,
+    CommoditiesResponse,
+    StressSignalsResponse
+)
 from app.services.market_watch.rates_liquidity_service import get_rates_liquidity
 from app.services.market_watch.fx_gba_service import get_fx_gba
 from app.services.market_watch.sector_benchmarks_service import get_sector_benchmarks
 from app.services.market_watch.commodities_service import get_commodities
+from app.services.market_watch.stress_signals_service import get_stress_signals
 
 router = APIRouter()
 
@@ -29,5 +36,13 @@ async def get_commodities_endpoint(
     geography: Optional[str] = None
 ):
     return await get_commodities(sector=sector, geography=geography)
+
+@router.get("/stress-signals", response_model=StressSignalsResponse)
+async def get_stress_signals_endpoint(
+    companyId: Optional[str] = None,
+    sector: Optional[str] = None
+):
+    return await get_stress_signals(company_id=companyId, sector=sector)
+
 
 
