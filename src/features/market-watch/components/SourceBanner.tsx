@@ -12,75 +12,67 @@ type SourceBannerProps = {
 
 export default function SourceBanner({ source, compact = false }: SourceBannerProps) {
   const hasWarnings = source.warnings && source.warnings.length > 0
-  const isWorkspace = source.freshness?.toLowerCase() === 'workspace' || 
-                      source.label.toLowerCase().includes('workspace') ||
-                      source.label.toLowerCase().includes('seed')
+  const labelLower = source.label.toLowerCase()
+  const freshnessLower = source.freshness?.toLowerCase() || ''
   
-  if (compact) {
-    return (
-      <div className={clsx(
-        'inline-flex items-center gap-3 rounded-xl px-3 py-1.5 text-[11px] font-medium',
-        isWorkspace ? 'bg-softform-amber-200/15 text-softform-amber-800' : 'bg-blue-50/60 text-softform-text-secondary'
-      )}>
-        <span className="opacity-60">Source:</span>
-        <span className="font-semibold">{source.label}</span>
-        {source.asOf && (
-          <>
-            <span className="opacity-40">•</span>
-            <span className="opacity-70">{source.asOf}</span>
-          </>
-        )}
-        {source.freshness && (
-          <>
-            <span className="opacity-40">•</span>
-            <span className="opacity-70">{source.freshness}</span>
-          </>
-        )}
-      </div>
-    )
+  const isFallback = labelLower.includes('unavailable') || 
+                     labelLower.includes('fallback') ||
+                     labelLower.includes('offline')
+                     
+  const isWorkspaceDerived = labelLower.includes('workspace-derived') ||
+                             labelLower.includes('workspace derived') ||
+                             freshnessLower === 'workspace-derived' ||
+                             freshnessLower === 'workspace' ||
+                             labelLower.includes('workspace seed') ||
+                             labelLower.includes('seed data')
+                             
+  const isFixture = labelLower.includes('fixture') || 
+                    labelLower.includes('mock')
+                    
+  const isProviderBacked = labelLower.includes('frankfurter') || 
+                           labelLower.includes('hkma') || 
+                           labelLower.includes('provider') ||
+                           freshnessLower === 'daily' ||
+                           freshnessLower === 'delayed'
+
+  // Decide styling mode
+  let containerBg = 'bg-softform-navy-900/5 text-softform-text-secondary border border-softform-navy-900/10'
+  if (isFallback) {
+    containerBg = 'bg-amber-500/15 text-amber-900 border border-amber-500/30'
+  } else if (isProviderBacked) {
+    containerBg = 'bg-emerald-500/5 text-emerald-700 border border-emerald-500/10'
+  } else if (isFixture) {
+    containerBg = 'bg-amber-500/5 text-amber-800 border border-amber-500/10'
+  } else if (isWorkspaceDerived) {
+    containerBg = 'bg-softform-navy-900/5 text-softform-text-secondary border border-softform-navy-900/10'
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-1">
       <div className={clsx(
-        'flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl px-5 py-3 text-xs font-medium',
-        isWorkspace ? 'bg-softform-amber-200/20 text-softform-amber-700' : 'bg-blue-50/70 text-softform-text-secondary'
+        'inline-flex flex-wrap items-center gap-x-2 rounded-lg px-3 py-1 text-[11px] font-semibold',
+        containerBg
       )}>
-        <span className="flex items-center gap-1.5">
-          <span className="opacity-60">Source:</span>
-          <span className="font-semibold">{source.label}</span>
+        <span>
+          Source: <span className="font-bold">{source.label}</span>
+          {source.asOf && ` · As of ${source.asOf}`}
+          {source.freshness && ` · ${source.freshness}`}
         </span>
-        
-        {source.asOf ? (
-          <span className="flex items-center gap-1.5">
-            <span className="opacity-60">As of:</span>
-            <span className="font-semibold">{source.asOf}</span>
-          </span>
-        ) : source.label.toLowerCase().includes('unavailable') || source.label.toLowerCase().includes('fallback') ? (
-          <span className="font-semibold text-softform-amber-800">
-            Backend unavailable
-          </span>
-        ) : null}
-        
-        {source.freshness && (
-          <span className="text-xs opacity-50">{source.freshness}</span>
-        )}
       </div>
 
-      {hasWarnings && (
+      {hasWarnings && !compact && (
         <div className={clsx(
-          'rounded-2xl border px-5 py-3 text-xs leading-relaxed',
-          isWorkspace 
-            ? 'border-softform-amber-200/60 bg-softform-amber-200/10 text-softform-amber-800'
-            : 'border-blue-200/60 bg-blue-50/60 text-softform-text-secondary'
+          'text-[10px] leading-relaxed max-w-2xl mt-1 opacity-75 pl-1',
+          isFallback ? 'text-amber-800 font-semibold' : 'text-softform-text-muted'
         )}>
           {source.warnings!.map((w, idx) => (
-            <p key={idx} className={idx > 0 ? 'mt-1 opacity-70' : ''}>
+            <span key={idx} className="block">
               {w}
-            </p>
+            </span>
           ))}
         </div>
       )}
     </div>
   )
 }
+

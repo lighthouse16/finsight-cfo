@@ -66,7 +66,7 @@ export default function SourceStatusPanel({ sources }: SourceStatusPanelProps) {
   return (
     <div className="softform-card rounded-[24px] p-6">
       <h3 className="mb-4 text-sm font-semibold text-softform-navy-900 uppercase tracking-wider">
-        Integration Readiness
+        Integration Status
       </h3>
       <div className="flex flex-col gap-4">
         {sources.map((item, i) => {

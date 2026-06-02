@@ -1,6 +1,7 @@
 import clsx from 'clsx'
 import { SectorBenchmarkItem, SectorSourceInfo, CompanyProfile } from '../types'
 import SoftBarChart from './SoftBarChart'
+import SourceBanner from './SourceBanner'
 
 type SectorBenchmarksTabProps = {
   benchmarks: SectorBenchmarkItem[]
@@ -23,14 +24,7 @@ export default function SectorBenchmarksTab({
     )
   }
 
-  const seedFallback =
-    sectorSource.isFallback ||
-    sectorSource.warnings.some(
-      (w) =>
-        w.includes('Backend unavailable') ||
-        w.includes('seed data') ||
-        w.includes('fixture-backed'),
-    )
+
 
   const selectedSector = sectorSource.selectedSector
   const sectorHealth = sectorSource.sectorHealth
@@ -39,45 +33,14 @@ export default function SectorBenchmarksTab({
 
   return (
     <div className="space-y-8">
-      {/* Source & freshness banner */}
-      <div
-        className={clsx(
-          'flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl px-5 py-3 text-xs font-medium',
-          seedFallback
-            ? 'bg-softform-amber-200/20 text-softform-amber-700'
-            : 'bg-blue-50/70 text-softform-text-secondary',
-        )}
-      >
-        <span className="flex items-center gap-1.5">
-          <span className="opacity-60">Source:</span>
-          <span className="font-semibold">{sectorSource.label}</span>
-        </span>
-        {sectorSource.asOf && (
-          <span className="flex items-center gap-1.5">
-            <span className="opacity-60">As of:</span>
-            <span className="font-semibold">{sectorSource.asOf}</span>
-          </span>
-        )}
-        <span className="text-xs opacity-50">{sectorSource.freshness}</span>
-      </div>
-
-      {/* Warnings Banner */}
-      {sectorSource.warnings && sectorSource.warnings.length > 0 && (
-        <div
-          className={clsx(
-            'rounded-2xl border px-5 py-3 text-xs leading-relaxed',
-            seedFallback
-              ? 'border-softform-amber-200/60 bg-softform-amber-200/10 text-softform-amber-800'
-              : 'border-blue-200/60 bg-blue-50/60 text-softform-text-secondary',
-          )}
-        >
-          {sectorSource.warnings.map((w, idx) => (
-            <p key={idx} className={idx > 0 ? 'mt-1 opacity-70' : ''}>
-              {w}
-            </p>
-          ))}
-        </div>
-      )}
+      <SourceBanner
+        source={{
+          label: sectorSource.label,
+          asOf: sectorSource.asOf,
+          freshness: sectorSource.freshness,
+          warnings: sectorSource.warnings,
+        }}
+      />
 
       {/* Main panel */}
       <div className="softform-panel rounded-[28px] p-6 sm:p-8">
@@ -165,16 +128,16 @@ export default function SectorBenchmarksTab({
               {benchmarks.map((benchmark) => (
                 <div
                   key={benchmark.id}
-                  className="rounded-2xl border border-white/50 bg-[linear-gradient(145deg,rgba(255,255,255,0.7),rgba(234,247,244,0.5))] p-6 shadow-sm flex flex-col justify-between"
+                  className="rounded-2xl border border-white/50 bg-[linear-gradient(145deg,rgba(255,255,255,0.7),rgba(234,247,244,0.5))] p-5 shadow-sm flex flex-col justify-between"
                 >
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-semibold text-softform-text-muted">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-bold text-softform-text-secondary">
                         {benchmark.label}
                       </span>
                       <span
                         className={clsx(
-                          'rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider',
+                          'rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider',
                           benchmark.severity === 'Positive'
                             ? 'bg-softform-emerald-soft/10 text-emerald-700'
                             : benchmark.severity === 'Caution'
@@ -186,39 +149,58 @@ export default function SectorBenchmarksTab({
                       </span>
                     </div>
                     {profile ? (
-                      <div className="mb-2 flex items-baseline gap-3">
+                      <div className="mb-2 flex items-baseline justify-between border-b border-softform-navy-950/5 pb-2">
                         <div>
-                          <p className="text-[10px] uppercase font-bold text-softform-teal-deep">Company</p>
-                          <div className="text-2xl font-bold text-softform-navy-950 tracking-tight">
-                            {benchmark.id === 'dso' && `${profile.dsoDays} days`}
-                            {benchmark.id === 'dio' && `${profile.inventoryDays} days`}
-                            {benchmark.id === 'dpo' && `${profile.dpoDays} days`}
+                          <p className="text-[9px] uppercase font-bold text-softform-teal-deep tracking-wider">Company</p>
+                          <div className="text-2xl font-extrabold text-softform-navy-950 tracking-tight">
+                            {benchmark.id === 'dso' && `${profile.dsoDays}d`}
+                            {benchmark.id === 'dio' && `${profile.inventoryDays}d`}
+                            {benchmark.id === 'dpo' && `${profile.dpoDays}d`}
                             {benchmark.id === 'gross-margin' && `${profile.grossMarginPercent}%`}
                             {benchmark.id === 'documentation-readiness' && '85%'}
                           </div>
                         </div>
-                        <div className="h-6 w-px bg-softform-navy-900/10 self-center" />
-                        <div>
-                          <p className="text-[10px] uppercase font-bold text-softform-text-muted">Sector</p>
-                          <div className="text-sm font-semibold text-softform-text-secondary">
-                            {benchmark.displayValue}
+                        <div className="text-right">
+                          <p className="text-[9px] uppercase font-bold text-softform-text-muted tracking-wider">Sector</p>
+                          <div className="text-sm font-bold text-softform-text-secondary">
+                            {benchmark.id === 'dso' && '45d'}
+                            {benchmark.id === 'dio' && '60d'}
+                            {benchmark.id === 'dpo' && '50d'}
+                            {benchmark.id === 'gross-margin' && '18.5%'}
+                            {benchmark.id === 'documentation-readiness' && '90%'}
                           </div>
                         </div>
                       </div>
                     ) : (
                       <>
-                        <div className="text-2xl font-bold text-softform-navy-950 tracking-tight mb-2">
+                        <div className="text-xl font-bold text-softform-navy-950 tracking-tight mb-1">
                           {benchmark.displayValue}
                         </div>
-                        <div className="text-[10px] italic text-softform-text-muted mb-2">
+                        <div className="text-[9px] italic text-softform-text-muted mb-2 border-b border-softform-navy-950/5 pb-2">
                           {benchmark.comparison}
                         </div>
                       </>
                     )}
                   </div>
-                  <p className="text-xs text-softform-text-secondary leading-relaxed border-t border-softform-text-muted/5 pt-2">
-                    {benchmark.context}
-                  </p>
+                  {(() => {
+                    let shortContext = benchmark.context
+                    if (benchmark.id === 'dso') {
+                      shortContext = "Receivables cycle slightly elevated. Maintain collection discipline."
+                    } else if (benchmark.id === 'dio') {
+                      shortContext = "Inventory turnaround stable. Monitor storage and holding costs."
+                    } else if (benchmark.id === 'dpo') {
+                      shortContext = "Leverage supplier payment terms to match receivables cycles."
+                    } else if (benchmark.id === 'gross-margin') {
+                      shortContext = "Input cost pressure watch on raw components."
+                    } else if (benchmark.id === 'documentation-readiness') {
+                      shortContext = "Invoice records complete; declarations pending final review."
+                    }
+                    return (
+                      <p className="text-xs text-softform-text-secondary leading-relaxed opacity-95">
+                        {shortContext}
+                      </p>
+                    )
+                  })()}
                 </div>
               ))}
             </div>
@@ -277,29 +259,29 @@ export default function SectorBenchmarksTab({
         </div>
 
         {/* Source status list */}
-        <div className="softform-navy-card rounded-[28px] p-6 sm:p-8 text-white flex flex-col justify-between">
+        <div className="softform-card rounded-[28px] p-6 flex flex-col justify-between text-softform-navy-950">
           <div>
-            <h3 className="mb-4 text-base font-bold">Integration Status</h3>
-            <p className="mb-6 text-xs leading-relaxed text-white/80">
+            <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-softform-navy-900">Integration Status</h3>
+            <p className="mb-4 text-xs leading-relaxed text-softform-text-secondary">
               Connection health for metrics and benchmark data sources.
             </p>
-            <div className="space-y-3">
+            <div className="space-y-2">
               {sourceStatus.map((src) => (
                 <div
                   key={src.id}
-                  className="flex items-center justify-between rounded-lg bg-white/5 p-2 text-xs border border-white/5"
+                  className="flex items-center justify-between rounded-lg bg-softform-navy-900/5 p-2 text-xs border border-softform-navy-950/5"
                 >
-                  <span className="font-medium text-white/90">{src.label}</span>
+                  <span className="font-semibold text-softform-navy-900">{src.label}</span>
                   <span
                     className={clsx(
                       'rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider',
                       src.status === 'connected' &&
-                        'bg-softform-emerald-soft/20 text-softform-emerald-soft',
-                      src.status === 'seed_data' && 'bg-blue-500/20 text-blue-300',
+                        'bg-softform-emerald-soft/10 text-emerald-700',
+                      src.status === 'seed_data' && 'bg-softform-navy-900/10 text-softform-text-secondary',
                       src.status === 'requires_backend' &&
-                        'bg-softform-amber-500/20 text-softform-amber-300',
+                        'bg-softform-amber-200/20 text-softform-amber-700',
                       src.status === 'requires_company_data' &&
-                        'bg-purple-500/20 text-purple-300',
+                        'bg-purple-100 text-purple-700',
                     )}
                   >
                     {src.status.replace(/_/g, ' ')}
@@ -308,9 +290,8 @@ export default function SectorBenchmarksTab({
               ))}
             </div>
           </div>
-          <div className="mt-6 text-[10px] text-white/40 italic">
+          <div className="mt-4 text-[10px] text-softform-text-muted italic leading-normal">
             *Regional averages and benchmarks represent contextual indicators.
-            Regional averages may vary.
           </div>
         </div>
       </div>

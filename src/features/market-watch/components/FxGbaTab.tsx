@@ -2,6 +2,7 @@ import { ArrowDownRight, ArrowRight, ArrowUpRight } from 'lucide-react'
 import { ExposureNote, FxPair, GbaFundingSignal, CompanyProfile } from '../types'
 import { FxSourceInfo } from '../MarketWatchPage'
 import clsx from 'clsx'
+import SourceBanner from './SourceBanner'
 
 type FxGbaTabProps = {
   fxPairs: FxPair[]
@@ -18,59 +19,19 @@ export default function FxGbaTab({
   fxSource,
   profile,
 }: FxGbaTabProps) {
-  const seedFallback = fxSource?.warnings.some(
-    (w) =>
-      w.includes('Backend unavailable') ||
-      w.includes('seed data') ||
-      w.includes('fixture-backed'),
-  )
+
 
   return (
     <div className="space-y-8">
-      {/* Source & freshness banner */}
       {fxSource && (
-        <div
-          className={clsx(
-            'flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl px-5 py-3 text-xs font-medium',
-            seedFallback
-              ? 'bg-softform-amber-200/20 text-softform-amber-700'
-              : 'bg-blue-50/70 text-softform-text-secondary',
-          )}
-        >
-          <span className="flex items-center gap-1.5">
-            <span className="opacity-60">Source:</span>
-            <span className="font-semibold">{fxSource.label}</span>
-          </span>
-          {fxSource.asOf ? (
-            <span className="flex items-center gap-1.5">
-              <span className="opacity-60">As of:</span>
-              <span className="font-semibold">{fxSource.asOf}</span>
-            </span>
-          ) : (
-            <span className="font-semibold text-softform-amber-800">
-              Backend unavailable
-            </span>
-          )}
-          <span className="text-xs opacity-50">{fxSource.freshness}</span>
-        </div>
-      )}
-
-      {/* Warnings / Seed Fallback message */}
-      {fxSource?.warnings && fxSource.warnings.length > 0 && (
-        <div
-          className={clsx(
-            'rounded-2xl border px-5 py-3 text-xs leading-relaxed',
-            seedFallback
-              ? 'border-softform-amber-200/60 bg-softform-amber-200/10 text-softform-amber-800'
-              : 'border-blue-200/60 bg-blue-50/60 text-softform-text-secondary',
-          )}
-        >
-          {fxSource.warnings.map((w, idx) => (
-            <p key={idx} className={idx > 0 ? 'mt-1 opacity-70' : ''}>
-              {w}
-            </p>
-          ))}
-        </div>
+        <SourceBanner
+          source={{
+            label: fxSource.label,
+            asOf: fxSource.asOf,
+            freshness: fxSource.freshness,
+            warnings: fxSource.warnings,
+          }}
+        />
       )}
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -122,7 +83,15 @@ export default function FxGbaTab({
               GBA Watch Signals
             </h3>
             <div className="flex flex-col gap-3">
-              {exposureNotes.map((note) => (
+              {(profile 
+                ? [
+                    { id: 'import', category: 'Import', note: 'Import: 72% import costs are USD-linked.' },
+                    { id: 'supplier', category: 'Supplier Payables', note: 'Supplier payables: 38% supplier payables are CNY-linked.' },
+                    { id: 'repatriation', category: 'Repatriation', note: 'Repatriation: Monitor only if onshore receivables increase.' },
+                    { id: 'volatility', category: 'Volatility', note: 'Volatility: Track landed-cost variance.' },
+                  ]
+                : exposureNotes
+              ).map((note) => (
                 <div
                   key={note.id}
                   className="rounded-xl bg-white/40 border border-white/50 p-4 shadow-sm"
