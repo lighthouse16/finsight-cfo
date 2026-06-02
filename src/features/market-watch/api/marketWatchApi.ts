@@ -12,6 +12,7 @@ import {
 } from '../data/marketWatchSeed'
 import {
   CommodityExposure,
+  ExposureNote,
   FxPair,
   GbaFundingSignal,
   LiquidityEvent,
@@ -68,6 +69,39 @@ type BackendRatesLiquidityResponse = {
   liquidityEvents: BackendLiquidityEvent[]
 }
 
+type BackendFxPair = {
+  id: string
+  pair: string
+  value: number | null
+  unit: string
+  displayValue: string
+  trend: 'up' | 'down' | 'flat' | 'unknown'
+  changePips: number | null
+  context: string
+  sourceTimestamp: string | null
+}
+
+type BackendGbaFundingSignal = {
+  id: string
+  title: string
+  description: string
+  severity: 'Neutral' | 'Caution' | 'High' | 'Positive'
+}
+
+type BackendExposureNote = {
+  id: string
+  category: string
+  note: string
+  severity: 'Neutral' | 'Caution' | 'High' | 'Positive'
+}
+
+type BackendFxGbaResponse = {
+  metadata: BackendResponseMetadata
+  fxPairs: BackendFxPair[]
+  gbaFundingSignal: BackendGbaFundingSignal[]
+  exposureNotes: BackendExposureNote[]
+}
+
 // ------------------------------------------------------------------
 // Adapter
 // ------------------------------------------------------------------
@@ -98,6 +132,33 @@ function adaptLiquidityEvent(
     date: backend.date,
     event: backend.event,
     impact: backend.impact,
+    severity: backend.severity,
+  }
+}
+
+function adaptFxPair(backend: BackendFxPair): FxPair {
+  return {
+    pair: backend.pair,
+    rate: backend.displayValue,
+    trend: backend.trend === 'unknown' ? 'flat' : backend.trend,
+    context: backend.context,
+  }
+}
+
+function adaptGbaSignal(backend: BackendGbaFundingSignal): GbaFundingSignal {
+  return {
+    id: backend.id,
+    title: backend.title,
+    description: backend.description,
+    severity: backend.severity,
+  }
+}
+
+function adaptExposureNote(backend: BackendExposureNote): ExposureNote {
+  return {
+    id: backend.id,
+    category: backend.category,
+    note: backend.note,
     severity: backend.severity,
   }
 }
@@ -170,11 +231,48 @@ export async function getMarketOverview(): Promise<{
 export async function getFxGba(): Promise<{
   fxPairs: FxPair[]
   gbaSignals: GbaFundingSignal[]
+  exposureNotes?: ExposureNote[]
+  fxSource?: {
+    label: string
+    asOf: string | null
+    warnings: string[]
+  }
 }> {
-  await delay(300)
-  return {
-    fxPairs: seedFxPairs,
-    gbaSignals: seedGbaSignals,
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/api/market-watch/fx-gba`,
+      { signal: AbortSignal.timeout(5000) },
+    )
+
+    if (!res.ok) {
+      throw new Error(`Backend returned ${res.status}`)
+    }
+
+    const body: BackendFxGbaResponse = await res.json()
+
+    return {
+      fxPairs: body.fxPairs.map(adaptFxPair),
+      gbaSignals: body.gbaFundingSignal.map(adaptGbaSignal),
+      exposureNotes: body.exposureNotes.map(adaptExposureNote),
+      fxSource: {
+        label: body.metadata.source.name,
+        asOf: body.metadata.asOf,
+        warnings: body.metadata.warnings ?? [],
+      },
+    }
+  } catch {
+    await delay(300)
+    return {
+      fxPairs: seedFxPairs,
+      gbaSignals: seedGbaSignals,
+      fxSource: {
+        label: 'Workspace Seed Data',
+        asOf: null,
+        warnings: [
+          'Backend unavailable. Using workspace seed data.',
+        ],
+      },
+    }
   }
 }
 

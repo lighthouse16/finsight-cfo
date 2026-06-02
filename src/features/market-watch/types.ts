@@ -59,6 +59,13 @@ export type GbaFundingSignal = {
   severity: SignalSeverity
 }
 
+export type ExposureNote = {
+  id: string
+  category: string
+  note: string
+  severity: SignalSeverity
+}
+
 export type SectorBenchmark = {
   sector: string
   healthScore: number // 0-100

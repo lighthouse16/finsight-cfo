@@ -21,6 +21,7 @@ import SectorBenchmarksTab from './components/SectorBenchmarksTab'
 import StressSignalsTab from './components/StressSignalsTab'
 import {
   CommodityExposure,
+  ExposureNote,
   FxPair,
   GbaFundingSignal,
   LiquidityEvent,
@@ -33,6 +34,12 @@ import {
 } from './types'
 
 export type RatesSourceInfo = {
+  label: string
+  asOf: string | null
+  warnings: string[]
+}
+
+export type FxSourceInfo = {
   label: string
   asOf: string | null
   warnings: string[]
@@ -53,6 +60,8 @@ export default function MarketWatchPage() {
   })
   const [fxPairs, setFxPairs] = useState<FxPair[]>([])
   const [gbaSignals, setGbaSignals] = useState<GbaFundingSignal[]>([])
+  const [exposureNotes, setExposureNotes] = useState<ExposureNote[]>([])
+  const [fxSource, setFxSource] = useState<FxSourceInfo | null>(null)
   const [benchmarks, setBenchmarks] = useState<SectorBenchmark[]>([])
   const [commodities, setCommodities] = useState<CommodityExposure[]>([])
   const [scenarios, setScenarios] = useState<StressScenario[]>([])
@@ -90,6 +99,12 @@ export default function MarketWatchPage() {
         }
         setFxPairs(fx.fxPairs)
         setGbaSignals(fx.gbaSignals)
+        if (fx.exposureNotes) {
+          setExposureNotes(fx.exposureNotes)
+        }
+        if (fx.fxSource) {
+          setFxSource(fx.fxSource)
+        }
         setBenchmarks(sectors.benchmarks)
         setCommodities(comms.commodities)
         setScenarios(stress.scenarios)
@@ -164,7 +179,12 @@ export default function MarketWatchPage() {
               />
             )}
             {activeTab === 'fx' && (
-              <FxGbaTab fxPairs={fxPairs} gbaSignals={gbaSignals} />
+              <FxGbaTab
+                fxPairs={fxPairs}
+                gbaSignals={gbaSignals}
+                exposureNotes={exposureNotes}
+                fxSource={fxSource}
+              />
             )}
             {activeTab === 'sectors' && (
               <SectorBenchmarksTab benchmarks={benchmarks} />
