@@ -56,6 +56,8 @@ Alternatively, set `MARKET_WATCH_USE_FIXTURES=true` in `backend/.env`.
 | GET | `/health` | Health check |
 | GET | `/api/market-watch/rates-liquidity` | Rates & liquidity data |
 | GET | `/api/market-watch/fx-gba` | FX & GBA data (fixture-backed, provider pending) |
+| GET | `/api/market-watch/sector-benchmarks` | Sector Benchmarks data (fixture-backed, production provider pending) |
+
 
 ### Test
 
@@ -75,4 +77,12 @@ Run after making changes to catch syntax errors:
 
 ```powershell
 .\.venv\Scripts\python.exe -m compileall app
+```
+
+## Run Tests
+
+Run pytest to verify backend endpoints:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest
 ```

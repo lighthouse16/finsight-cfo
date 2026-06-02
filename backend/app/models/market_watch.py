@@ -97,3 +97,63 @@ class FxGbaResponse(BaseModel):
     gbaFundingSignal: List[GbaFundingSignal]
     exposureNotes: List[ExposureNote]
     sourceStatus: List[SourceStatusItem]
+
+
+class SelectedSector(BaseModel):
+    id: str
+    name: str
+    code: Optional[str] = None
+    geography: str
+    description: str
+
+
+class SectorHealthComponent(BaseModel):
+    label: str
+    value: Optional[float] = None
+    unit: Literal["index", "percent", "text"]
+    displayValue: str
+    context: str
+
+
+class SectorHealthComponents(BaseModel):
+    pmi: Optional[SectorHealthComponent] = None
+    exportGrowth: Optional[SectorHealthComponent] = None
+    industrialProduction: Optional[SectorHealthComponent] = None
+    marginContext: Optional[SectorHealthComponent] = None
+
+
+class SectorHealth(BaseModel):
+    score: Optional[float] = None
+    label: str
+    severity: SignalSeverity
+    components: SectorHealthComponents
+
+
+class SectorBenchmark(BaseModel):
+    id: str
+    label: str
+    value: Optional[float] = None
+    unit: Literal["days", "percent", "ratio", "index"]
+    displayValue: str
+    comparison: str
+    context: str
+    severity: SignalSeverity
+    sourceTimestamp: Optional[str] = None
+
+
+class SectorWatchSignal(BaseModel):
+    id: str
+    title: str
+    description: str
+    affectedArea: str
+    severity: SignalSeverity
+
+
+class SectorBenchmarksResponse(BaseModel):
+    metadata: ResponseMetadata
+    selectedSector: SelectedSector
+    sectorHealth: SectorHealth
+    benchmarks: List[SectorBenchmark]
+    watchSignals: List[SectorWatchSignal]
+    sourceStatus: List[SourceStatusItem]
+

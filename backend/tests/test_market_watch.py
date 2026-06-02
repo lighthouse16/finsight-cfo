@@ -60,3 +60,77 @@ def test_fx_gba():
     assert "realtime" not in response_text_lower
     assert "source-fresh" not in response_text_lower
     assert "source_fresh" not in response_text_lower
+
+
+def test_sector_benchmarks():
+    # 1. Test default query
+    response = client.get("/api/market-watch/sector-benchmarks")
+    assert response.status_code == 200
+    
+    data = response.json()
+    
+    # Assert presence of key fields
+    assert "metadata" in data
+    assert "selectedSector" in data
+    assert "sectorHealth" in data
+    assert "benchmarks" in data
+    assert "watchSignals" in data
+    assert "sourceStatus" in data
+    
+    # Verify metadata fields
+    metadata = data["metadata"]
+    assert metadata["source"]["provider"] == "Fixture"
+    assert isinstance(metadata["warnings"], list)
+    assert len(metadata["warnings"]) > 0
+    assert "fixture-backed" in metadata["warnings"][0].lower()
+    
+    # Verify default sector
+    selected_sector = data["selectedSector"]
+    assert selected_sector["id"] == "trading-distribution"
+    assert selected_sector["name"] == "Trading & Distribution"
+    assert selected_sector["geography"] == "HK"
+    assert selected_sector["code"] == "HK-SME-TRD"
+    
+    # Verify benchmarks and watch signals
+    benchmarks = data["benchmarks"]
+    assert isinstance(benchmarks, list)
+    assert len(benchmarks) >= 3
+    # Check DSO, DIO, DPO
+    labels = [b["label"] for b in benchmarks]
+    assert "Days Sales Outstanding" in labels
+    assert "Inventory Days" in labels
+    assert "Days Payable Outstanding" in labels
+    
+    watch_signals = data["watchSignals"]
+    assert isinstance(watch_signals, list)
+    assert len(watch_signals) >= 3
+    
+    # Verify sourceStatus includes seed_data
+    source_status = data["sourceStatus"]
+    assert isinstance(source_status, list)
+    statuses = [s["status"] for s in source_status]
+    assert "seed_data" in statuses
+    
+    # Ensure no response text claims realtime/source-fresh/approved/certified
+    response_text_lower = response.text.lower()
+    assert "realtime" not in response_text_lower
+    assert "source-fresh" not in response_text_lower
+    assert "source_fresh" not in response_text_lower
+    assert "approved" not in response_text_lower
+    assert "certified" not in response_text_lower
+    
+    # 2. Test electronics-import custom query
+    response_custom = client.get("/api/market-watch/sector-benchmarks?sector=electronics-import&geography=CN")
+    assert response_custom.status_code == 200
+    data_custom = response_custom.json()
+    
+    selected_sector_custom = data_custom["selectedSector"]
+    assert selected_sector_custom["id"] == "electronics-import"
+    assert selected_sector_custom["name"] == "Electronics Import"
+    assert selected_sector_custom["geography"] == "CN"
+    assert selected_sector_custom["code"] == "HK-SME-ELC"
+    
+    # Check that component display value is correctly fetched
+    sector_health_custom = data_custom["sectorHealth"]
+    assert sector_health_custom["components"]["pmi"]["displayValue"] == "52.4"
+
