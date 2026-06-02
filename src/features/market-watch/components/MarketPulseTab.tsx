@@ -49,7 +49,7 @@ export default function MarketPulseTab({
           <ul className="space-y-3 text-sm font-medium">
             <li className="flex items-start gap-2">
               <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-softform-amber-400" />
-              <span>Sustained HIBOR elevation impacting unhedged facilities.</span>
+              <span>HIBOR movement remains a key watch item for floating-rate facilities.</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-softform-teal-400" />

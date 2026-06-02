@@ -54,9 +54,9 @@ export const seedMarketSignals: MarketSignal[] = [
   {
     id: 'signal-1',
     category: 'Rates',
-    title: 'HIBOR Persistence',
-    description: '1M HIBOR remains elevated above 4.5%, directly impacting floating-rate debt service capacity.',
-    severity: 'High',
+    title: 'HIBOR Watch',
+    description: 'HIBOR movement remains a key watch item for floating-rate facilities.',
+    severity: 'Caution',
     cfoQuestion: 'Is our cash buffer sufficient for 6 months if rates do not cut as expected?',
     affectedArea: 'Debt Service',
     timestamp: 'Today, 09:00',

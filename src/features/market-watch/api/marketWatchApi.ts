@@ -23,8 +23,138 @@ import {
   StressScenario,
 } from '../types'
 
-// Simulate network delay
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000'
+
+// Simulate network delay for seed-only paths
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+// ------------------------------------------------------------------
+// Backend response types (only for adapter, not exported)
+// ------------------------------------------------------------------
+type BackendRateSnapshot = {
+  id: string
+  label: string
+  tenor: string
+  value: number | null
+  unit: string
+  displayValue: string
+  changeBasisPoints: number | null
+  trend: 'up' | 'down' | 'flat' | 'unknown'
+  context: string
+  sourceTimestamp: string | null
+}
+
+type BackendResponseMetadata = {
+  asOf: string | null
+  fetchedAt: string
+  freshness: string
+  isStale: boolean
+  source: { provider: string; name: string; url?: string }
+  warnings: string[]
+}
+
+type BackendLiquidityEvent = {
+  id: string
+  date: string
+  event: string
+  impact: string
+  severity: 'Neutral' | 'Caution' | 'High' | 'Positive'
+}
+
+type BackendRatesLiquidityResponse = {
+  metadata: BackendResponseMetadata
+  rates: BackendRateSnapshot[]
+  liquidityEvents: BackendLiquidityEvent[]
+}
+
+// ------------------------------------------------------------------
+// Adapter
+// ------------------------------------------------------------------
+function adaptRate(backend: BackendRateSnapshot): RateSnapshot {
+  const formattedValue = (() => {
+    const match = backend.displayValue.match(/^([\d.]+)/)
+    if (match) {
+      const num = parseFloat(match[1])
+      return `${num.toFixed(2)}%`
+    }
+    return backend.displayValue
+  })()
+
+  return {
+    label: backend.label,
+    value: formattedValue,
+    changeBasisPoints: backend.changeBasisPoints ?? 0,
+    trend: backend.trend === 'unknown' ? 'flat' : backend.trend,
+    context: backend.context,
+  }
+}
+
+function adaptLiquidityEvent(
+  backend: BackendLiquidityEvent,
+): LiquidityEvent {
+  return {
+    id: backend.id,
+    date: backend.date,
+    event: backend.event,
+    impact: backend.impact,
+    severity: backend.severity,
+  }
+}
+
+// ------------------------------------------------------------------
+// Exported API functions
+// ------------------------------------------------------------------
+
+export async function getRatesLiquidity(): Promise<{
+  rates: RateSnapshot[]
+  liquidityEvents: LiquidityEvent[]
+  ratesSource?: {
+    label: string
+    asOf: string | null
+    warnings: string[]
+  }
+}> {
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/api/market-watch/rates-liquidity`,
+      { signal: AbortSignal.timeout(5000) },
+    )
+
+    if (!res.ok) {
+      throw new Error(`Backend returned ${res.status}`)
+    }
+
+    const body: BackendRatesLiquidityResponse = await res.json()
+
+    const rates = body.rates.map(adaptRate)
+    const liquidityEvents = body.liquidityEvents.map(adaptLiquidityEvent)
+
+    return {
+      rates,
+      liquidityEvents,
+      ratesSource: {
+        label: body.metadata.source.name,
+        asOf: body.metadata.asOf,
+        warnings: body.metadata.warnings ?? [],
+      },
+    }
+  } catch {
+    // Fallback to seed data when backend is unavailable
+    await delay(300)
+    return {
+      rates: seedRateSnapshots,
+      liquidityEvents: seedLiquidityEvents,
+      ratesSource: {
+        label: 'Workspace Seed Data',
+        asOf: null,
+        warnings: [
+          'Backend unavailable. Using workspace seed data.',
+        ],
+      },
+    }
+  }
+}
 
 export async function getMarketOverview(): Promise<{
   metrics: MarketMetric[]
@@ -34,17 +164,6 @@ export async function getMarketOverview(): Promise<{
   return {
     metrics: seedMarketMetrics,
     signals: seedMarketSignals,
-  }
-}
-
-export async function getRatesLiquidity(): Promise<{
-  rates: RateSnapshot[]
-  liquidityEvents: LiquidityEvent[]
-}> {
-  await delay(300)
-  return {
-    rates: seedRateSnapshots,
-    liquidityEvents: seedLiquidityEvents,
   }
 }
 

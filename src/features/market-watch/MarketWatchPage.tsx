@@ -32,6 +32,12 @@ import {
   StressScenario,
 } from './types'
 
+export type RatesSourceInfo = {
+  label: string
+  asOf: string | null
+  warnings: string[]
+}
+
 export default function MarketWatchPage() {
   const [activeTab, setActiveTab] = useState<TabId>('pulse')
 
@@ -40,6 +46,11 @@ export default function MarketWatchPage() {
   const [signals, setSignals] = useState<MarketSignal[]>([])
   const [rates, setRates] = useState<RateSnapshot[]>([])
   const [liquidityEvents, setLiquidityEvents] = useState<LiquidityEvent[]>([])
+  const [ratesSource, setRatesSource] = useState<RatesSourceInfo>({
+    label: 'Market sources',
+    asOf: null,
+    warnings: [],
+  })
   const [fxPairs, setFxPairs] = useState<FxPair[]>([])
   const [gbaSignals, setGbaSignals] = useState<GbaFundingSignal[]>([])
   const [benchmarks, setBenchmarks] = useState<SectorBenchmark[]>([])
@@ -74,6 +85,9 @@ export default function MarketWatchPage() {
         setSignals(overview.signals)
         setRates(ratesLiq.rates)
         setLiquidityEvents(ratesLiq.liquidityEvents)
+        if (ratesLiq.ratesSource) {
+          setRatesSource(ratesLiq.ratesSource)
+        }
         setFxPairs(fx.fxPairs)
         setGbaSignals(fx.gbaSignals)
         setBenchmarks(sectors.benchmarks)
@@ -146,6 +160,7 @@ export default function MarketWatchPage() {
               <RatesLiquidityTab
                 rates={rates}
                 liquidityEvents={liquidityEvents}
+                ratesSource={ratesSource}
               />
             )}
             {activeTab === 'fx' && (
