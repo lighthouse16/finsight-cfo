@@ -83,3 +83,21 @@ This document audits current copy blocks and data presentation elements across M
   * Renders status of company records (connected, required, partial).
 * **Actionable / Hardcoded Copy to Replace**:
   * Status mappings are static. Mappings must match API responses exactly and change labels dynamically depending on the profile.
+
+---
+
+## 10. Rule Engine Coverage
+
+The pure TypeScript insight rules engine implemented in `src/features/market-watch/insights/rules/` and coordinated by `buildMarketWatchInsights.ts` dynamically generates the following content:
+
+* **Executive Cards**:
+  * Funding Conditions (Resilient/Moderate/Tight based on Cash / Debt Service ratio)
+  * Rate Pressure (Sensitivity based on active HIBOR-linked debt)
+  * Sector Health / Receivables (Operational DSO comparison against benchmark averages)
+  * FX / GBA (High CNY/USD supplier invoice concentrations)
+* **Market Pulse Priorities**: Evaluates all rule takeaways, filtering and sorting them by severity (`High`, `Caution`, `Neutral`, `Positive`) into `executivePriorities`.
+* **Rates Takeaway**: Evaluates whether corporate debt exists and flags sensitivity to HIBOR movement.
+* **FX Takeaway/Watch Signals**: Identifies USD import cost concentrations and CNY contract exposures.
+* **Sector Interpretation**: Automatically flags DSO, DIO, DPO, and gross margin deviations from industry benchmarks.
+* **Commodities Relevance**: Selects active commodities (e.g. Copper, Brent, Freight) based on sector (Electronics vs Manufacturing) and gross margin status, marking soft commodities (e.g., Cotton) as low relevance.
+* **Stress Priority Scenarios**: Generates Rate Shock, Receivables Delay, FX Depreciation, and Liquidity Squeeze scenarios with `requires_company_data` or `context_only` status based on active record connection flags.

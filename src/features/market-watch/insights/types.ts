@@ -53,4 +53,34 @@ export interface MarketWatchInsight {
   sourceRefs: string[]
   requiresCompanyData: boolean
   confidence: 'high' | 'medium' | 'low'
+  status?: 'context_only' | 'requires_company_data' | 'ready_for_model'
 }
+
+export interface ExecutiveSignal {
+  id: string
+  label: string
+  value: string
+  status: string
+  severity: 'Positive' | 'Neutral' | 'Caution' | 'High'
+  description: string
+  sourceRefs: string[]
+  metricRefs: string[]
+}
+
+export interface TabInsightSet {
+  takeaway: MarketWatchInsight | null
+  watchSignals: MarketWatchInsight[]
+  supportingInsights: MarketWatchInsight[]
+}
+
+export interface MarketWatchInsightSet {
+  executivePriorities: MarketWatchInsight[]
+  executiveCards: ExecutiveSignal[]
+  rates: TabInsightSet
+  fx: TabInsightSet
+  sector: TabInsightSet
+  commodities: TabInsightSet
+  stress: TabInsightSet
+  generatedAt: string
+}
+
