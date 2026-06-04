@@ -42,3 +42,21 @@ Visual implementation must not change:
 - waitlist behavior
 - product positioning
 - footer disclaimer
+
+## Recent Patterns & Layout Enhancements
+
+### 1. Source Provenance Tooltip Pattern
+- **Access over clutter**: Data sources, as-of dates, and freshness markers must live inside header-adjacent info tooltips (`SourceInfoTooltip.tsx`), not as visible canvas banners or primary chips.
+- **Wording**: Use clean user-facing terms in tooltips: *Workspace-derived*, *Context-only*, *Provider not configured*, *Source pending*, *Company records required*.
+
+### 2. Vertical Flow Redesign (Rates, FX, and GBA)
+- **Vertical Hierarchy**: Avoid right-sidebar grids that create awkward whitespace. Use a full-width vertical layout: (A) macro rates/pairs cards, (B) compact horizontal company exposure strips, (C) detail/watch grids.
+- **Secondary calculations**: If data model context is not fully ready (e.g., *Funding Window*), hide the large container entirely and list requirements in a small footnote.
+
+### 3. Cohesive Motion System
+- **Timing & Easing**: 
+  - Standard ease: `cubic-bezier(0.22, 1, 0.36, 1)` (duration 220-300ms)
+  - Exit ease: `cubic-bezier(0.4, 0, 0.2, 1)` (duration 120-160ms)
+- **Shared Layouts**: Active tab capsules must slide smoothly using shared layout animations (`layoutId="activeTabPill"`).
+- **Reduced Motion**: Respect system preferences by removing staggers and translate displacements when `prefers-reduced-motion` is active.
+

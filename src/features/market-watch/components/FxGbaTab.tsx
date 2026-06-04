@@ -2,8 +2,11 @@ import { ArrowDownRight, ArrowRight, ArrowUpRight } from 'lucide-react'
 import { ExposureNote, FxPair, GbaFundingSignal, CompanyProfile } from '../types'
 import { FxSourceInfo } from '../MarketWatchPage'
 import clsx from 'clsx'
-import SourceBanner from './SourceBanner'
 import { MarketWatchInsightSet } from '../insights/types'
+import LoadingState from './LoadingState'
+import SourceInfoTooltip from './SourceInfoTooltip'
+import MotionStagger from './MotionStagger'
+import MotionReveal from './MotionReveal'
 
 type FxGbaTabProps = {
   fxPairs: FxPair[]
@@ -12,195 +15,269 @@ type FxGbaTabProps = {
   fxSource?: FxSourceInfo | null
   profile?: CompanyProfile | null
   insights?: MarketWatchInsightSet
+  loading?: boolean
 }
 
 export default function FxGbaTab({
   fxPairs,
   gbaSignals,
-  exposureNotes = [],
   fxSource,
   profile,
   insights,
+  loading,
 }: FxGbaTabProps) {
 
+  if (loading) {
+    return (
+      <div className="space-y-8">
+        {/* FX Reference Rates Loading */}
+        <div className="space-y-4">
+          <div className="h-6 w-44 bg-softform-navy-950/5 rounded animate-pulse" />
+          <div className="grid gap-6 grid-cols-1 sm:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <LoadingState key={i} variant="card" label="Fetching rates..." lines={2} />
+            ))}
+          </div>
+        </div>
+        
+        {/* Company FX Exposure Loading */}
+        <LoadingState variant="row" label="Analyzing currency exposure..." />
+
+        {/* Cross-border Insights Loading */}
+        <div className="space-y-4">
+          <div className="h-6 w-48 bg-softform-navy-950/5 rounded animate-pulse" />
+          <div className="grid gap-6 grid-cols-1 md:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <LoadingState key={i} variant="card" label="Mapping cross-border context..." lines={3} />
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="space-y-8">
-      {fxSource && (
-        <SourceBanner
-          source={{
-            label: fxSource.label,
-            asOf: fxSource.asOf,
-            freshness: fxSource.freshness,
-            warnings: fxSource.warnings,
-          }}
-        />
-      )}
+    <MotionStagger className="space-y-8">
+      {/* 1. FX Reference Rates */}
+      <MotionReveal>
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold text-softform-navy-950 border-b border-softform-navy-950/5 pb-2 flex items-center gap-2">
+            <span>FX Reference Rates</span>
+            {fxSource && (
+              <SourceInfoTooltip
+                title="FX Reference Rates Sourcing"
+                sources={[
+                  {
+                    label: fxSource.label,
+                    asOf: fxSource.asOf,
+                    freshness: fxSource.freshness,
+                    warnings: fxSource.warnings,
+                    mode: fxSource.label.toLowerCase().includes('fallback') ? 'local-fallback' : 'provider-backed'
+                  }
+                ]}
+              />
+            )}
+          </h2>
+          <div className="grid gap-6 grid-cols-1 sm:grid-cols-3">
+            {fxPairs.map((pair, idx) => {
+              let helperLabel = 'Reference Rate'
+              const pairName = pair.pair.toUpperCase()
+              if (pairName.includes('USD/HKD')) helperLabel = 'Base reference'
+              else if (pairName.includes('CNY/HKD')) helperLabel = 'Cross rate'
+              else if (pairName.includes('USD/CNY')) helperLabel = 'Peg reference'
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="space-y-6">
-          <div className="softform-panel rounded-[28px] p-6 sm:p-8">
-            <h2 className="mb-6 text-xl font-bold text-softform-navy-950">
-              Currency Context
-            </h2>
-            <div className="flex flex-col gap-4">
-              {fxPairs.map((pair, idx) => (
+              return (
                 <div
                   key={idx}
-                  className="flex flex-col gap-2 rounded-2xl border border-white/60 bg-[linear-gradient(145deg,rgba(255,255,255,0.7),rgba(234,247,244,0.5))] p-4 shadow-sm"
+                  className="softform-card flex flex-col rounded-[24px] p-5 border border-transparent hover:border-softform-teal-500/10 hover:shadow-floating-panel hover:-translate-y-0.5 transition-all duration-200"
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-bold text-softform-navy-900">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-[11px] font-medium text-softform-text-secondary uppercase tracking-wider">
                       {pair.pair}
                     </span>
-                    <div className="flex items-center gap-3">
-                      <span className="tabular-finance font-bold text-softform-navy-950">
-                        {pair.rate}
-                      </span>
-                      <span
-                        className={clsx(
-                          'flex h-6 w-6 items-center justify-center rounded-full',
-                          pair.trend === 'up' && 'bg-red-500/10 text-red-600',
-                          pair.trend === 'down' &&
-                            'bg-softform-emerald-soft/10 text-softform-emerald-soft',
-                          pair.trend === 'flat' &&
-                            'bg-softform-text-muted/10 text-softform-text-secondary',
-                        )}
-                      >
-                        {pair.trend === 'up' && <ArrowUpRight size={14} />}
-                        {pair.trend === 'down' && <ArrowDownRight size={14} />}
-                        {pair.trend === 'flat' && <ArrowRight size={14} />}
-                      </span>
-                    </div>
+                    <span className="text-[10px] font-semibold text-softform-text-muted uppercase tracking-wider">
+                      {helperLabel}
+                    </span>
                   </div>
-                  <div className="text-xs font-medium text-softform-text-muted">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="tabular-finance text-3xl font-bold tracking-tight text-softform-navy-950">
+                      {pair.rate}
+                    </span>
+                    <span
+                      className={clsx(
+                        'flex h-6 w-6 items-center justify-center rounded-full shrink-0 ml-3',
+                        pair.trend === 'up' && 'bg-red-500/10 text-red-600',
+                        pair.trend === 'down' &&
+                          'bg-softform-emerald-soft/10 text-softform-emerald-soft',
+                        pair.trend === 'flat' &&
+                          'bg-softform-text-muted/10 text-softform-text-secondary',
+                      )}
+                    >
+                      {pair.trend === 'up' && <ArrowUpRight size={14} />}
+                      {pair.trend === 'down' && <ArrowDownRight size={14} />}
+                      {pair.trend === 'flat' && <ArrowRight size={14} />}
+                    </span>
+                  </div>
+                  <div className="mt-auto text-xs font-normal leading-relaxed text-softform-text-secondary">
                     {pair.context}
                   </div>
                 </div>
-              ))}
-            </div>
+              )
+            })}
           </div>
+        </div>
+      </MotionReveal>
 
-          <div className="softform-panel rounded-[28px] p-6 sm:p-8">
-            <h3 className="mb-4 text-lg font-bold text-softform-navy-950">
-              GBA Watch Signals
+      {/* 2. Company FX Exposure */}
+      <MotionReveal>
+        <div className="softform-panel rounded-[24px] p-6 bg-white/45 backdrop-blur-md border border-white/60 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 hover:border-softform-teal-500/10 hover:shadow-floating-panel transition-all duration-200">
+          <div className="space-y-1 max-w-md">
+            <h3 className="text-sm font-semibold text-softform-navy-950">
+              Company FX Exposure
             </h3>
-            <div className="flex flex-col gap-3">
-              {insights?.fx?.watchSignals && insights.fx.watchSignals.length > 0 ? (
-                insights.fx.watchSignals.map((signal) => (
-                  <div
-                    key={signal.id}
-                    className="rounded-xl bg-white/40 border border-white/50 p-4 shadow-sm"
-                  >
-                    <span className="inline-block rounded-full bg-softform-navy-900/5 px-2.5 py-0.5 text-xs font-semibold text-softform-text-secondary mb-2">
-                      {signal.title}
-                    </span>
-                    <p className="text-xs text-softform-text-primary leading-relaxed">
-                      {signal.description}
-                    </p>
-                  </div>
-                ))
-              ) : (
-                (profile 
-                  ? [
-                      { id: 'import', category: 'Import', note: 'Import: 72% import costs are USD-linked.' },
-                      { id: 'supplier', category: 'Supplier Payables', note: 'Supplier payables: 38% supplier payables are CNY-linked.' },
-                      { id: 'repatriation', category: 'Repatriation', note: 'Repatriation: Monitor only if onshore receivables increase.' },
-                      { id: 'volatility', category: 'Volatility', note: 'Volatility: Track landed-cost variance.' },
-                    ]
-                  : exposureNotes
-                ).map((note) => (
-                  <div
-                    key={note.id}
-                    className="rounded-xl bg-white/40 border border-white/50 p-4 shadow-sm"
-                  >
-                    <span className="inline-block rounded-full bg-softform-navy-900/5 px-2.5 py-0.5 text-xs font-semibold text-softform-text-secondary mb-2">
-                      {note.category}
-                    </span>
-                    <p className="text-xs text-softform-text-primary leading-relaxed">
-                      {note.note}
-                    </p>
-                  </div>
-                ))
-              )}
+            <p className="text-xs text-softform-text-secondary leading-relaxed">
+              FX rates are provider-backed. Exposure percentages are workspace-derived.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-8 gap-y-4">
+            <div>
+              <span className="text-[10px] uppercase font-semibold text-softform-text-muted block tracking-wider">
+                CNY Supplier Payables
+              </span>
+              <span className="text-base font-bold text-softform-navy-950 tabular-finance">
+                {profile ? `${profile.cnySupplierPayablesPercent}%` : '38%'}
+              </span>
+            </div>
+            <div className="h-8 w-px bg-softform-navy-950/10 hidden md:block" />
+            <div>
+              <span className="text-[10px] uppercase font-semibold text-softform-text-muted block tracking-wider">
+                USD Import Costs
+              </span>
+              <span className="text-base font-bold text-softform-navy-950 tabular-finance">
+                {profile ? `${profile.usdImportCostPercent}%` : '72%'}
+              </span>
+            </div>
+            <div className="h-8 w-px bg-softform-navy-950/10 hidden md:block" />
+            <div>
+              <span className="text-[10px] uppercase font-semibold text-softform-text-muted block tracking-wider">
+                Supplier Contracts
+              </span>
+              <span className="text-[10px] font-medium text-purple-700 bg-purple-500/10 rounded px-2.5 py-0.5 block mt-0.5 uppercase tracking-wider">
+                company records required
+              </span>
             </div>
           </div>
         </div>
+      </MotionReveal>
 
-        <div className="space-y-6">
-          <div className="softform-card rounded-[28px] p-6 sm:p-8">
-            <h2 className="mb-4 text-xl font-bold text-softform-navy-950">
-              Cross-Border Funding Context
-            </h2>
-            <p className="mb-6 text-sm leading-relaxed text-softform-text-primary">
-              Monitor the spread between onshore and offshore rates to identify
-              opportunities for cross-border treasury pooling or strategic entity
-              borrowing.
-            </p>
+      {/* 3. Cross-Border & GBA Insights */}
+      <MotionReveal>
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold text-softform-navy-950 border-b border-softform-navy-950/5 pb-2">
+            Cross-Border & GBA Insights
+          </h2>
+          
+          {/* Core Exposure Insights */}
+          <div className="grid gap-6 grid-cols-1 md:grid-cols-3">
+            <div className="softform-card rounded-[24px] p-5 border border-transparent hover:border-softform-teal-500/10 hover:shadow-floating-panel hover:-translate-y-0.5 transition-all duration-200 bg-white/30">
+              <span className="text-[10px] uppercase font-semibold text-softform-text-muted block tracking-wider mb-2">
+                CNY Payable Exposure
+              </span>
+              <p className="text-xs text-softform-text-secondary leading-relaxed">
+                {profile ? `${profile.cnySupplierPayablesPercent}%` : '38%'} of supplier payables are CNY-linked. Review pricing terms when supplier contracts are connected.
+              </p>
+            </div>
+            
+            <div className="softform-card rounded-[24px] p-5 border border-transparent hover:border-softform-teal-500/10 hover:shadow-floating-panel hover:-translate-y-0.5 transition-all duration-200 bg-white/30">
+              <span className="text-[10px] uppercase font-semibold text-softform-text-muted block tracking-wider mb-2">
+                USD Import-Cost Base
+              </span>
+              <p className="text-xs text-softform-text-secondary leading-relaxed">
+                {profile ? `${profile.usdImportCostPercent}%` : '72%'} of import costs are USD-linked. Monitor landed-cost sensitivity.
+              </p>
+            </div>
 
-            <div className="space-y-4">
-              {gbaSignals.length === 0 ? (
-                <div className="rounded-2xl border border-blue-200/60 bg-blue-50/60 p-4 text-sm text-softform-text-secondary">
-                  Cross-border funding context will activate after FX provider and
-                  LPR source are connected.
-                </div>
-              ) : (
-                gbaSignals.map((signal) => (
+            <div className="softform-card rounded-[24px] p-5 border border-transparent hover:border-softform-teal-500/10 hover:shadow-floating-panel hover:-translate-y-0.5 transition-all duration-200 bg-white/30">
+              <span className="text-[10px] uppercase font-semibold text-softform-text-muted block tracking-wider mb-2">
+                Funding Context
+              </span>
+              <p className="text-xs text-softform-text-secondary leading-relaxed">
+                Cross-border funding context requires facility terms before impact can be quantified.
+              </p>
+            </div>
+          </div>
+
+          {/* Dynamic GBA Signals */}
+          {((gbaSignals && gbaSignals.length > 0) || (insights?.fx?.watchSignals && insights.fx.watchSignals.length > 0)) && (
+            <div className="mt-6 space-y-4">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-softform-navy-900">
+                Active GBA Watch Signals
+              </h3>
+              <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
+                {/* Render insights.fx.watchSignals */}
+                {insights?.fx?.watchSignals && insights.fx.watchSignals.map((signal) => (
                   <div
                     key={signal.id}
-                    className="rounded-2xl border border-softform-teal-500/10 bg-softform-teal-500/5 p-4"
+                    className="rounded-2xl border border-white/50 bg-white/40 p-5 shadow-sm hover:scale-[1.005] hover:border-softform-teal-500/10 hover:shadow-floating-panel transition-all duration-150"
                   >
                     <div className="mb-2 flex items-center justify-between">
-                      <h4 className="text-sm font-bold text-softform-teal-deep">
+                      <h4 className="text-xs font-semibold uppercase tracking-wider text-softform-navy-950">
                         {signal.title}
                       </h4>
                       <span
                         className={clsx(
-                          'rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-wider',
+                          'rounded-full px-2.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider',
                           signal.severity === 'Positive'
                             ? 'bg-softform-emerald-soft/10 text-emerald-700'
-                            : 'bg-softform-amber-200/20 text-softform-amber-700',
+                            : signal.severity === 'Caution'
+                            ? 'bg-softform-amber-200/20 text-softform-amber-700'
+                            : signal.severity === 'High'
+                            ? 'bg-red-500/10 text-red-700'
+                            : 'bg-softform-navy-900/5 text-softform-text-secondary',
                         )}
                       >
                         {signal.severity}
                       </span>
                     </div>
-                    <p className="text-sm leading-relaxed text-softform-navy-900">
+                    <p className="text-xs text-softform-text-secondary leading-relaxed">
                       {signal.description}
                     </p>
                   </div>
-                ))
-              )}
-            </div>
+                ))}
 
-            <div className="mt-6 rounded-xl bg-softform-navy-900/5 p-4 text-xs font-medium leading-relaxed text-softform-text-muted">
-              <strong className="block text-softform-navy-900 mb-1">
-                Important Watch Signal:
-              </strong>
-              {profile ? (
-                `Your cross-border exposure consists of ${profile.cnySupplierPayablesPercent}% CNY supplier payables and ${profile.usdImportCostPercent}% USD import costs. FX rates are provider-backed; cross-border funding context is evaluated against these records.`
-              ) : (
-                'FX rates are provider-backed. Cross-border funding context remains indicative until company exposure data is connected.'
-              )}
+                {/* Render gbaSignals */}
+                {gbaSignals && gbaSignals.map((signal) => (
+                  <div
+                    key={signal.id}
+                    className="rounded-2xl border border-white/50 bg-white/40 p-5 shadow-sm hover:scale-[1.005] hover:border-softform-teal-500/10 hover:shadow-floating-panel transition-all duration-150"
+                  >
+                    <div className="mb-2 flex items-center justify-between">
+                      <h4 className="text-xs font-semibold uppercase tracking-wider text-softform-teal-deep">
+                        {signal.title}
+                      </h4>
+                      <span
+                        className={clsx(
+                          'rounded-full px-2.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider',
+                          signal.severity === 'Positive'
+                            ? 'bg-softform-emerald-soft/10 text-emerald-700'
+                            : signal.severity === 'Caution'
+                            ? 'bg-softform-amber-200/20 text-softform-amber-700'
+                            : 'bg-softform-navy-900/5 text-softform-text-secondary',
+                        )}
+                      >
+                        {signal.severity}
+                      </span>
+                    </div>
+                    <p className="text-xs text-softform-text-secondary leading-relaxed">
+                      {signal.description}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-
-          <div className="rounded-2xl border border-softform-teal-500/10 bg-white/60 p-4 shadow-sm backdrop-blur-sm">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-softform-teal-deep mb-1">
-              CFO Takeaway
-            </h4>
-            <p className="text-xs text-softform-text-secondary leading-relaxed">
-              {insights?.fx?.takeaway ? (
-                insights.fx.takeaway.description
-              ) : profile ? (
-                `Manage foreign exchange risks actively using hedging contracts. CNY weakening impacts your ${profile.cnySupplierPayablesPercent}% CNY payables structure, while USD strength increases landed cost base for your ${profile.usdImportCostPercent}% USD import costs.`
-              ) : (
-                'Use this context alongside uploaded financial records before lender conversations. Connect company financials to quantify impact.'
-              )}
-            </p>
-          </div>
+          )}
         </div>
-      </div>
-    </div>
+      </MotionReveal>
+    </MotionStagger>
   )
 }

@@ -89,6 +89,7 @@ src/features/market-watch/
 Directory and File Responsibilities:
 - `MarketWatchPage.tsx` acts as the root orchestrator that assembles the page header, summary metric cards, tab navigation, and responsive sub-views.
 - `components/` owns all tab views, card presentations, and feature-specific modular UI components.
+- `components/MarketMetricCard.tsx` owns the Market Watch executive signal card presentation. It must keep the compact label/severity top row, prominent non-truncated status, concise implication line, and lightweight bottom source/freshness microcopy aligned with the Executive Signal Card Pattern in `SYSTEM_DESIGN.md`.
 - `data/marketWatchSeed.ts` contains strictly safe local mockup/seed data only. No real or simulated live computations.
 - `api/marketWatchApi.ts` serves as the future backend swap point. All data retrieval should go through here.
 - `types.ts` owns the feature-specific data contracts and type definitions.

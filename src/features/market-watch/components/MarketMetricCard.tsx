@@ -1,6 +1,7 @@
 import clsx from 'clsx'
 import { AlertCircle, AlertTriangle, CheckCircle2, Info } from 'lucide-react'
 import { MarketMetric, SignalSeverity } from '../types'
+import { motion, useReducedMotion } from 'framer-motion'
 
 const severityConfig: Record<
   SignalSeverity,
@@ -29,166 +30,135 @@ const severityConfig: Record<
 }
 
 type MarketMetricCardProps = {
-  metric: MarketMetric
+  metric?: MarketMetric
+  loading?: boolean
+  loadingLabel?: string
 }
 
-function MotifSlot({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex h-10 w-full items-center justify-center rounded-2xl bg-white/32 px-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] ring-1 ring-white/45">
-      {children}
-    </div>
-  )
+function formatSource(metric: MarketMetric) {
+  const source = metric.source.trim()
+
+  if (source.toLowerCase().includes('frankfurter')) {
+    return 'Frankfurter · Daily'
+  }
+
+  if (source.toLowerCase().includes('hkma')) {
+    return metric.freshness === 'Workspace'
+      ? 'HKMA · Daily · Workspace-derived'
+      : 'HKMA · Daily'
+  }
+
+  if (metric.id === 'sector-health') {
+    return 'Workspace benchmark · Workspace'
+  }
+
+  if (metric.id === 'funding-conditions') {
+    return 'Workspace-derived'
+  }
+
+  if (source.toLowerCase().includes('workspace')) {
+    return 'Workspace-derived'
+  }
+
+  return metric.freshness === 'Workspace'
+    ? source
+    : `${source} · ${metric.freshness}`
 }
 
-function MetricMotif({ id }: { id: MarketMetric['id'] }) {
-  if (id === 'funding-conditions') {
-    return (
-      <MotifSlot>
-        <div className="flex h-6 items-end gap-1.5" aria-hidden="true">
-          {[16, 22, 14, 19, 12].map((height, index) => (
-            <span
-              key={`${height}-${index}`}
-              className={clsx(
-                'w-6 rounded-full shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] sm:w-7',
-                index < 2
-                  ? 'bg-softform-teal-500/38'
-                  : index === 2
-                    ? 'bg-softform-amber-300/54'
-                    : 'bg-softform-navy-900/14',
-              )}
-              style={{ height }}
-            />
-          ))}
-        </div>
-      </MotifSlot>
-    )
-  }
+const SkeletonBar = ({ className }: { className?: string }) => (
+  <div
+    className={clsx('rounded bg-softform-text-muted/7 animate-pulse', className)}
+  />
+)
 
-  if (id === 'rate-pressure') {
-    return (
-      <MotifSlot>
-        <svg
-          className="h-7 w-[132px] overflow-visible"
-          viewBox="0 0 132 28"
-          fill="none"
-          aria-hidden="true"
-        >
-          <path
-            d="M5 21C24 21 30 16 45 17C61 18 66 11 81 13C98 15 105 8 127 7"
-            stroke="rgba(180,83,9,0.38)"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-          />
-          <path
-            d="M119 6.8H127.5V15.2"
-            stroke="rgba(180,83,9,0.38)"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </MotifSlot>
-    )
-  }
+export default function MarketMetricCard({ metric, loading, loadingLabel }: MarketMetricCardProps) {
+  const shouldReduceMotion = useReducedMotion()
 
-  if (id === 'sector-health') {
+  if (loading) {
     return (
-      <MotifSlot>
-        <div className="w-full max-w-[148px] space-y-2" aria-hidden="true">
-          <div className="h-2 overflow-hidden rounded-full bg-white/52 shadow-[inset_0_1px_3px_rgba(8,17,31,0.08)]">
-            <div className="h-full w-[62%] rounded-full bg-softform-teal-500/46" />
-          </div>
-          <div className="h-2 overflow-hidden rounded-full bg-white/52 shadow-[inset_0_1px_3px_rgba(8,17,31,0.08)]">
-            <div className="h-full w-[38%] rounded-full bg-softform-amber-300/58" />
+      <div className="softform-card relative flex min-h-[188px] flex-col overflow-hidden rounded-[24px] p-5 border border-transparent">
+        <div className="pointer-events-none absolute -right-10 -top-12 h-28 w-28 rounded-full bg-softform-teal-500/7 blur-2xl" />
+
+        {/* Top row: muted label + Analyzing chip */}
+        <div className="relative mb-4 flex items-center justify-between gap-3">
+          <SkeletonBar className="h-3 w-28" />
+          <div className="inline-flex h-5 shrink-0 items-center rounded-full bg-softform-text-muted/8 px-2">
+            <span className="text-[9px] font-medium uppercase tracking-[0.12em] text-softform-text-muted/35 animate-pulse">
+              Analyzing
+            </span>
           </div>
         </div>
-      </MotifSlot>
-    )
-  }
 
-  return (
-    <MotifSlot>
-      <div className="flex items-center gap-1.5" aria-hidden="true">
-        {['HKD', 'CNY', 'USD'].map((pair) => (
-          <span
-            key={pair}
-            className={clsx(
-              'rounded-full border border-white/65 px-2 py-0.5 text-[10px] font-bold tracking-wide shadow-[0_6px_14px_rgba(8,17,31,0.05)]',
-              pair === 'CNY'
-                ? 'bg-softform-amber-200/32 text-softform-amber-700/90'
-                : 'bg-white/55 text-softform-text-secondary/85',
-            )}
-          >
-            {pair}
-          </span>
-        ))}
+        {/* Main value skeleton */}
+        <div className="relative mb-3">
+          <SkeletonBar className="h-8 w-44" />
+        </div>
+
+        {/* Implication skeleton */}
+        <div className="relative mb-5 space-y-1.5">
+          <SkeletonBar className="h-3 w-full" />
+          <SkeletonBar className="h-3 w-3/4" />
+        </div>
+
+        {/* Footer */}
+        <div className="relative mt-auto border-t border-softform-text-muted/10 pt-3 text-[10px] font-normal leading-snug text-softform-text-muted/40 animate-pulse">
+          {loadingLabel || 'Calculating insights...'}
+        </div>
       </div>
-    </MotifSlot>
-  )
-}
+    )
+  }
 
-export default function MarketMetricCard({ metric }: MarketMetricCardProps) {
-  const config = severityConfig[metric.severity]
+  const config = severityConfig[metric!.severity]
   const Icon = config.icon
 
   return (
-    <div className="softform-card hover-lift relative flex min-h-[218px] flex-col overflow-hidden rounded-[24px] p-5">
-      <div className="pointer-events-none absolute -right-10 -top-12 h-28 w-28 rounded-full bg-softform-teal-500/8 blur-2xl" />
+    <motion.div
+      whileHover={shouldReduceMotion ? {} : {
+        y: -4,
+        borderColor: 'rgba(32, 169, 154, 0.25)',
+        boxShadow: '0 28px 86px rgba(8, 17, 31, 0.16), 0 8px 22px rgba(8, 17, 31, 0.08)',
+      }}
+      transition={{ duration: 0.14, ease: [0.22, 1, 0.36, 1] }}
+      className="softform-card relative flex min-h-[188px] flex-col overflow-hidden rounded-[24px] p-5 border border-transparent transition-all duration-200"
+    >
+      <div className="pointer-events-none absolute -right-10 -top-12 h-28 w-28 rounded-full bg-softform-teal-500/7 blur-2xl" />
 
-      <div className="relative mb-4 flex items-start justify-between gap-3">
-        <h3 className="text-sm font-semibold text-softform-text-secondary">
-          {metric.label}
+      <div className="relative mb-4 flex items-center justify-between gap-3">
+        <h3 className="min-w-0 flex-1 whitespace-nowrap text-[9px] font-medium uppercase leading-none tracking-[0.08em] text-softform-text-muted">
+          {metric!.label}
         </h3>
         <div
           className={clsx(
-            'inline-flex h-5 items-center gap-1 rounded-full px-2 text-[9px] font-bold uppercase tracking-[0.12em]',
+            'inline-flex h-5 shrink-0 items-center gap-1 rounded-full px-2 text-[9px] font-medium uppercase tracking-[0.12em]',
             config.colorClass,
             config.bgClass,
           )}
-          title={`Severity: ${metric.severity}`}
+          title={`Severity: ${metric!.severity}`}
         >
           <Icon size={9} strokeWidth={2.4} />
-          <span>{metric.severity}</span>
+          <span>{metric!.severity}</span>
         </div>
       </div>
 
       <div className="relative mb-3">
-        <div className="tabular-finance text-[1.9rem] font-bold leading-none tracking-tight text-softform-navy-950 sm:text-[2rem]">
-          {metric.value}
-        </div>
+        <motion.div
+          key={metric!.value}
+          initial={{ opacity: 0.7 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.16 }}
+          className="tabular-finance break-words text-[1.5rem] font-bold leading-[1.08] tracking-tight text-softform-navy-950 sm:text-[1.58rem]"
+        >
+          {metric!.value}
+        </motion.div>
       </div>
 
-      <p className="relative mb-3 min-h-[2.25rem] text-sm leading-snug text-softform-text-primary">
-        {metric.interpretation}
+      <p className="relative mb-5 line-clamp-2 text-[13px] leading-snug text-softform-text-primary">
+        {metric!.interpretation}
       </p>
 
-      <div className="relative mb-4">
-        <MetricMotif id={metric.id} />
+      <div className="relative mt-auto border-t border-softform-text-muted/10 pt-3 text-[10px] font-normal leading-snug text-softform-text-muted/65">
+        <span>{formatSource(metric!)}</span>
       </div>
-
-      <div className="relative mt-auto flex items-center justify-between gap-3 border-t border-softform-text-muted/10 pt-3 text-xs font-medium text-softform-text-muted">
-        <span className="truncate font-semibold text-softform-navy-950/70">
-          {metric.source}
-        </span>
-        <span
-          className={clsx(
-            'inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold',
-            metric.freshness === 'Daily'
-              ? 'bg-softform-teal-500/10 text-softform-teal-deep'
-              : 'bg-softform-navy-900/5 text-softform-text-secondary',
-          )}
-        >
-          <span
-            className={clsx(
-              'inline-block h-1.5 w-1.5 rounded-full',
-              metric.freshness === 'Daily'
-                ? 'bg-softform-teal-500'
-                : 'bg-softform-text-muted/60',
-            )}
-          />
-          {metric.freshness}
-        </span>
-      </div>
-    </div>
+    </motion.div>
   )
 }

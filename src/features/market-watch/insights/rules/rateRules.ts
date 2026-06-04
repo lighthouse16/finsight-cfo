@@ -24,7 +24,7 @@ export function evaluateRateRules(snapshot: MarketWatchSnapshot): TabInsightSet 
     const isLarge = company.floatingRateDebtHkd >= 5000000
     takeaway = {
       id: 'rates-takeaway-exposed',
-      title: isLarge ? 'Significant Floating Rate Exposure' : 'Floating Rate Exposure',
+      title: 'Floating-rate exposure',
       description: `Your HKD ${(company.floatingRateDebtHkd / 1000000).toFixed(1)}M floating-rate facility remains sensitive to HIBOR movement.`,
       severity: isLarge ? 'High' : 'Caution',
       category: 'rates',

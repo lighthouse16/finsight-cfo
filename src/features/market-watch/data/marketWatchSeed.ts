@@ -203,7 +203,7 @@ export const seedCommodityExposures: CommodityExposure[] = [
 export const seedStressScenarios: StressScenario[] = [
   {
     id: 'stress-1',
-    title: 'Rate Shock (+150 bps)',
+    title: 'Rate sensitivity scenario',
     description: 'Simulates a sustained 150 basis point increase in borrowing costs.',
     affectedArea: 'Debt Service Coverage Ratio (DSCR)',
     impactDirection: 'Negative',

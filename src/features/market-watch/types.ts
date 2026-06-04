@@ -36,6 +36,7 @@ export type MarketSignal = {
 }
 
 export type RateSnapshot = {
+  id?: string
   label: string
   value: string
   changeBasisPoints: number

@@ -1,5 +1,6 @@
 import { type ElementType } from 'react'
 import clsx from 'clsx'
+import { motion } from 'framer-motion'
 
 export type TabId =
   | 'pulse'
@@ -36,14 +37,21 @@ export default function MarketWatchTabs({
               key={tab.id}
               onClick={() => onChange(tab.id)}
               className={clsx(
-                'group flex shrink-0 items-center gap-2 rounded-full px-5 py-2.5 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-softform-teal-500/40',
+                'group relative flex shrink-0 items-center gap-2 rounded-full px-5 py-2.5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-softform-teal-500/40',
                 isActive
-                  ? 'bg-white/80 border border-white/90 text-softform-navy-950 font-semibold shadow-[inset_0_2px_4px_rgba(8,17,31,0.08),_0_1px_2px_rgba(255,255,255,0.8)] backdrop-blur-md'
-                  : 'text-softform-navy-950/70 border border-transparent font-medium hover:bg-white/50 hover:text-softform-navy-950',
+                  ? 'text-softform-navy-950 font-semibold'
+                  : 'text-softform-navy-950/70 font-medium hover:text-softform-navy-950',
               )}
               aria-selected={isActive}
               role="tab"
             >
+              {isActive && (
+                <motion.div
+                  layoutId="activeTabPill"
+                  className="absolute inset-0 rounded-full bg-white/80 border border-white/90 shadow-[inset_0_2px_4px_rgba(8,17,31,0.08),_0_1px_2px_rgba(255,255,255,0.8)] backdrop-blur-md -z-10"
+                  transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                />
+              )}
               <tab.icon
                 size={16}
                 strokeWidth={isActive ? 2.5 : 1.5}

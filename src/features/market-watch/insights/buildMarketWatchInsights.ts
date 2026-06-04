@@ -161,28 +161,38 @@ export function buildMarketWatchInsights(snapshot: MarketWatchSnapshot): MarketW
   })
 
   // FX / GBA Card
-  const fxConnected = company.connectedRecords.find(r => r.id === 'cross-border-payables')?.status === 'connected'
-  let fxVal = 'Limited'
+  const fxProvider = (snapshot.sourceStatus as Array<{ id?: string; label?: string; status: string }>)?.find(
+    s => s.id === 'fx-provider' || s.label?.toLowerCase() === 'fx provider'
+  )
+  const isFxConnected = fxProvider?.status === 'connected' || 
+                        fxProvider?.status === 'seed_data' || 
+                        (Array.isArray(snapshot.fx) && snapshot.fx.length > 0)
+  
+  const fxPairs = snapshot.fx as Array<{ pair: string; rate: string }> | null
+  const cnyPair = fxPairs?.find(p => p.pair === 'CNY/HKD')
+  const cnyRate = cnyPair ? cnyPair.rate : null
+
+  let fxVal = 'Pending'
   let fxSev: 'Positive' | 'Neutral' | 'Caution' | 'High' = 'Neutral'
-  let fxDesc = 'FX exposure appears limited based on current payables.'
-  if (fxConnected) {
-    const highCny = company.cnySupplierPayablesPercent >= 30
-    const highUsd = company.usdImportCostPercent >= 50
-    if (highCny || highUsd) {
-      fxVal = 'Exposed'
-      fxSev = 'Caution'
-      fxDesc = 'Material foreign currency exposures require ongoing review.'
-    }
-  } else {
-    fxVal = 'Pending'
-    fxSev = 'Neutral'
-    fxDesc = 'Connect supplier contracts to map currency sensitivity.'
+  let fxDesc = 'Connect supplier contracts to map currency sensitivity.'
+
+  if (isFxConnected) {
+    fxVal = cnyRate || 'Exposed'
+    fxSev = 'Caution'
+    const implication = `${company.cnySupplierPayablesPercent}% CNY payables and ${company.usdImportCostPercent}% USD import costs remain exposed.`
+    const supplierContractsStatus = company.connectedRecords.find(r => r.id === 'supplier-contracts')?.status
+    const supplierContractsMissing = !supplierContractsStatus || supplierContractsStatus === 'missing' || supplierContractsStatus === 'pending'
+    
+    fxDesc = supplierContractsMissing
+      ? `${implication} Supplier contracts pending.`
+      : implication
   }
+
   executiveCards.push({
     id: 'exec-card-fx',
-    label: 'FX / GBA',
+    label: 'FX Exposure',
     value: fxVal,
-    status: fxConnected ? 'Connected' : 'Missing Data',
+    status: isFxConnected ? 'Connected' : 'Missing Data',
     severity: fxSev,
     description: fxDesc,
     sourceRefs: ['cross-border-payables'],

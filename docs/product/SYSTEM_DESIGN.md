@@ -338,13 +338,19 @@ Market Watch serves as the external market pressure layer, providing SME decisio
 
 Used for high-level module summaries (e.g., the top summary cards in the Market Watch dashboard).
 
+- **Purpose**: Executive signal cards are concise decision-status summaries, not miniature dashboards. They should answer "what is the current signal?" before exposing supporting metadata.
 - **Strict Card Anatomy**:
-  - **Top Row**: Contains the label (e.g., "Funding Conditions") and a soft, desaturated severity chip (e.g., "Caution").
+  - **Top Row**: Contains a compact, single-line uppercase label (e.g., "Funding Conditions") and a soft, desaturated severity chip (e.g., "Caution"). Labels should stay small enough to avoid wrapping in the four-column desktop Market Watch grid.
   - **Main Status Row**: Prominently displays the full status text (e.g., "Selective"). The status text must **never be ellipsized or truncated**.
-  - **Implication Line**: A single, concise sentence explaining what this status means for the user's business.
-  - **Subtle Visual Motif**: A highly integrated visual cue (such as a segmented signal bar, upward trend sparkline, split/divergence line, or currency-pair badge) rendered below the text. The visual motif supports the status and must **never compete** with it.
-  - **Footer**: Displays the source label and a freshness chip (e.g., "HKMA Rates • Daily").
+  - **Implication Line**: A concise one- or two-line explanation of what this status means for the user's business. Avoid increasing text density.
+  - **Optional Subtle Visual Motif**: A highly integrated visual cue may be used only when it supports the status without adding clutter. Motifs must remain muted and must **never compete** with the status.
+  - **Footer**: Displays source/freshness microcopy as lightweight text, not a heavy pill group. Footer metadata should sit at the bottom of each card and remain visually secondary.
+- **Typography Rules**:
+  - Header labels use tiny uppercase metadata styling with restrained tracking.
+  - Source/freshness text is smaller and lighter than body copy.
+  - Status/value text remains the largest element and is allowed to wrap naturally when necessary, but not truncate.
 - **Severity Chip Focus**: Severity chips function strictly as supporting metadata and should not serve as the primary visual focus of the card.
+- **Anti-Patterns**: Avoid decorative ghost charts, oversized footer pills, duplicated source labels, large header labels, or mixed-value/card anatomy within the same summary card group.
 
 ## 20. Chip/Badge Pattern
 
@@ -365,7 +371,41 @@ Used for progressive disclosure of instructions and definitions.
 - **Interaction**: The tooltip container must display smoothly on both hover and focus, and hide on mouse leave or blur.
 - **Styling**: Rendered as a frosted Softform surface (glassmorphic border, high blur, subtle shadow). Never rely on browser-default `title` attributes.
 
-## 22. Market Data and Source Language
+## 22. Executive Signal Card Loading State
+
+Used during Market Watch data loading and manual refresh to avoid jarring empty or partial states.
+
+- **Initial Load**: Cards display a soft skeleton/shimmer with the text "Calculating insights..." in the footer area. The chip area shows a muted "Analyzing" label.
+- **Manual Refresh**: When the user clicks Refresh Data, cards show "Updating insights..." in the footer during the refresh cycle.
+- **Minimum Duration**: The loading state persists for at least 500ms to avoid flicker when data resolves quickly.
+- **Layout Stability**: Card dimensions (min-height, grid cells) are preserved during loading. No layout shift should occur.
+- **Visual Style**: Use soft pulsing skeleton bars (`animate-pulse` with muted background), not heavy spinners or bright indicators.
+- **Safety Language**: Loading text must never imply realtime computation, live price, trading recommendations, or bank-level verification.
+- **Fallback Behavior**: If insight generation fails during loading, the existing defensive fallback logic reroutes to safe preloaded content instead of crashing.
+
+## 23. Full-Page Contextual Loading States
+
+Beyond the executive signal cards, all Market Watch detail tabs display contextual loading states when data loads or refreshes. This ensures the full page feels data-aware and interactive rather than showing abrupt empty states or static text.
+
+- **Unified Loading Component**: A shared `LoadingState` component provides four variants — `card` (skeleton card with label), `row` (skeleton row with icon), `banner` (slim source-like bar), and `compact` (inline skeleton with label). All variants use soft pulsing skeleton bars via `animate-pulse` and muted background colors, avoiding heavy spinners or bright indicators.
+- **Per-Tab Labels**: Each tab area displays context-appropriate labels during loading (e.g., "Checking source freshness...", "Fetching HKMA rates...", "Mapping input-cost exposure...") instead of a generic spinner. Labels are written in muted text color (`text-softform-text-muted/40`) and use a lighter weight to remain visually secondary.
+- **Preserved Layout Structure**: Loading placeholders preserve the grid layout and card dimensions of each tab area. The skeleton cards match the count and approximate sizing of the real content (e.g., 3 rate cards in Rates & Liquidity, 3 commodity cards in Commodities, 3 priority scenario cards in Stress Signals). This prevents layout shift when content resolves.
+- **Source Banner Loading**: The source banner area at the top of each tab uses the `banner` variant to show "Checking source freshness..." with a skeleton bar matching the banner's rounded-pill shape.
+- **CFO Takeaway Loading**: The CFO takeaway card at the bottom of each tab uses the `card` variant with label "Generating takeaway..." and 2 skeleton lines, preserving the takeaway's card dimensions.
+- **Pass-Through via Page**: `MarketWatchPage` manages a single `cardLoadState` (`'initial' | 'updating' | 'idle'`) and passes `loading={cardLoadState !== 'idle'}` to all tabs. On initial page load, `cardLoadState` starts as `'initial'`. On manual refresh, it transitions through `'updating'` -> `'idle'`.
+- **Empty-State Fallback**: If a tab's data source is null (e.g., `stressSource` is null even after loading), the existing inline empty-state text or centered loader text is shown instead of the loading skeleton. The loading skeleton only appears while data is actively being fetched.
+- **Defensive Loading**: The loading state logic checks the `loading` prop first. If true, contextual placeholders render. If false, the standard content renders with its existing fallback behavior (profile-aware text vs. generic text).
+
+### Tab-Specific Loading Examples
+
+- **Market Pulse**: Shows skeleton rows with "Preparing context..." for the "What Needs Attention Now" section, compact skeleton items with "Checking source freshness..." for Latest Signals, and two card skeletons for Workspace Context and Integration Status.
+- **Rates & Liquidity**: Shows 3 card skeletons labeled "Fetching HKMA rates..." in a three-column grid, plus a card skeleton labeled "Preparing funding window context..." for the company exposure panel and "Checking liquidity context..." for the Liquidity Watch section.
+- **FX & GBA**: Shows 3 row skeletons labeled "Fetching FX reference rates..." within the Currency Context panel, plus a card skeleton for "Mapping currency exposure..." and "Preparing FX watch context..." for GBA watch signals.
+- **Sector Benchmarks**: Shows 1 card skeleton for "Checking sector benchmark context..." and 4 card skeletons labeled "Comparing workspace metrics..." in a 2-column grid for benchmark indicators.
+- **Commodities**: Shows 3 card skeletons labeled "Mapping input-cost exposure..." for the key operational inputs grid, plus card skeletons for "Checking margin pressure context..." and "Preparing commodity watch context...".
+- **Stress Signals**: Shows 3 card skeletons labeled "Preparing scenario context..." for priority scenarios, plus card skeletons for "Checking required workspace data..." and "Preparing stress watch signals...".
+
+## 24. Market Data and Source Language
 
 FinSight CFO prioritizes transparent source disclosure for all external market telemetry.
 
@@ -373,3 +413,40 @@ FinSight CFO prioritizes transparent source disclosure for all external market t
 - **Data Integrity**: Future live or near-real-time data displays must clearly show the original publisher (source), a precise "as-of" timestamp, and an accurate freshness marker.
 - **Accurate Wording**: Avoid calling data "live" or "real-time" unless verified. Instead, use phrases like `source-fresh` or `near-real-time` only when technically accurate.
 - **Source & Freshness Microcopy**: Every individual card, module, or data point displaying external signals must expose visible source and freshness microcopy.
+
+## 25. Market Watch Production UI Hierarchy
+
+The Market Watch interface prioritizes a calm, premium workspace style.
+
+- **Typography Weight Rules**:
+  - Page/tab section title: `semibold` (e.g., `font-semibold`)
+  - Card title/label: `medium` (e.g., `font-medium`)
+  - Primary metric/value: `bold` (e.g., `font-bold`)
+  - Description/body copy: `regular` (no bold or semibold classes)
+  - Source/freshness/meta text: `regular` or `medium`, smaller size, and muted
+  - Status/severity chips: `medium` but small text size
+- **Bold Usage Guidance**: Bold text must be reserved strictly for primary metric values, section titles, and key labels only when needed. Avoid using bold/semibold for descriptions, body text, metadata, and status rows.
+- **Source & Freshness Treatment**: Sourcing and update metadata must remain quiet, small, and visually secondary, utilizing muted colors and lower font weights.
+- **No Internal/Debug Labels in Main UI**: Avoid all internal/debug labels (such as "Seed data", "Ready for connector", "Requires backend", "typed UI seed data", etc.) in the prominent user-facing UI. Use cleaner, user-facing wording:
+  - "Workspace-derived"
+  - "Source pending"
+  - "Provider not configured"
+  - "Company records required"
+  - "Context-only"
+- **Unavailable Data Treatment**: Secondary or unavailable data must not dominate the layout. If data is unavailable, either hide the large panels completely or show a highly compact, visually desaturated state to maintain proper visual hierarchy.
+
+## 26. Source Provenance Tooltip Pattern
+
+The Source Provenance Tooltip pattern ensures that data source, freshness, and integration metadata remain easily accessible without cluttering the CFO workspace canvas.
+
+- **Non-Primary Content**: Source and freshness details should be accessible on demand but must not occupy primary visual space or take attention away from active financial indicators.
+- **Section Title Attachment**: Place a compact, interactive info tooltip trigger immediately adjacent to the relevant section title (e.g., next to "Rate Context", "Liquidity Watch", or "Stress Scenarios").
+- **No Large Canvas Banners**: Avoid placing large source banners or full-width status chips directly on the main canvas unless a total source failure completely blocks the entire section.
+- **Quiet Tooltip Layout**: Use a unified, keyboard-accessible popover/tooltip for displaying:
+  - Source publisher/label
+  - As-of date/timestamp
+  - Freshness frequency
+  - Integration mode badge (mapped to user-facing terms like *Workspace-derived* or *Context-only*)
+  - Optional warnings or fallback notices in a warning box
+- **Layout Spacing Stability**: Removing visible banners should result in clean, vertically aligned section grids without orphan text or uneven vertical spacing.
+

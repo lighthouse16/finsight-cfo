@@ -50,11 +50,11 @@ export default function SourceBanner({ source, compact = false }: SourceBannerPr
   return (
     <div className="space-y-1">
       <div className={clsx(
-        'inline-flex flex-wrap items-center gap-x-2 rounded-lg px-3 py-1 text-[11px] font-semibold',
+        'inline-flex flex-wrap items-center gap-x-2 rounded-lg px-3 py-1 text-[11px] font-medium',
         containerBg
       )}>
         <span>
-          Source: <span className="font-bold">{source.label}</span>
+          Source: <span className="font-medium">{source.label}</span>
           {source.asOf && ` · As of ${source.asOf}`}
           {source.freshness && ` · ${source.freshness}`}
         </span>
@@ -63,7 +63,7 @@ export default function SourceBanner({ source, compact = false }: SourceBannerPr
       {hasWarnings && !compact && (
         <div className={clsx(
           'text-[10px] leading-relaxed max-w-2xl mt-1 opacity-75 pl-1',
-          isFallback ? 'text-amber-800 font-semibold' : 'text-softform-text-muted'
+          isFallback ? 'text-amber-800 font-medium' : 'text-softform-text-muted'
         )}>
           {source.warnings!.map((w, idx) => (
             <span key={idx} className="block">

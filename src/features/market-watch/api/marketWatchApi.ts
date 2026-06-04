@@ -223,6 +223,7 @@ function adaptRate(backend: BackendRateSnapshot): RateSnapshot {
   })()
 
   return {
+    id: backend.id,
     label: backend.label,
     value: formattedValue,
     changeBasisPoints: backend.changeBasisPoints ?? 0,
@@ -350,10 +351,10 @@ export async function getRatesLiquidity(): Promise<{
       rates: seedRateSnapshots,
       liquidityEvents: seedLiquidityEvents,
       ratesSource: {
-        label: 'Workspace Seed Data',
+        label: 'Workspace benchmark',
         asOf: null,
         warnings: [
-          'Backend unavailable. Showing workspace seed data.',
+          'Backend unavailable. Showing workspace benchmarks.',
         ],
       },
     }
@@ -411,10 +412,10 @@ export async function getFxGba(): Promise<{
       fxPairs: seedFxPairs,
       gbaSignals: seedGbaSignals,
       fxSource: {
-        label: 'Local seed fallback',
+        label: 'Local benchmark fallback',
         asOf: null,
         warnings: [
-          'Backend unavailable. Showing workspace seed data.',
+          'Backend unavailable. Showing workspace benchmarks.',
         ],
         freshness: 'Workspace',
       },
@@ -549,10 +550,10 @@ function getLocalSectorBenchmarksFallback(): {
       },
     ],
     sectorSource: {
-      label: 'Workspace Seed Data',
+      label: 'Workspace benchmark',
       asOf: null,
       freshness: 'Workspace',
-      warnings: ['Backend unavailable. Showing workspace seed data.'],
+      warnings: ['Backend unavailable. Showing workspace benchmarks.'],
       selectedSector: {
         id: 'manufacturing-export',
         name: 'Manufacturing (Export)',
@@ -709,10 +710,10 @@ function getLocalCommoditiesFallback(): {
       },
     ],
     commoditySource: {
-      label: 'Workspace Seed Data',
+      label: 'Workspace benchmark',
       asOf: null,
       freshness: 'Workspace',
-      warnings: ['Backend unavailable. Showing workspace seed data.'],
+      warnings: ['Backend unavailable. Showing workspace benchmarks.'],
       selectedSector: {
         id: 'electronics-import',
         name: 'Electronics Import',
@@ -821,7 +822,7 @@ function getLocalStressSignalsFallback(): {
     scenarios: [
       {
         id: 'stress-1',
-        title: 'Rate Shock (+150 bps)',
+        title: 'Rate sensitivity scenario',
         description: 'Frames a placeholder rate-shock scenario for floating HIBOR/Prime-linked credit facilities. Debt schedules and revolving limit records are required before debt-service sensitivity can be quantified.',
         affectedArea: 'Debt Service Coverage Ratio (DSCR)',
         impactDirection: 'Negative',
@@ -851,10 +852,10 @@ function getLocalStressSignalsFallback(): {
       },
     ],
     stressSource: {
-      label: 'Workspace Seed Data',
+      label: 'Workspace benchmark',
       asOf: null,
       freshness: 'Workspace',
-      warnings: ['Backend unavailable. Showing workspace seed data.'],
+      warnings: ['Backend unavailable. Showing workspace benchmarks.'],
       workspaceContext: {
         id: 'workspace-demo',
         companyLabel: 'Workspace Demo Context (Trading & Distribution)',

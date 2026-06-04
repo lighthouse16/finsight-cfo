@@ -23,9 +23,6 @@ export default function TopCommandBar({ onMenuToggle }: TopCommandBarProps) {
           <span className="text-sm font-semibold text-softform-navy-950">
             FinSight Workspace
           </span>
-          <span className="hidden text-xs text-softform-text-muted lg:inline">
-            · SME Workspace
-          </span>
         </div>
 
         {/* Search placeholder */}

@@ -30,7 +30,7 @@ export function evaluateStressRules(snapshot: MarketWatchSnapshot): TabInsightSe
 
   const rateShockInsight: MarketWatchInsight = {
     id: 'stress-rate-shock',
-    title: 'Rate Shock (+150 bps)',
+    title: 'Rate sensitivity scenario',
     description: 'Review whether operating cashflow has enough buffer under this rate-shock context.',
     severity: rateShockSeverity,
     category: 'stress',

@@ -65,7 +65,7 @@ export function evaluateFundingRules(snapshot: MarketWatchSnapshot): TabInsightS
     if (company.workingCapitalGapHkd > 0) {
       watchSignals.push({
         id: 'funding-wc-gap',
-        title: 'Working Capital Gap Pressure',
+        title: 'Working-capital gap watch',
         description: `Working capital gap of HKD ${(company.workingCapitalGapHkd / 1000000).toFixed(1)}M pressures liquid cash runway.`,
         severity: company.workingCapitalGapHkd > 2000000 ? 'Caution' : 'Neutral',
         category: 'funding',

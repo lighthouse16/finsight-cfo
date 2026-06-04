@@ -1,5 +1,8 @@
 import { useEffect, useState, useMemo } from 'react'
-import { Activity, AlertTriangle, Box, Globe, PieChart, TrendingUp } from 'lucide-react'
+import { Activity, AlertTriangle, Box, Globe, PieChart, TrendingUp, RotateCw } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import clsx from 'clsx'
+import { useSearchParams } from 'react-router-dom'
 import PageHeader from '../../components/platform/PageHeader'
 import InfoTooltip from '../../components/ui/InfoTooltip'
 import {
@@ -14,7 +17,6 @@ import {
   getCompanyContext,
 } from './api/marketWatchApi'
 import CommoditiesTab from './components/CommoditiesTab'
-import CompanyStrip from './components/CompanyStrip'
 import FxGbaTab from './components/FxGbaTab'
 import MarketMetricCard from './components/MarketMetricCard'
 import MarketPulseTab from './components/MarketPulseTab'
@@ -55,8 +57,40 @@ export type FxSourceInfo = {
   freshness: string
 }
 
+const TAB_ID_TO_PARAM: Record<TabId, string> = {
+  pulse: 'market-pulse',
+  rates: 'rates-liquidity',
+  fx: 'fx-gba',
+  sectors: 'sector-benchmarks',
+  commodities: 'commodities',
+  stress: 'stress-signals',
+}
+
+const PARAM_TO_TAB_ID: Record<string, TabId> = {
+  'market-pulse': 'pulse',
+  'rates-liquidity': 'rates',
+  'fx-gba': 'fx',
+  'sector-benchmarks': 'sectors',
+  commodities: 'commodities',
+  'stress-signals': 'stress',
+}
+
+function tabFromParam(param: string | null): TabId {
+  if (param && param in PARAM_TO_TAB_ID) return PARAM_TO_TAB_ID[param]
+  return 'pulse'
+}
+
 export default function MarketWatchPage() {
-  const [activeTab, setActiveTab] = useState<TabId>('pulse')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeTab = tabFromParam(searchParams.get('tab'))
+
+  function handleTabChange(tabId: TabId) {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.set('tab', TAB_ID_TO_PARAM[tabId])
+      return next
+    }, { replace: true })
+  }
 
   // Data states
   const [metrics, setMetrics] = useState<MarketMetric[]>([])
@@ -80,87 +114,107 @@ export default function MarketWatchPage() {
   const [stressSource, setStressSource] = useState<StressSourceInfo | null>(null)
   const [sources, setSources] = useState<SourceStatusItem[]>([])
   const [companyContext, setCompanyContext] = useState<CompanyContext | null>(null)
-  const [loading, setLoading] = useState(true)
+
+  // Card-level loading state for executive signal cards
+  const [cardLoadState, setCardLoadState] = useState<'initial' | 'updating' | 'idle'>('initial')
+
+  // Minimum display duration helper to avoid flicker
+  const MIN_CARD_LOAD_MS = 500
+  async function withMinDuration<T>(fn: () => Promise<T>): Promise<T> {
+    const start = Date.now()
+    const result = await fn()
+    const elapsed = Date.now() - start
+    if (elapsed < MIN_CARD_LOAD_MS) {
+      await new Promise(r => setTimeout(r, MIN_CARD_LOAD_MS - elapsed))
+    }
+    return result
+  }
 
   // Auto-refresh states
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date())
   const [refreshing, setRefreshing] = useState(false)
 
   async function loadData(isSilent = false) {
-    if (!isSilent) setRefreshing(true)
+    if (!isSilent) {
+      setRefreshing(true)
+      setCardLoadState(prev => prev === 'idle' ? 'updating' : 'initial')
+    }
     try {
       let sectorParam: string | undefined = undefined
       let geoParam: string | undefined = undefined
       let companyIdParam: string | undefined = undefined
 
-      const context = await getCompanyContext()
-      if (context) {
-        setCompanyContext(context)
-        const profile = context.profile
-        companyIdParam = profile.companyName
-        sectorParam = profile.sector.toLowerCase().includes('electronics') ? 'electronics-import' : 'trading-distribution'
-        geoParam = 'HK'
-      }
+      await withMinDuration(async () => {
+        const context = await getCompanyContext()
+        if (context) {
+          setCompanyContext(context)
+          const profile = context.profile
+          companyIdParam = profile.companyName
+          sectorParam = profile.sector.toLowerCase().includes('electronics') ? 'electronics-import' : 'trading-distribution'
+          geoParam = 'HK'
+        }
 
-      const [
-        overview,
-        ratesLiq,
-        fx,
-        sectors,
-        comms,
-        stress,
-        sourceStatus,
-      ] = await Promise.all([
-        getMarketOverview(),
-        getRatesLiquidity(),
-        getFxGba(),
-        getSectorBenchmarks(sectorParam, geoParam),
-        getCommodities(sectorParam, geoParam),
-        getStressSignals(companyIdParam, sectorParam),
-        getMarketSourceStatus(),
-      ])
+        const [
+          overview,
+          ratesLiq,
+          fx,
+          sectors,
+          comms,
+          stress,
+          sourceStatus,
+        ] = await Promise.all([
+          getMarketOverview(),
+          getRatesLiquidity(),
+          getFxGba(),
+          getSectorBenchmarks(sectorParam, geoParam),
+          getCommodities(sectorParam, geoParam),
+          getStressSignals(companyIdParam, sectorParam),
+          getMarketSourceStatus(),
+        ])
 
-      setMetrics(overview.metrics)
-      setSignals(overview.signals)
-      setRates(ratesLiq.rates)
-      setLiquidityEvents(ratesLiq.liquidityEvents)
-      if (ratesLiq.ratesSource) {
-        setRatesSource(ratesLiq.ratesSource)
-      }
-      setFxPairs(fx.fxPairs)
-      setGbaSignals(fx.gbaSignals)
-      if (fx.exposureNotes) {
-        setExposureNotes(fx.exposureNotes)
-      }
-      if (fx.fxSource) {
-        setFxSource(fx.fxSource)
-      }
-      setBenchmarks(sectors.benchmarks)
-      if (sectors.sectorSource) {
-        setSectorSource(sectors.sectorSource)
-      }
-      setCommodities(comms.commodities)
-      if (comms.commoditySource) {
-        setCommoditySource(comms.commoditySource)
-      }
-      setScenarios(stress.scenarios)
-      if (stress.stressSource) {
-        setStressSource(stress.stressSource)
-      }
-      setSources(sourceStatus.sources)
-      setLastRefreshed(new Date())
+        setMetrics(overview.metrics)
+        setSignals(overview.signals)
+        setRates(ratesLiq.rates)
+        setLiquidityEvents(ratesLiq.liquidityEvents)
+        if (ratesLiq.ratesSource) {
+          setRatesSource(ratesLiq.ratesSource)
+        }
+        setFxPairs(fx.fxPairs)
+        setGbaSignals(fx.gbaSignals)
+        if (fx.exposureNotes) {
+          setExposureNotes(fx.exposureNotes)
+        }
+        if (fx.fxSource) {
+          setFxSource(fx.fxSource)
+        }
+        setBenchmarks(sectors.benchmarks)
+        if (sectors.sectorSource) {
+          setSectorSource(sectors.sectorSource)
+        }
+        setCommodities(comms.commodities)
+        if (comms.commoditySource) {
+          setCommoditySource(comms.commoditySource)
+        }
+        setScenarios(stress.scenarios)
+        if (stress.stressSource) {
+          setStressSource(stress.stressSource)
+        }
+        setSources(sourceStatus.sources)
+        setLastRefreshed(new Date())
+      })
     } catch (error) {
       console.error('Failed to load market watch data', error)
     } finally {
       if (!isSilent) {
         setRefreshing(false)
-        setLoading(false)
+        setCardLoadState('idle')
       }
     }
   }
 
   useEffect(() => {
     loadData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Auto-refresh interval setup
@@ -171,6 +225,7 @@ export default function MarketWatchPage() {
       loadData(true)
     }, intervalMs)
     return () => clearInterval(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleManualRefresh = async () => {
@@ -346,27 +401,28 @@ export default function MarketWatchPage() {
         }
         actions={
           <div className="flex flex-wrap items-center gap-3">
-            <span className="text-[10px] text-softform-text-muted font-semibold mr-2 uppercase tracking-wider">
+            <span className="text-[10px] text-softform-text-muted font-medium mr-2 uppercase tracking-wider">
               Last updated: {lastRefreshed.toLocaleTimeString()} {refreshing && '(refreshing...)'}
             </span>
             <button
               onClick={handleManualRefresh}
               disabled={refreshing}
-              className={`rounded-full bg-white/70 hover:bg-white px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-softform-navy-950 shadow-sm border border-softform-navy-950/10 transition-all duration-200 active:scale-95 ${
+              className={`inline-flex items-center gap-2 rounded-full bg-white/70 hover:bg-white px-5 py-2.5 text-xs font-semibold uppercase tracking-wider text-softform-navy-950 shadow-sm border border-softform-navy-950/10 transition-all duration-200 active:scale-95 ${
                 refreshing ? 'opacity-50 cursor-wait' : 'hover:-translate-y-0.5 hover:shadow-floating-panel'
               }`}
             >
-              Refresh data
+              <RotateCw className={clsx("h-3 w-3 transition-transform", refreshing && "animate-spin")} />
+              <span>{refreshing ? 'Refreshing...' : 'Refresh data'}</span>
             </button>
             <button
               onClick={() => alert('Export snapshot: Workspace integration pending. Company financial records are required before export is enabled.')}
-              className="softform-pill rounded-full px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-softform-navy-950/60 cursor-not-allowed border border-softform-navy-950/10 transition-all duration-200"
+              className="softform-pill rounded-full px-5 py-2.5 text-xs font-semibold uppercase tracking-wider text-softform-navy-950/60 cursor-not-allowed border border-softform-navy-950/10 transition-all duration-200"
             >
               Export snapshot
             </button>
             <button
               onClick={() => alert('Configure watchlist: Workspace integration pending. Watchlist options will be enabled upon loading financial records.')}
-              className="rounded-full bg-[linear-gradient(145deg,#0d1726,#1c324b)] opacity-60 cursor-not-allowed px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white/80 shadow-navy-card border border-white/10 transition-all duration-200"
+              className="rounded-full bg-[linear-gradient(145deg,#0d1726,#1c324b)] opacity-60 cursor-not-allowed px-5 py-2.5 text-xs font-semibold uppercase tracking-wider text-white/80 shadow-navy-card border border-white/10 transition-all duration-200"
             >
               Configure watchlist
             </button>
@@ -374,30 +430,46 @@ export default function MarketWatchPage() {
         }
       />
 
-      {loading ? (
-        <div className="flex h-64 items-center justify-center">
-          <div className="text-sm font-medium text-softform-text-muted">
-            Loading market intelligence...
-          </div>
-        </div>
-      ) : (
-        <>
-          {companyContext && (
-            <CompanyStrip
-              profile={companyContext.profile}
-              dataMode={companyContext.dataMode}
-            />
-          )}
+      {/*** Executive signal cards — always render grid, with loading/updating state ***/}
+      <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <AnimatePresence mode="popLayout">
+          {cardLoadState !== 'idle'
+            ? Array.from({ length: 4 }).map((_, i) => (
+                <motion.div
+                  key={`skeleton-${i}`}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  <MarketMetricCard
+                    loading
+                    loadingLabel={cardLoadState === 'updating' ? 'Updating insights...' : 'Calculating insights...'}
+                  />
+                </motion.div>
+              ))
+            : derivedMetrics.map((metric, idx) => (
+                <motion.div
+                  key={metric.id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ 
+                    duration: 0.24, 
+                    ease: [0.22, 1, 0.36, 1],
+                    delay: idx * 0.04 
+                  }}
+                >
+                  <MarketMetricCard metric={metric} />
+                </motion.div>
+              ))}
+        </AnimatePresence>
+      </div>
 
-          <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {derivedMetrics.map((metric) => (
-              <MarketMetricCard key={metric.id} metric={metric} />
-            ))}
-          </div>
-
-          <MarketWatchTabs
+      <>
+        <MarketWatchTabs
             activeTab={activeTab}
-            onChange={setActiveTab}
+            onChange={handleTabChange}
             tabs={[
               { id: 'pulse', label: 'Market Pulse', icon: Activity },
               { id: 'rates', label: 'Rates & Liquidity', icon: TrendingUp },
@@ -409,61 +481,75 @@ export default function MarketWatchPage() {
           />
 
           <div className="min-h-[400px]">
-            {activeTab === 'pulse' && (
-              <MarketPulseTab
-                signals={signals}
-                sources={sources}
-                profile={companyContext?.profile}
-                insights={insights || undefined}
-              />
-            )}
-            {activeTab === 'rates' && (
-              <RatesLiquidityTab
-                rates={rates}
-                liquidityEvents={liquidityEvents}
-                ratesSource={ratesSource}
-                profile={companyContext?.profile}
-                insights={insights || undefined}
-              />
-            )}
-            {activeTab === 'fx' && (
-              <FxGbaTab
-                fxPairs={fxPairs}
-                gbaSignals={gbaSignals}
-                exposureNotes={exposureNotes}
-                fxSource={fxSource}
-                profile={companyContext?.profile}
-                insights={insights || undefined}
-              />
-            )}
-            {activeTab === 'sectors' && (
-              <SectorBenchmarksTab
-                benchmarks={benchmarks}
-                sectorSource={sectorSource}
-                profile={companyContext?.profile}
-                insights={insights || undefined}
-              />
-            )}
-            {activeTab === 'commodities' && (
-              <CommoditiesTab
-                commodities={commodities}
-                commoditySource={commoditySource}
-                profile={companyContext?.profile}
-                insights={insights || undefined}
-              />
-            )}
-            {activeTab === 'stress' && (
-              <StressSignalsTab
-                scenarios={scenarios}
-                stressSource={stressSource}
-                profile={companyContext?.profile}
-                insights={insights || undefined}
-              />
-            )}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeTab}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+              >
+                {activeTab === 'pulse' && (
+                  <MarketPulseTab
+                    signals={signals}
+                    sources={sources}
+                    profile={companyContext?.profile}
+                    insights={insights || undefined}
+                    loading={cardLoadState !== 'idle'}
+                  />
+                )}
+                {activeTab === 'rates' && (
+                  <RatesLiquidityTab
+                    rates={rates}
+                    liquidityEvents={liquidityEvents}
+                    ratesSource={ratesSource}
+                    profile={companyContext?.profile}
+                    insights={insights || undefined}
+                    loading={cardLoadState !== 'idle'}
+                  />
+                )}
+                {activeTab === 'fx' && (
+                  <FxGbaTab
+                    fxPairs={fxPairs}
+                    gbaSignals={gbaSignals}
+                    exposureNotes={exposureNotes}
+                    fxSource={fxSource}
+                    profile={companyContext?.profile}
+                    insights={insights || undefined}
+                    loading={cardLoadState !== 'idle'}
+                  />
+                )}
+                {activeTab === 'sectors' && (
+                  <SectorBenchmarksTab
+                    benchmarks={benchmarks}
+                    sectorSource={sectorSource}
+                    profile={companyContext?.profile}
+                    insights={insights || undefined}
+                    loading={cardLoadState !== 'idle'}
+                  />
+                )}
+                {activeTab === 'commodities' && (
+                  <CommoditiesTab
+                    commodities={commodities}
+                    commoditySource={commoditySource}
+                    profile={companyContext?.profile}
+                    insights={insights || undefined}
+                    loading={cardLoadState !== 'idle'}
+                  />
+                )}
+                {activeTab === 'stress' && (
+                  <StressSignalsTab
+                    scenarios={scenarios}
+                    stressSource={stressSource}
+                    profile={companyContext?.profile}
+                    insights={insights || undefined}
+                    loading={cardLoadState !== 'idle'}
+                  />
+                )}
+              </motion.div>
+            </AnimatePresence>
           </div>
         </>
-      )}
-    </div>
-  )
+      </div>
+    )
 }
-
