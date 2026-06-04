@@ -60,7 +60,7 @@ export default function FintechHeader() {
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center space-x-4">
             <a
-              href="#signup"
+              href="/signup"
               className="px-5 py-2 bg-fintech-blue text-white rounded-lg text-sm font-medium hover:bg-fintech-blue/90 transition-colors"
             >
               Get Started
@@ -99,7 +99,7 @@ export default function FintechHeader() {
                 </a>
               ))}
               <a
-                href="#signup"
+                href="/signup"
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="block w-full px-5 py-2 bg-fintech-blue text-white rounded-lg text-sm font-medium text-center hover:bg-fintech-blue/90 transition-colors"
               >

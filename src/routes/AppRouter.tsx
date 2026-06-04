@@ -13,6 +13,8 @@ import {
 } from 'lucide-react'
 import { type ElementType } from 'react'
 import LandingPage from '../pages/LandingPage'
+import LoginPage from '../pages/LoginPage'
+import SignupPage from '../pages/SignupPage'
 import PlatformPlaceholderPage from '../pages/PlatformPlaceholderPage'
 import NotFoundPage from '../pages/NotFoundPage'
 import PlatformShell from '../components/platform/PlatformShell'
@@ -125,6 +127,12 @@ export default function AppRouter() {
       <Routes>
         {/* Landing page — untouched */}
         <Route path="/" element={<LandingPage />} />
+        
+        {/* Login page */}
+        <Route path="/login" element={<LoginPage />} />
+        
+        {/* Signup page */}
+        <Route path="/signup" element={<SignupPage />} />
 
         {/* Platform shell with nested routes */}
         <Route path="/platform" element={<PlatformShell />}>

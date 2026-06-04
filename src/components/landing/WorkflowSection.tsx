@@ -111,7 +111,7 @@ export default function WorkflowSection() {
             Built for finance teams preparing stronger funding conversations
           </p>
           <a
-            href="#signup"
+            href="/signup"
             className="inline-flex items-center space-x-2 px-6 py-3 bg-[linear-gradient(145deg,#0d1726,#1c324b)] text-white rounded-2xl font-medium shadow-[0_18px_42px_rgba(8,17,31,0.20)] hover:-translate-y-0.5 transition-all"
           >
             <span>Get Started</span>

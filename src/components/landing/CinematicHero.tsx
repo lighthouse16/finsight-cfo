@@ -142,8 +142,8 @@ export default function CinematicHero() {
           </nav>
 
           <div className="flex items-center gap-4">
-            <a id="header-login" href="#login" className="hidden text-sm font-semibold text-softform-text-secondary hover:text-softform-navy-950 sm:inline-flex">Log in</a>
-            <a id="header-get-started" href="#signup" className="inline-flex items-center gap-2 rounded-full bg-[linear-gradient(145deg,#0d1726,#1c324b)] px-5 py-2.5 text-sm font-bold text-white shadow-[0_16px_36px_rgba(8,17,31,0.20)] transition hover:-translate-y-0.5">
+            <a id="header-login" href="/login" className="hidden text-sm font-semibold text-softform-text-secondary hover:text-softform-navy-950 sm:inline-flex">Log in</a>
+            <a id="header-get-started" href="/signup" className="inline-flex items-center gap-2 rounded-full bg-[linear-gradient(145deg,#0d1726,#1c324b)] px-5 py-2.5 text-sm font-bold text-white shadow-[0_16px_36px_rgba(8,17,31,0.20)] transition hover:-translate-y-0.5">
               Get Started
               <ArrowRight className="h-4 w-4" />
             </a>
@@ -168,7 +168,7 @@ export default function CinematicHero() {
             </p>
 
             <div className="mt-8 flex flex-col gap-4 sm:flex-row">
-              <a id="hero-primary-cta" href="#signup" className="inline-flex min-w-[215px] items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(145deg,#0d1726,#1c324b)] px-6 py-3.5 text-base font-bold text-white shadow-[0_18px_42px_rgba(8,17,31,0.22)] transition hover:-translate-y-0.5 active:scale-[0.98]">
+              <a id="hero-primary-cta" href="/signup" className="inline-flex min-w-[215px] items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(145deg,#0d1726,#1c324b)] px-6 py-3.5 text-base font-bold text-white shadow-[0_18px_42px_rgba(8,17,31,0.22)] transition hover:-translate-y-0.5 active:scale-[0.98]">
                 Open CFO Cockpit
                 <ArrowRight className="h-5 w-5" />
               </a>
