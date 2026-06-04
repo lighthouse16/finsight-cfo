@@ -357,3 +357,220 @@ def test_company_context():
     assert "dataMode" in data
     assert data["profile"]["companyName"] == "Harbour & Finch Trading Ltd."
     assert len(data["exposures"]) > 0
+
+def test_rates_liquidity_normalization(monkeypatch):
+    from app.services.market_watch.hkma_client import hkma_client
+    from app.services.market_watch.hkab_web_client import hkab_web_client
+    from app.services.market_watch.cache import cache
+    
+    # 1. Verify HKAB fetch failure triggers HKMA fallback sorting and metadata.asOf behavior
+    async def mock_fetch_hkab_failed():
+        return None
+
+    async def mock_get_hibor_fixing_sorting():
+        return [
+            {"end_of_day": "2026-05-29", "ir_overnight": 3.02, "ir_1m": 2.61, "ir_3m": 2.83, "ir_6m": 2.97, "ir_12m": 3.18},
+            {"end_of_day": "2026-06-02", "ir_overnight": 2.89, "ir_1m": 2.44, "ir_3m": 2.60, "ir_6m": 2.70, "ir_12m": 2.90}
+        ]
+        
+    async def mock_get_honia_sorting():
+        return [
+            {"end_of_day": "2026-05-29", "ir_overnight": 2.90},
+            {"end_of_day": "2026-06-02", "ir_overnight": 2.76}
+        ]
+        
+    async def mock_get_interbank_liquidity():
+        return [{
+            "end_of_date": "2026-06-02",
+            "opening_balance": 53997,
+            "closing_balance": 53997,
+            "forecast_aggregate_bal_t1": 53947,
+            "disc_win_base_rate": 4,
+            "interest_payment_issuance_efbn_t1": -50,
+            "interest_payment_issuance_efbn_t2": "+0"
+        }]
+
+    monkeypatch.setattr(hkab_web_client, "fetch_latest_hibor", mock_fetch_hkab_failed)
+    monkeypatch.setattr(hkma_client, "get_hibor_fixing", mock_get_hibor_fixing_sorting)
+    monkeypatch.setattr(hkma_client, "get_honia", mock_get_honia_sorting)
+    monkeypatch.setattr(hkma_client, "get_interbank_liquidity", mock_get_interbank_liquidity)
+    monkeypatch.setattr(settings, "MARKET_WATCH_USE_FIXTURES", False)
+
+    cache.delete("rates_liquidity")
+
+    response = client.get("/api/market-watch/rates-liquidity")
+    assert response.status_code == 200
+    data = response.json()
+
+    # Fallback path assertions
+    overnight_rate = next(r for r in data["rates"] if r["id"] == "hibor-o/n")
+    assert overnight_rate["value"] == 2.89
+    assert overnight_rate["sourceTimestamp"] == "2026-06-02"
+    assert overnight_rate["context"] == "HKMA fixing"
+    assert data["metadata"]["asOf"] == "2026-06-02"
+
+    # HKAB should show unavailable status, HKMA HIBOR connected
+    hkab_status_item = next(item for item in data["sourceStatus"] if item["id"] == "hkab-hibor")
+    assert hkab_status_item["status"] == "unavailable"
+    hkma_status_item = next(item for item in data["sourceStatus"] if item["id"] == "hkma-hibor")
+    assert hkma_status_item["status"] == "connected"
+
+    # 2. Verify cache refresh and HKAB success path behavior
+    async def mock_fetch_hkab_success():
+        return {
+            "source_date": "2026-06-03",
+            "rates": {
+                "Overnight": 2.05,
+                "1 Month": 2.60,
+                "3 Months": 2.75,
+                "6 Months": 2.91,
+                "12 Months": 3.17
+            },
+            "source_label": "HKAB public HIBOR page"
+        }
+
+    async def mock_get_honia_june3():
+        return [
+            {"end_of_day": "2026-06-03", "ir_overnight": 2.01}
+        ]
+
+    # Triggering GET again should serve cached values
+    response_cached = client.get("/api/market-watch/rates-liquidity")
+    assert response_cached.json()["metadata"]["asOf"] == "2026-06-02"
+
+    # Monkeypatch to HKAB success
+    monkeypatch.setattr(hkab_web_client, "fetch_latest_hibor", mock_fetch_hkab_success)
+    monkeypatch.setattr(hkma_client, "get_honia", mock_get_honia_june3)
+
+    # Calling refresh should clear the cache and return fresh June 3 values
+    response_refresh = client.post("/api/market-watch/refresh", json={"scope": "rates-liquidity"})
+    assert response_refresh.status_code == 200
+    
+    response_fresh = client.get("/api/market-watch/rates-liquidity")
+    data_fresh = response_fresh.json()
+    assert data_fresh["metadata"]["asOf"] == "2026-06-03"
+    
+    overnight_fresh = next(r for r in data_fresh["rates"] if r["id"] == "hibor-o/n")
+    assert overnight_fresh["value"] == 2.05
+    assert overnight_fresh["context"] == "HKAB HIBOR fixing"
+    assert overnight_fresh["sourceTimestamp"] == "2026-06-03"
+
+    # HONIA should remain HKMA
+    honia_fresh = next(r for r in data_fresh["rates"] if r["id"] == "honia-on")
+    assert honia_fresh["context"] == "HKMA HONIA fixing"
+
+    # hkab-hibor connected, hkma-hibor stale (secondary fallback)
+    hkab_fresh_status = next(item for item in data_fresh["sourceStatus"] if item["id"] == "hkab-hibor")
+    assert hkab_fresh_status["status"] == "connected"
+    hkma_fresh_status = next(item for item in data_fresh["sourceStatus"] if item["id"] == "hkma-hibor")
+    assert hkma_fresh_status["status"] == "stale"
+
+
+def test_hkab_web_client_parsing():
+    from app.services.market_watch.hkab_web_client import hkab_web_client
+    
+    mock_html = """
+    <h2 class="hibor_section_title">Rates as at 11:15a.m.<br/>Hong Kong Time on 2026-6-3.</h2>
+    <div class="general_table_row"><div class="general_table_cell hibor_maturity"><div>Overnight</div></div><div class="general_table_cell last"><div>2.05595</div></div></div>
+    <div class="general_table_row"><div class="general_table_cell hibor_maturity"><div>1 Month</div></div><div class="general_table_cell last"><div>2.60000</div></div></div>
+    """
+    
+    result = hkab_web_client.parse_html(mock_html)
+    assert result is not None
+    assert result["source_date"] == "2026-06-03"
+    assert result["rates"]["Overnight"] == 2.05595
+    assert result["rates"]["1 Month"] == 2.6
+    assert result["source_label"] == "HKAB public HIBOR page"
+
+
+def test_rates_liquidity_mixed_availability(monkeypatch):
+    from app.services.market_watch.hkma_client import hkma_client
+    from app.services.market_watch.hkab_web_client import hkab_web_client
+    from app.services.market_watch.cache import cache
+
+    # Case A: HKAB success, HONIA unavailable, Liquidity success
+    async def mock_fetch_hkab_success():
+        return {
+            "source_date": "2026-06-03",
+            "rates": {
+                "Overnight": 2.05,
+                "1 Month": 2.60,
+                "3 Months": 2.75,
+                "6 Months": 2.91,
+                "12 Months": 3.17
+            },
+            "source_label": "HKAB public HIBOR page"
+        }
+
+    async def mock_get_honia_empty():
+        return []
+
+    async def mock_get_interbank_liquidity_success():
+        return [{
+            "end_of_date": "2026-06-03",
+            "opening_balance": 50000,
+            "closing_balance": 51000,
+            "forecast_aggregate_bal_t1": 52000,
+            "disc_win_base_rate": 4.5,
+            "interest_payment_issuance_efbn_t1": 100,
+            "interest_payment_issuance_efbn_t2": -100
+        }]
+
+    monkeypatch.setattr(hkab_web_client, "fetch_latest_hibor", mock_fetch_hkab_success)
+    monkeypatch.setattr(hkma_client, "get_honia", mock_get_honia_empty)
+    monkeypatch.setattr(hkma_client, "get_interbank_liquidity", mock_get_interbank_liquidity_success)
+    monkeypatch.setattr(settings, "MARKET_WATCH_USE_FIXTURES", False)
+
+    cache.delete("rates_liquidity")
+
+    response = client.get("/api/market-watch/rates-liquidity")
+    assert response.status_code == 200
+    data = response.json()
+
+    # HONIA should not be faked
+    rates_ids = [r["id"] for r in data["rates"]]
+    assert "honia-on" not in rates_ids
+
+    # sourceStatus for HONIA should be unavailable
+    honia_status = next(item for item in data["sourceStatus"] if item["id"] == "hkma-honia")
+    assert honia_status["status"] == "unavailable"
+    assert "HKMA HONIA data was unavailable from the source response." in data["metadata"]["warnings"]
+
+    # Liquidity should be connected
+    liq_status = next(item for item in data["sourceStatus"] if item["id"] == "hkma-liquidity")
+    assert liq_status["status"] == "connected"
+    assert len(data["liquidityEvents"]) > 0
+
+    # Case B: HKAB success, HONIA success, Liquidity unavailable (missing fields)
+    async def mock_get_honia_success():
+        return [{"end_of_day": "2026-06-03", "ir_overnight": 2.01}]
+
+    async def mock_get_interbank_liquidity_missing_fields():
+        return [{
+            "end_of_date": "2026-06-03",
+            "opening_balance": 50000,
+            # closing_balance is missing
+            "forecast_aggregate_bal_t1": 52000,
+            "disc_win_base_rate": 4.5
+        }]
+
+    monkeypatch.setattr(hkma_client, "get_honia", mock_get_honia_success)
+    monkeypatch.setattr(hkma_client, "get_interbank_liquidity", mock_get_interbank_liquidity_missing_fields)
+
+    cache.delete("rates_liquidity")
+
+    response = client.get("/api/market-watch/rates-liquidity")
+    assert response.status_code == 200
+    data = response.json()
+
+    # Liquidity should be unavailable
+    liq_status = next(item for item in data["sourceStatus"] if item["id"] == "hkma-liquidity")
+    assert liq_status["status"] == "unavailable"
+    assert data["liquidityEvents"] == []
+    # Warning should list the expected fields failure
+    warnings = data["metadata"]["warnings"]
+    assert any("missing expected fields" in w for w in warnings)
+
+
+
+
