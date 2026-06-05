@@ -42,6 +42,12 @@ interface CompanyProfileInput {
   topCustomerConcentrationPercent?: number
   workingCapitalGapHkd?: number
   connectedRecords?: ConnectedRecordInput[]
+  dscr?: number | null
+  currentRatio?: number | null
+  quickRatio?: number | null
+  interestCoverage?: number | null
+  netDebtToEbitda?: number | null
+  isFallbackFinancials?: boolean
 }
 
 export function buildMarketWatchSnapshot(input: BuildSnapshotInput): MarketWatchSnapshot {
@@ -77,7 +83,13 @@ export function buildMarketWatchSnapshot(input: BuildSnapshotInput): MarketWatch
             status: (r.status as 'connected' | 'pending' | 'missing') || 'missing',
             description: r.description
           }))
-        : defaultCompanyProfile.connectedRecords
+        : defaultCompanyProfile.connectedRecords,
+      dscr: typeof p.dscr === 'number' ? p.dscr : null,
+      currentRatio: typeof p.currentRatio === 'number' ? p.currentRatio : null,
+      quickRatio: typeof p.quickRatio === 'number' ? p.quickRatio : null,
+      interestCoverage: typeof p.interestCoverage === 'number' ? p.interestCoverage : null,
+      netDebtToEbitda: typeof p.netDebtToEbitda === 'number' ? p.netDebtToEbitda : null,
+      isFallbackFinancials: typeof p.isFallbackFinancials === 'boolean' ? p.isFallbackFinancials : false,
     }
   }
 

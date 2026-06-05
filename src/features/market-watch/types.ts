@@ -299,6 +299,12 @@ export interface CompanyProfile {
   topCustomerConcentrationPercent: number
   workingCapitalGapHkd: number
   connectedRecords: ConnectedRecord[]
+  dscr?: number | null
+  currentRatio?: number | null
+  quickRatio?: number | null
+  interestCoverage?: number | null
+  netDebtToEbitda?: number | null
+  isFallbackFinancials?: boolean
 }
 
 export interface CompanyExposure {
@@ -314,6 +320,108 @@ export interface CompanyContext {
   profile: CompanyProfile
   exposures: CompanyExposure[]
   dataMode: string
+}
+
+export interface RatioMetric {
+  value: number | null
+  warning: string | null
+  label: string
+}
+
+export interface FinancialRatios {
+  currentRatio: RatioMetric
+  quickRatio: RatioMetric
+  interestCoverage: RatioMetric
+  dscr: RatioMetric
+  debtRatio: RatioMetric
+  netDebtToEbitda: RatioMetric
+  dso: RatioMetric
+  workingCapitalGap: RatioMetric
+  expectedCreditLossAr: RatioMetric
+}
+
+export interface IntegrityCheckResult {
+  checkName: string
+  passed: boolean
+  message: string
+  details?: Record<string, unknown> | null
+}
+
+export interface IncomeStatementPeriod {
+  revenue: number
+  cogs: number
+  grossProfit?: number | null
+  operatingExpenses: number
+  ebit: number
+  depreciationAmortization: number
+  ebitda: number
+  interestExpense: number
+  ebt: number
+  taxes: number
+  netIncome: number
+}
+
+export interface BalanceSheetPeriod {
+  cash: number
+  accountsReceivable: number
+  inventory: number
+  prepaid: number
+  currentAssets: number
+  ppeNet: number
+  totalAssets: number
+  accountsPayable: number
+  accrued: number
+  shortTermDebt: number
+  currentPortionLongTermDebt: number
+  longTermDebt: number
+  leaseLiabilities: number
+  currentLiabilities: number
+  totalLiabilities: number
+  equity: number
+}
+
+export interface CashFlowStatementPeriod {
+  cfo: number
+  capex: number
+  debtIssued: number
+  debtRepaid: number
+  dividends: number
+  netChangeCash: number
+}
+
+export interface DebtSchedule {
+  scheduledInterest: number
+  scheduledPrincipal: number
+  monthlyDebtService?: number | null
+}
+
+export interface ReceivablesAging {
+  current030: number
+  days3160: number
+  days6190: number
+  days90Plus: number
+}
+
+export interface CompanyFinancialSnapshot {
+  companyId: string
+  companyName: string
+  sectorCode?: string | null
+  sectorName?: string | null
+  reportingPeriod: string
+  currency: string
+  incomeStatement: IncomeStatementPeriod
+  balanceSheet: BalanceSheetPeriod
+  cashFlowStatement: CashFlowStatementPeriod
+  debtSchedule: DebtSchedule
+  receivablesAging?: ReceivablesAging | null
+  metadata?: Record<string, unknown> | null
+}
+
+export interface FinancialAnalysisResponse {
+  snapshot: CompanyFinancialSnapshot
+  integrityChecks: IntegrityCheckResult[]
+  ratios: FinancialRatios
+  warnings: string[]
 }
 
 

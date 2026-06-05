@@ -30,6 +30,12 @@ export interface CompanyContext {
   topCustomerConcentrationPercent: number
   workingCapitalGapHkd: number
   connectedRecords: ConnectedRecord[]
+  dscr?: number | null
+  currentRatio?: number | null
+  quickRatio?: number | null
+  interestCoverage?: number | null
+  netDebtToEbitda?: number | null
+  isFallbackFinancials?: boolean
 }
 
 export interface MarketWatchSnapshot {

@@ -14,7 +14,8 @@ import {
   getSectorBenchmarks,
   getStressSignals,
   refreshData,
-  getCompanyContext,
+  getFinancialDemoAnalysis,
+  getLocalFinancialDemoAnalysisFallback,
 } from './api/marketWatchApi'
 import CommoditiesTab from './components/CommoditiesTab'
 import FxGbaTab from './components/FxGbaTab'
@@ -42,6 +43,8 @@ import {
   StressSourceInfo,
   FreshnessStatus,
   CompanyContext,
+  CompanyProfile,
+  CompanyExposure,
 } from './types'
 
 export type RatesSourceInfo = {
@@ -140,21 +143,9 @@ export default function MarketWatchPage() {
       setCardLoadState(prev => prev === 'idle' ? 'updating' : 'initial')
     }
     try {
-      let sectorParam: string | undefined = undefined
-      let geoParam: string | undefined = undefined
-      let companyIdParam: string | undefined = undefined
-
       await withMinDuration(async () => {
-        const context = await getCompanyContext()
-        if (context) {
-          setCompanyContext(context)
-          const profile = context.profile
-          companyIdParam = profile.companyName
-          sectorParam = profile.sector.toLowerCase().includes('electronics') ? 'electronics-import' : 'trading-distribution'
-          geoParam = 'HK'
-        }
-
         const [
+          financialsRes,
           overview,
           ratesLiq,
           fx,
@@ -163,14 +154,117 @@ export default function MarketWatchPage() {
           stress,
           sourceStatus,
         ] = await Promise.all([
+          getFinancialDemoAnalysis(),
           getMarketOverview(),
           getRatesLiquidity(),
           getFxGba(),
-          getSectorBenchmarks(sectorParam, geoParam),
-          getCommodities(sectorParam, geoParam),
-          getStressSignals(companyIdParam, sectorParam),
+          getSectorBenchmarks('electronics-import', 'HK'),
+          getCommodities('electronics-import', 'HK'),
+          getStressSignals('Harbour & Finch Trading Ltd.', 'electronics-import'),
           getMarketSourceStatus(),
         ])
+
+        const isFallback = !financialsRes
+        const financials = financialsRes || getLocalFinancialDemoAnalysisFallback()
+        const snapshot = financials.snapshot
+        const ratios = financials.ratios
+        const bs = snapshot.balanceSheet
+        const is = snapshot.incomeStatement
+        const ds = snapshot.debtSchedule
+
+        const mappedProfile: CompanyProfile = {
+          companyName: snapshot.companyName,
+          sector: snapshot.sectorName || 'Electronics Import / Trading & Distribution',
+          geography: 'Hong Kong / GBA',
+          revenueTtmHkd: is.revenue,
+          cashBalanceHkd: bs.cash,
+          receivablesHkd: bs.accountsReceivable,
+          payablesHkd: bs.accountsPayable,
+          inventoryHkd: bs.inventory,
+          dsoDays: ratios.dso.value !== null ? Math.round(ratios.dso.value) : 52,
+          dpoDays: 45,
+          inventoryDays: 61,
+          grossMarginPercent: is.grossProfit !== null && is.grossProfit !== undefined 
+            ? (is.grossProfit / is.revenue) * 100 
+            : 18.5,
+          floatingRateDebtHkd: bs.shortTermDebt + bs.currentPortionLongTermDebt + bs.longTermDebt + bs.leaseLiabilities,
+          monthlyDebtServiceHkd: ds.monthlyDebtService || 420000,
+          cnySupplierPayablesPercent: 38,
+          usdImportCostPercent: 72,
+          topCustomerConcentrationPercent: 31,
+          workingCapitalGapHkd: ratios.workingCapitalGap.value || 4700000,
+          connectedRecords: [
+            { id: 'bank-transactions', label: 'Bank Transactions', status: 'connected' },
+            { id: 'invoices', label: 'Invoices', status: 'connected' },
+            { id: 'receivables-aging', label: 'Receivables Aging', status: 'connected' },
+            { id: 'payables-schedule', label: 'Payables Schedule', status: 'connected' },
+            { id: 'debt-schedule', label: 'Debt Schedule', status: 'connected' },
+            { id: 'supplier-contracts', label: 'Supplier Contracts', status: 'partial' },
+          ],
+          dscr: ratios.dscr.value,
+          currentRatio: ratios.currentRatio.value,
+          quickRatio: ratios.quickRatio.value,
+          interestCoverage: ratios.interestCoverage.value,
+          netDebtToEbitda: ratios.netDebtToEbitda.value,
+          isFallbackFinancials: isFallback,
+        }
+
+        const fallbackExposures: CompanyExposure[] = [
+          {
+            id: 'floating-rate-debt',
+            category: 'Debt Service',
+            label: 'Floating-Rate Facility',
+            value: `HKD ${(mappedProfile.floatingRateDebtHkd / 1000000).toFixed(1)}M`,
+            severity: 'High',
+            context: `Rate-sensitive debt requires HIBOR monitoring. Monthly service: HKD ${Math.round(mappedProfile.monthlyDebtServiceHkd / 1000)}K.`
+          },
+          {
+            id: 'cny-payables',
+            category: 'FX Exposure',
+            label: 'CNY Supplier Payables',
+            value: `${mappedProfile.cnySupplierPayablesPercent}% of payables`,
+            severity: 'Caution',
+            context: 'CNY depreciation increases HKD-equivalent payables.'
+          },
+          {
+            id: 'usd-import-costs',
+            category: 'FX Exposure',
+            label: 'USD Import Costs',
+            value: `${mappedProfile.usdImportCostPercent}% of COGS`,
+            severity: 'Caution',
+            context: 'USD strength raises landed-cost base.'
+          },
+          {
+            id: 'receivables-cycle',
+            category: 'Working Capital',
+            label: 'DSO Above Benchmark',
+            value: `${mappedProfile.dsoDays}d vs 45d sector`,
+            severity: 'Caution',
+            context: `Collections cycle 7 days above sector standard. Working capital gap: HKD ${(mappedProfile.workingCapitalGapHkd / 1000000).toFixed(1)}M.`
+          },
+          {
+            id: 'customer-concentration',
+            category: 'Revenue Risk',
+            label: 'Top Customer Concentration',
+            value: `${mappedProfile.topCustomerConcentrationPercent}%`,
+            severity: 'Neutral',
+            context: 'Single largest customer represents 31% of receivables.'
+          },
+          {
+            id: 'inventory-turnover',
+            category: 'Working Capital',
+            label: 'Inventory Days',
+            value: `${mappedProfile.inventoryDays}d vs 60d sector`,
+            severity: 'Neutral',
+            context: 'Inventory turnover slightly above sector average.'
+          }
+        ]
+
+        setCompanyContext({
+          profile: mappedProfile,
+          exposures: fallbackExposures,
+          dataMode: isFallback ? 'fallback' : 'connected_workspace'
+        })
 
         setMetrics(overview.metrics)
         setSignals(overview.signals)
@@ -196,10 +290,37 @@ export default function MarketWatchPage() {
           setCommoditySource(comms.commoditySource)
         }
         setScenarios(stress.scenarios)
+        
         if (stress.stressSource) {
-          setStressSource(stress.stressSource)
+          const financialsWarnings = isFallback 
+            ? ['Backend unavailable. Using local fallback snapshot.', 'Company records required for production.']
+            : ['Company records required for production.']
+            
+          setStressSource({
+            ...stress.stressSource,
+            label: isFallback ? 'Local Fallback Financials' : 'Financial Demo Analysis',
+            warnings: [
+              ...stress.stressSource.warnings.filter(w => !w.toLowerCase().includes('backend unavailable')),
+              ...financialsWarnings
+            ],
+            freshness: 'Workspace' as const,
+            workspaceContext: {
+              ...stress.stressSource.workspaceContext,
+              companyLabel: snapshot.companyName,
+            }
+          })
         }
-        setSources(sourceStatus.sources)
+        
+        const updatedSources = sourceStatus.sources.map(s => {
+          if (s.label === 'Internal Financial Records') {
+            return {
+              ...s,
+              status: isFallback ? 'Requires company data' as const : 'connected' as const
+            }
+          }
+          return s
+        })
+        setSources(updatedSources)
         setLastRefreshed(new Date())
       })
     } catch (error) {
@@ -277,14 +398,16 @@ export default function MarketWatchPage() {
       if (m.id === 'funding-conditions') {
         const card = insights.executiveCards.find(c => c.id === 'exec-card-funding')
         if (card) {
-          const isFallback = !stressSource || stressSource.label.toLowerCase().includes('workspace') || stressSource.warnings.length > 0
+          const isFallback = companyContext?.profile.isFallbackFinancials
           return {
             ...m,
             value: card.value,
             interpretation: card.description,
             severity: card.severity,
-            freshness: isFallback ? ('Workspace' as const) : ('Daily' as const),
-            source: stressSource ? stressSource.label : 'Fixture',
+            freshness: 'Workspace' as const,
+            source: isFallback
+              ? 'Local fallback financials · Workspace-derived'
+              : 'Financial demo analysis · Workspace-derived',
           }
         }
       }

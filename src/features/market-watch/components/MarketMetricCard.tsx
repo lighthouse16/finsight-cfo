@@ -53,7 +53,7 @@ function formatSource(metric: MarketMetric) {
   }
 
   if (metric.id === 'funding-conditions') {
-    return 'Workspace-derived'
+    return metric.source
   }
 
   if (source.toLowerCase().includes('workspace')) {

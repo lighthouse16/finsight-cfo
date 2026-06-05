@@ -81,7 +81,11 @@ export function buildMarketWatchInsights(snapshot: MarketWatchSnapshot): MarketW
   let fundingSev: 'Positive' | 'Neutral' | 'Caution' | 'High' = 'Neutral'
   let fundingDesc = 'Connect bank accounts and debt schedules to assess runway.'
   if (fundingConnected) {
-    if (company.cashBalanceHkd && company.monthlyDebtServiceHkd) {
+    if (company.dscr !== undefined && company.dscr !== null && company.dscr < 1.0) {
+      fundingVal = 'Attention Required'
+      fundingSev = 'High'
+      fundingDesc = `Operating cashflow coverage is thin. DSCR of ${company.dscr.toFixed(2)}x indicates constrained debt service capacity.`
+    } else if (company.cashBalanceHkd && company.monthlyDebtServiceHkd) {
       const ratio = company.cashBalanceHkd / company.monthlyDebtServiceHkd
       if (ratio < 3) {
         fundingVal = 'Tight Buffer'

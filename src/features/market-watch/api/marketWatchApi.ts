@@ -27,6 +27,7 @@ import {
   RefreshResponse,
   CompanyProfile,
   CompanyExposure,
+  FinancialAnalysisResponse,
 } from '../types'
 
 const API_BASE_URL =
@@ -1048,4 +1049,129 @@ export async function getCompanyContext(): Promise<{
     return null
   }
 }
+
+export function getLocalFinancialDemoAnalysisFallback(): FinancialAnalysisResponse {
+  return {
+    snapshot: {
+      companyId: 'harbour-finch-trading',
+      companyName: 'Harbour & Finch Trading Ltd.',
+      sectorCode: '4754-2017',
+      sectorName: 'Electronics Import / Trading & Distribution',
+      reportingPeriod: 'FY2025',
+      currency: 'HKD',
+      incomeStatement: {
+        revenue: 62500000.0,
+        cogs: 50937500.0,
+        grossProfit: 11562500.0,
+        operatingExpenses: 7562500.0,
+        ebit: 4000000.0,
+        depreciationAmortization: 800000.0,
+        ebitda: 4800000.0,
+        interestExpense: 450000.0,
+        ebt: 3550000.0,
+        taxes: 585000.0,
+        netIncome: 2965000.0,
+      },
+      balanceSheet: {
+        cash: 3200000.0,
+        accountsReceivable: 8900000.0,
+        inventory: 6100000.0,
+        prepaid: 200000.0,
+        currentAssets: 18400000.0,
+        ppeNet: 4500000.0,
+        totalAssets: 22900000.0,
+        accountsPayable: 5400000.0,
+        accrued: 5100000.0,
+        shortTermDebt: 1500000.0,
+        currentPortionLongTermDebt: 1000000.0,
+        longTermDebt: 3500000.0,
+        leaseLiabilities: 500000.0,
+        currentLiabilities: 13500000.0,
+        totalLiabilities: 17000000.0,
+        equity: 5900000.0,
+      },
+      cashFlowStatement: {
+        cfo: 3100000.0,
+        capex: 600000.0,
+        debtIssued: 1000000.0,
+        debtRepaid: 800000.0,
+        dividends: 500000.0,
+        netChangeCash: 2200000.0,
+      },
+      debtSchedule: {
+        scheduledInterest: 450000.0,
+        scheduledPrincipal: 4590000.0,
+        monthlyDebtService: 420000.0,
+      },
+      receivablesAging: {
+        current030: 5000000.0,
+        days3160: 2500000.0,
+        days6190: 1000000.0,
+        days90Plus: 400000.0,
+      },
+      metadata: {
+        freshness: 'workspace-derived',
+        last_audit_date: '2025-12-31',
+      },
+    },
+    integrityChecks: [
+      {
+        checkName: 'Balance Sheet Identity',
+        passed: true,
+        message: 'Balance sheet is in balance.',
+      },
+      {
+        checkName: 'Total Debt Definition Confirmation',
+        passed: true,
+        message: 'Total debt is properly defined and does not exceed total liabilities.',
+      },
+      {
+        checkName: 'Current Assets Reconciliation',
+        passed: true,
+        message: 'Current assets component sum matches total current assets.',
+      },
+      {
+        checkName: 'Total Assets Reconciliation',
+        passed: true,
+        message: 'Current assets + Net PPE matches total assets.',
+      },
+      {
+        checkName: 'Cash Flow Reconciliation',
+        passed: true,
+        message: 'Net change in cash matches the sum of cash flow components.',
+      },
+    ],
+    ratios: {
+      currentRatio: { value: 1.362962962962963, warning: null, label: 'Current Ratio' },
+      quickRatio: { value: 0.8962962962962963, warning: null, label: 'Quick Ratio' },
+      interestCoverage: { value: 8.88888888888889, warning: null, label: 'Interest Coverage' },
+      dscr: { value: 0.6180555555555556, warning: null, label: 'Debt Service Coverage Ratio' },
+      debtRatio: { value: 0.2838427947598253, warning: null, label: 'Debt Ratio' },
+      netDebtToEbitda: { value: 0.6875, warning: null, label: 'Net Debt / EBITDA' },
+      dso: { value: 51.976, warning: null, label: 'Days Sales Outstanding' },
+      workingCapitalGap: { value: 4700000.0, warning: null, label: 'Working Capital Gap' },
+      expectedCreditLossAr: { value: 255000.0, warning: null, label: 'Expected Credit Loss AR' },
+    },
+    warnings: [
+      'Backend unavailable. Using local fallback snapshot.',
+    ],
+  }
+}
+
+export async function getFinancialDemoAnalysis(): Promise<FinancialAnalysisResponse | null> {
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/api/financials/demo-analysis`,
+      { signal: AbortSignal.timeout(5000) }
+    )
+    if (!res.ok) {
+      throw new Error(`Backend returned ${res.status}`)
+    }
+    return await res.json()
+  } catch (error) {
+    console.warn('Financial demo analysis fetch failed, using fallback', error)
+    return null
+  }
+}
+
 

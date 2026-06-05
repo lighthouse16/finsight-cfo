@@ -24,7 +24,19 @@ export function evaluateFundingRules(snapshot: MarketWatchSnapshot): TabInsightS
   } else {
     const ratio = company.cashBalanceHkd / company.monthlyDebtServiceHkd
     
-    if (ratio < 3) {
+    if (company.dscr !== undefined && company.dscr !== null && company.dscr < 1.0) {
+      takeaway = {
+        id: 'funding-takeaway-constrained',
+        title: 'Constrained Debt Service',
+        description: `Operating cashflow coverage is thin. DSCR of ${company.dscr.toFixed(2)}x indicates constrained debt service capacity.`,
+        severity: 'High',
+        category: 'funding',
+        metricRefs: ['cashBalanceHkd', 'monthlyDebtServiceHkd'],
+        sourceRefs: ['bank-transactions', 'debt-schedule'],
+        requiresCompanyData: false,
+        confidence: 'high',
+      }
+    } else if (ratio < 3) {
       takeaway = {
         id: 'funding-takeaway-tight',
         title: 'Tight Cash Buffer',

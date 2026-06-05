@@ -47,7 +47,21 @@ export function evaluateRateRules(snapshot: MarketWatchSnapshot): TabInsightSet 
     }
   }
 
-  // Supporting rates insights if rates data is available
+  // Supporting rates insights
+  if (company.interestCoverage !== undefined && company.interestCoverage !== null && company.interestCoverage > 5.0) {
+    supportingInsights.push({
+      id: 'rates-coverage-strong',
+      title: 'Strong Interest Coverage',
+      description: `EBIT covers interest obligations ${company.interestCoverage.toFixed(1)}x, providing positive cushion against floating-rate increases.`,
+      severity: 'Positive',
+      category: 'rates',
+      metricRefs: [],
+      sourceRefs: ['income-statement'],
+      requiresCompanyData: false,
+      confidence: 'high',
+    })
+  }
+
   if (rates && typeof rates === 'object') {
     const rObj = rates as { rates?: Array<{ label: string; value: string }> }
     if (rObj.rates && rObj.rates.length > 0) {
