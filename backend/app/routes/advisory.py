@@ -1,8 +1,9 @@
 from fastapi import APIRouter
-from app.models.advisory import HardGatePrecheckResult, UnifiedRiskScoreResult
+from app.models.advisory import HardGatePrecheckResult, UnifiedRiskScoreResult, StressTestingResponse
 from app.routes.financials import get_demo_analysis
 from app.services.advisory.hard_gate_engine import build_hard_gate_precheck
 from app.services.advisory.risk_score_engine import build_unified_risk_score
+from app.services.advisory.stress_testing_engine import build_demo_stress_tests
 
 router = APIRouter()
 
@@ -24,3 +25,14 @@ def get_demo_risk_score():
     analysis = get_demo_analysis()
     precheck = build_hard_gate_precheck(analysis)
     return build_unified_risk_score(analysis, precheck)
+
+@router.get("/demo-stress-tests", response_model=StressTestingResponse)
+def get_demo_stress_tests():
+    """
+    Consumes the financial analysis output and unified risk score to perform
+    context-only deterministic scenario stress testing.
+    """
+    analysis = get_demo_analysis()
+    precheck = build_hard_gate_precheck(analysis)
+    risk_score = build_unified_risk_score(analysis, precheck)
+    return build_demo_stress_tests(analysis, risk_score)

@@ -63,3 +63,43 @@ class UnifiedRiskScoreResult(AdvisoryBaseModel):
     hard_gate_status: str
     disclaimer: str
     warnings: List[str] = Field(default_factory=list)
+
+class StressScenarioAssumption(AdvisoryBaseModel):
+    scenario_key: str
+    label: str
+    scenario_type: str
+    description: str
+    parameters: dict
+    source: str
+    warnings: List[str] = Field(default_factory=list)
+
+class StressScenarioImpact(AdvisoryBaseModel):
+    metric: str
+    base_value: float
+    stressed_value: float
+    absolute_change: float
+    percent_change: Optional[float] = None
+    unit: Optional[str] = None
+    interpretation: str
+    warnings: List[str] = Field(default_factory=list)
+
+class StressScenarioResult(AdvisoryBaseModel):
+    scenario_key: str
+    label: str
+    scenario_type: str
+    severity: str  # low | moderate | elevated | high | unavailable
+    assumptions: List[StressScenarioAssumption]
+    impacts: List[StressScenarioImpact]
+    band_movement: Optional[str] = None
+    key_takeaway: str
+    warnings: List[str] = Field(default_factory=list)
+    disclaimer: str
+
+class StressTestingResponse(AdvisoryBaseModel):
+    company_id: str
+    company_name: str
+    base_summary_band: str
+    base_risk_score: int
+    scenarios: List[StressScenarioResult]
+    disclaimer: str
+    warnings: List[str] = Field(default_factory=list)

@@ -4,6 +4,7 @@ from app.main import app
 from app.models.financials import FinancialAnalysisResponse, FinancialRatios, RatioMetric
 from app.services.advisory.hard_gate_engine import build_hard_gate_precheck
 from app.services.advisory.risk_score_engine import build_unified_risk_score
+from app.services.advisory.stress_testing_engine import build_demo_stress_tests
 from app.routes.financials import get_demo_analysis
 
 client = TestClient(app)
@@ -211,6 +212,88 @@ def test_risk_score_nan_infinity_protection():
     result = build_unified_risk_score(analysis, precheck)
     
     assert math.isfinite(result.score)
+    # Ensure serialization doesn't fail
+    result_dict = result.model_dump()
+    assert result_dict is not None
+
+def test_demo_stress_tests_endpoint_200():
+    response = client.get("/api/advisory/demo-stress-tests")
+    assert response.status_code == 200
+    data = response.json()
+    assert "companyId" in data
+    assert "companyName" in data
+    assert "baseSummaryBand" in data
+    assert "baseRiskScore" in data
+    assert "scenarios" in data
+    assert len(data["scenarios"]) > 0
+    assert "disclaimer" in data
+    assert "warnings" in data
+
+def test_stress_tests_safety_language():
+    response = client.get("/api/advisory/demo-stress-tests")
+    assert response.status_code == 200
+    data = response.json()
+    
+    unsafe_words = [
+        "approval", "rejection", "predicted default", "probability of default",
+        "underwriting decision", "automated credit decision", "guaranteed failure"
+    ]
+    
+    json_str = str(data).lower()
+    for word in unsafe_words:
+        assert word not in json_str, f"Unsafe word '{word}' found in stress testing response: {data}"
+
+def test_stress_tests_calculations():
+    analysis = get_demo_analysis()
+    precheck = build_hard_gate_precheck(analysis)
+    risk_score = build_unified_risk_score(analysis, precheck)
+    
+    result = build_demo_stress_tests(analysis, risk_score)
+    
+    # 1. Rate shock
+    rate_scenario = next(s for s in result.scenarios if s.scenario_key == "rate_shock")
+    assert rate_scenario.severity == "high"  # DSCR 0.62 -> 0.61 (which is < 1.0)
+    interest_cost_impact = next(i for i in rate_scenario.impacts if i.metric == "Additional Annual Interest Cost")
+    assert interest_cost_impact.absolute_change == 6500000.0 * 0.015  # total debt proxy 6.5M * 1.5%
+    
+    # 2. Receivables delay
+    ar_scenario = next(s for s in result.scenarios if s.scenario_key == "receivables_delay")
+    ar_impact = next(i for i in ar_scenario.impacts if i.metric == "Accounts Receivable (AR) Expansion")
+    assert ar_impact.absolute_change == (analysis.snapshot.income_statement.revenue / 365.0) * 15.0
+    
+    # 3. Input cost squeeze
+    cogs_scenario = next(s for s in result.scenarios if s.scenario_key == "input_cost_squeeze")
+    ebitda_impact = next(i for i in cogs_scenario.impacts if i.metric == "Operating EBITDA Compression")
+    assert ebitda_impact.absolute_change == analysis.snapshot.income_statement.cogs * 0.03
+    
+    # 4. FX stress (exists because usd_import_cost_percent is in metadata)
+    fx_scenario = next(s for s in result.scenarios if s.scenario_key == "fx_stress")
+    assert fx_scenario.severity == "high"
+    import_cost_impact = next(i for i in fx_scenario.impacts if i.metric == "Procurement Cost Expansion")
+    expected_cogs_portion = analysis.snapshot.income_statement.cogs * 0.72
+    assert import_cost_impact.absolute_change == expected_cogs_portion * 0.02
+
+def test_stress_tests_fx_stress_unavailable_when_metadata_missing():
+    analysis = get_demo_analysis()
+    analysis.snapshot.metadata = {}  # remove metadata
+    
+    precheck = build_hard_gate_precheck(analysis)
+    risk_score = build_unified_risk_score(analysis, precheck)
+    
+    result = build_demo_stress_tests(analysis, risk_score)
+    fx_scenario = next(s for s in result.scenarios if s.scenario_key == "fx_stress")
+    assert fx_scenario.severity == "unavailable"
+    assert len(fx_scenario.warnings) > 0
+
+def test_stress_tests_nan_infinity_protection():
+    analysis = get_demo_analysis()
+    analysis.ratios.dscr.value = float("nan")
+    
+    precheck = build_hard_gate_precheck(analysis)
+    risk_score = build_unified_risk_score(analysis, precheck)
+    result = build_demo_stress_tests(analysis, risk_score)
+    
+    assert result.scenarios is not None
     # Ensure serialization doesn't fail
     result_dict = result.model_dump()
     assert result_dict is not None

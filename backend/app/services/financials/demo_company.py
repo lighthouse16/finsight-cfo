@@ -87,6 +87,8 @@ def get_demo_financial_snapshot() -> CompanyFinancialSnapshot:
         receivables_aging=receivables_aging,
         metadata={
             "freshness": "workspace-derived",
-            "last_audit_date": "2025-12-31"
+            "last_audit_date": "2025-12-31",
+            "usd_import_cost_percent": 0.72,
+            "cny_supplier_payables_percent": 0.38
         }
     )
