@@ -235,6 +235,37 @@ class ValuationAnalysis(FinancialsBaseModel):
     sanity_checks: List[ValuationSanityCheck] = Field(default_factory=list, alias="sanityChecks")
     warnings: List[str] = Field(default_factory=list)
 
+class FinancialSignal(FinancialsBaseModel):
+    key: str
+    label: str
+    value: Optional[float] = None
+    unit: Optional[str] = None
+    band: str  # "strong" | "adequate" | "watch" | "constrained" | "unavailable"
+    message: str
+    evidence: str
+    source: str
+    warnings: List[str] = Field(default_factory=list)
+
+class FinancialAnalysisSummary(FinancialsBaseModel):
+    overall_band: str = Field(..., alias="overallBand")
+    liquidity_band: str = Field(..., alias="liquidityBand")
+    debt_service_band: str = Field(..., alias="debtServiceBand")
+    leverage_band: str = Field(..., alias="leverageBand")
+    receivables_band: str = Field(..., alias="receivablesBand")
+    valuation_band: str = Field(..., alias="valuationBand")
+    key_signals: List[FinancialSignal] = Field(default_factory=list, alias="keySignals")
+    watch_items: List[str] = Field(default_factory=list, alias="watchItems")
+    strengths: List[str] = Field(default_factory=list)
+    constraints: List[str] = Field(default_factory=list)
+    next_data_needed: List[str] = Field(default_factory=list, alias="nextDataNeeded")
+    warnings: List[str] = Field(default_factory=list)
+    disclaimer: str = Field(
+        "This is a demo financial analysis summary. "
+        "All outputs are assumptions-based and context-only. "
+        "Company records required for production advisory or credit analysis.",
+        alias="disclaimer"
+    )
+
 class FinancialAnalysisResponse(FinancialsBaseModel):
     snapshot: CompanyFinancialSnapshot
     integrity_checks: List[IntegrityCheckResult] = Field(..., alias="integrityChecks")
@@ -242,7 +273,9 @@ class FinancialAnalysisResponse(FinancialsBaseModel):
     risk_diagnostics: FinancialRiskDiagnostics = Field(..., alias="riskDiagnostics")
     projections: Optional[ProjectionAnalysis] = None
     valuation: Optional[ValuationAnalysis] = None
+    summary: Optional[FinancialAnalysisSummary] = None
     warnings: List[str] = Field(default_factory=list)
+
 
 
 

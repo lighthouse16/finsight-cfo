@@ -12,6 +12,7 @@ from app.services.financials.projection_engine import (
     calculate_projection
 )
 from app.services.financials.valuation_engine import build_valuation_analysis
+from app.services.financials.summary_engine import build_financial_analysis_summary
 
 router = APIRouter()
 
@@ -19,7 +20,8 @@ router = APIRouter()
 def get_demo_analysis():
     """
     Returns the financial snapshot, integrity check validation results,
-    calculated financial ratios, risk diagnostics, projections, valuations, and any analysis warnings.
+    calculated financial ratios, risk diagnostics, projections, valuations,
+    financial analysis summary, and any analysis warnings.
     """
     # 1. Fetch demo snapshot
     snapshot = get_demo_financial_snapshot()
@@ -46,9 +48,18 @@ def get_demo_analysis():
     # 6. Calculate valuation analysis
     valuation = build_valuation_analysis(snapshot, ratios, projections)
     
-    # 7. Consolidate warnings
+    # 7. Build Financial Analysis Summary
+    summary = build_financial_analysis_summary(
+        snapshot=snapshot,
+        ratios=ratios,
+        risk_diagnostics=risk_diagnostics,
+        projections=projections,
+        valuation=valuation,
+    )
+
+    # 8. Consolidate warnings
     warnings = []
-    
+
     # Add warnings from failed integrity checks
     for check in checks:
         if not check.passed:
@@ -110,6 +121,7 @@ def get_demo_analysis():
         riskDiagnostics=risk_diagnostics,
         projections=projections,
         valuation=valuation,
+        summary=summary,
         warnings=warnings
     )
 

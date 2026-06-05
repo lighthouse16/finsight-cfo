@@ -27,6 +27,8 @@ from app.services.financials.valuation_engine import (
     build_sensitivity_grid,
     run_valuation_sanity_checks
 )
+from app.services.financials.summary_engine import build_financial_analysis_summary
+from app.models.financials import FinancialRiskDiagnostics
 
 client = TestClient(app)
 
@@ -594,5 +596,151 @@ def test_endpoint_includes_valuation_and_no_nan():
 
     check_no_nan(val)
 
+# ===========================================================================
+# Financial Analysis Summary Tests
+# ===========================================================================
 
+def _build_summary():
+    snapshot = get_demo_financial_snapshot()
+    ratios = calculate_ratios(snapshot)
+    altman = calculate_altman_z_service(snapshot)
+    rec = calculate_receivables_risk(snapshot)
+    risk_diag = FinancialRiskDiagnostics(altmanZScore=altman, receivablesRisk=rec)
+    proj_assumptions = build_default_projection_assumptions(snapshot)
+    projections = calculate_projection(snapshot, proj_assumptions)
+    wacc_assumptions = build_default_wacc_assumptions(snapshot, ratios, projections)
+    wacc_res = calculate_wacc(snapshot, ratios, wacc_assumptions)
+    dcf = calculate_dcf(snapshot, ratios, projections, wacc_res, wacc_assumptions)
+    from app.services.financials.valuation_engine import build_valuation_analysis
+    valuation = build_valuation_analysis(snapshot, ratios, projections)
+    summary = build_financial_analysis_summary(snapshot, ratios, risk_diag, projections, valuation)
+    return summary
 
+def test_summary_exists_in_endpoint():
+    response = client.get("/api/financials/demo-analysis")
+    assert response.status_code == 200
+    data = response.json()
+    assert "summary" in data
+    s = data["summary"]
+    assert "overallBand" in s
+    assert "liquidityBand" in s
+    assert "debtServiceBand" in s
+    assert "leverageBand" in s
+    assert "receivablesBand" in s
+    assert "valuationBand" in s
+    assert "keySignals" in s
+    assert "watchItems" in s
+    assert "strengths" in s
+    assert "constraints" in s
+    assert "nextDataNeeded" in s
+    assert "disclaimer" in s
+
+def test_summary_dscr_constrained():
+    """Demo DSCR ~0.62 must produce constrained debt_service_band."""
+    summary = _build_summary()
+    assert summary.debt_service_band == "constrained"
+
+def test_summary_overall_constrained_when_dscr_low():
+    """When DSCR is constrained, overall_band must be constrained."""
+    summary = _build_summary()
+    assert summary.overall_band == "constrained"
+
+def test_summary_current_ratio_watch_or_constrained():
+    """Demo current ratio ~1.36x must produce watch or constrained liquidity_band."""
+    summary = _build_summary()
+    assert summary.liquidity_band in ("watch", "constrained")
+
+def test_summary_interest_coverage_appears_as_strength():
+    """Positive interest coverage (>4x in demo) should produce a strong/adequate signal."""
+    summary = _build_summary()
+    ic_signal = next((s for s in summary.key_signals if s.key == "interest_coverage"), None)
+    assert ic_signal is not None
+    assert ic_signal.band in ("strong", "adequate")
+    assert ic_signal.key in [s.key for s in summary.key_signals]
+
+def test_summary_fcff_strength_present():
+    """Positive FCFF across all projected years should produce an adequate/strong signal."""
+    summary = _build_summary()
+    fcff_signal = next((s for s in summary.key_signals if s.key == "fcff_forecast"), None)
+    assert fcff_signal is not None
+    assert fcff_signal.band in ("strong", "adequate")
+    # Should appear in strengths list
+    assert any("FCFF" in s for s in summary.strengths)
+
+def test_summary_valuation_sanity_pass_produces_context():
+    """Valuation sanity checks passing should produce adequate/watch valuation_band."""
+    summary = _build_summary()
+    assert summary.valuation_band in ("adequate", "watch")
+    val_signal = next((s for s in summary.key_signals if s.key == "valuation_context"), None)
+    assert val_signal is not None
+    assert val_signal.band in ("adequate", "watch")
+
+def test_summary_no_nan():
+    """No Infinity or NaN values should appear in any signal value fields."""
+    summary = _build_summary()
+    for sig in summary.key_signals:
+        if sig.value is not None:
+            assert not math.isinf(sig.value)
+            assert not math.isnan(sig.value)
+
+def test_summary_no_nan_in_endpoint():
+    response = client.get("/api/financials/demo-analysis")
+    assert response.status_code == 200
+    data = response.json()
+    s = data["summary"]
+    for sig in s.get("keySignals", []):
+        v = sig.get("value")
+        if isinstance(v, float):
+            assert not math.isinf(v)
+            assert not math.isnan(v)
+
+def test_summary_missing_ratio_produces_unavailable_not_crash():
+    """If a ratio value is None (not crash), the signal should be 'unavailable'."""
+    snapshot = get_demo_financial_snapshot()
+    ratios = calculate_ratios(snapshot)
+    # Manually null out DSCR value to simulate missing data
+    ratios.dscr.value = None
+    altman = calculate_altman_z_service(snapshot)
+    rec = calculate_receivables_risk(snapshot)
+    risk_diag = FinancialRiskDiagnostics(altmanZScore=altman, receivablesRisk=rec)
+    proj_assumptions = build_default_projection_assumptions(snapshot)
+    projections = calculate_projection(snapshot, proj_assumptions)
+    from app.services.financials.valuation_engine import build_valuation_analysis
+    valuation = build_valuation_analysis(snapshot, ratios, projections)
+    summary = build_financial_analysis_summary(snapshot, ratios, risk_diag, projections, valuation)
+    dscr_signal = next((s for s in summary.key_signals if s.key == "dscr"), None)
+    assert dscr_signal is not None
+    assert dscr_signal.band == "unavailable"
+
+def test_summary_no_unsafe_underwriting_language():
+    """Summary output must not contain unsafe underwriting language."""
+    import json
+    summary = _build_summary()
+    # Serialize to JSON string for full scan
+    text = json.dumps(summary.model_dump(by_alias=True)).lower()
+    banned = [
+        "approval probability",
+        "lender approved",
+        "predicted default",
+        "formal underwriting",
+        "automated credit decision",
+        "guaranteed",
+        "bank verified",
+    ]
+    for phrase in banned:
+        assert phrase not in text, f"Unsafe phrase found in summary: '{phrase}'"
+
+def test_summary_disclaimer_present():
+    summary = _build_summary()
+    assert "demo financial analysis" in summary.disclaimer.lower()
+    assert "context-only" in summary.disclaimer.lower()
+
+def test_summary_key_signals_all_have_required_fields():
+    summary = _build_summary()
+    for sig in summary.key_signals:
+        assert sig.key
+        assert sig.label
+        assert sig.band in ("strong", "adequate", "watch", "constrained", "unavailable")
+        assert sig.message
+        assert sig.evidence
+        assert sig.source
