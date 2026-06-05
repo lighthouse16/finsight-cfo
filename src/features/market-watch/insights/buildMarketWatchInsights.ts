@@ -90,7 +90,7 @@ export function buildMarketWatchInsights(snapshot: MarketWatchSnapshot): MarketW
     const summaryDesc = dscrSignal?.message ?? financialSummary.constraints[0] ?? financialSummary.watchItems[0] ?? ''
 
     if (band === 'constrained') {
-      fundingVal = 'Debt-Service Watch'
+      fundingVal = 'Coverage constraint'
       fundingSev = 'High'
       fundingDesc = summaryDesc || 'DSCR is below 1.0x — current cash flow does not fully cover scheduled debt obligations under this demo analysis.'
     } else if (band === 'watch') {
@@ -161,7 +161,16 @@ export function buildMarketWatchInsights(snapshot: MarketWatchSnapshot): MarketW
   if (ratesConnected && company.floatingRateDebtHkd > 0) {
     ratesVal = `HKD ${(company.floatingRateDebtHkd / 1000000).toFixed(1)}M`
     ratesSev = company.floatingRateDebtHkd >= 5000000 ? 'High' : 'Caution'
-    ratesDesc = 'Floating-rate facility remains sensitive to HIBOR movement.'
+    let suffix = 'Floating-rate facility remains sensitive to HIBOR movement.'
+    if (financialSummary) {
+      const dscrSignal = financialSummary.keySignals.find(s => s.key === 'dscr')
+      if (dscrSignal && dscrSignal.band === 'constrained') {
+        suffix = 'Interest coverage is thin and cash flow constraints pressure rate risk tolerance.'
+      } else if (dscrSignal && dscrSignal.band === 'watch') {
+        suffix = 'Rate sensitivity watch: cash flow coverage margins are narrow.'
+      }
+    }
+    ratesDesc = suffix
   } else if (!ratesConnected) {
     ratesVal = 'Pending'
     ratesSev = 'Neutral'

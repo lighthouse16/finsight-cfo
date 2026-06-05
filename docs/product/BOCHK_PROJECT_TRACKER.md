@@ -65,13 +65,13 @@ The team document defines the following core architecture:
 
 | ID | Task | Repo Status | Evidence |
 |---|---|---|---|
-| 3.1 | Hard-gates & CDI Alternative Data | **Not Started** | No D&B CCRA Score integration. No HKMA CDI API. No Cargox logistics data extraction. No Economic Substance / MPF check. |
+| 3.1 | Hard-gates & CDI Alternative Data | **Partial** | Hard-gate precheck backend foundation implemented. Standard checks (Data Integrity, DSCR, Liquidity, Leverage, Receivables, Distress, FCFF, Valuation) consume demo financial analysis responses. Alternative data (CDI, CCRA, Cargox, MPF) pending. |
 | 3.2 | Unified PD (Xác suất vỡ nợ) | **Not Started** | No logistic regression model. No Z = β0 + β1(DSCR) + β2(DebtRatio) + β3(Margin) equation. No Map-Reduce PD-to-Tier (A–E) function. |
 | 3.3 | Stress-Testing Engine | **Not Started** | `StressEngine` is a stub ([stress_engine.py](file:///D:/projects/finsight-cfo/backend/app/services/market_watch/stress_engine.py)) — raises `NotImplementedError`. No HIBOR +150bps shock onto DSCR simulation. No "suggest IRS" reactive advisory. Existing stress scenarios in UI are [context-only placeholders](file:///D:/projects/finsight-cfo/src/features/market-watch/api/marketWatchApi.ts#L822-L853). |
 | 3.4 | Băm nhỏ Gói vay (Optimization) | **Not Started** | No PuLP or scipy.optimize.linprog. No linear programming for minimize(TotalInterestCost). No 3-tranche structuring (SFGS + Trade Finance + Working Capital). |
 | 3.5 | RAG & GenAI Output (Blueprint) | **Not Started** | No LLM integration. No RAG pipeline. No structured JSON → LLM blueprint generation. AI CFO feature section in [AppRouter.tsx](file:///D:/projects/finsight-cfo/src/routes/AppRouter.tsx#L96-L103) is a placeholder page. |
 
-**Phase 3 verdict**: ❌ **All Not Started.** The entire advisory and structuring layer is absent. This is expected — the doc's Phase 1–3 assumes a multi-month timeline.
+**Phase 3 verdict**: 🟡 **3.1 Partial — rest Not Started.** Hard-gate precheck backend foundation is implemented and fully tested. Alternative data integration, PD engine, stress-testing, and loan optimization remain.
 
 ---
 
@@ -117,11 +117,11 @@ The team document defines the following core architecture:
 | Phase 0: Infrastructure | 4 | 🟡 1 Done, 1 Partial, 2 Not Started |
 | Phase 1: Business Valuation | 6 | 🟡 5 Partial, 1 Not Started |
 | Phase 2: Market Prediction | 5 | 🟡 1 Partial, 4 Not Started |
-| Phase 3: Advisory & Structuring | 5 | 🔴 5 Not Started |
+| Phase 3: Advisory & Structuring | 5 | 🟡 1 Partial, 4 Not Started |
 | Phase 4: UI/UX & E2E | 3 | 🟡 1 Partial, 2 Not Started |
 | Phase 5: First Round | 3 | 🟡 1 Partial, 2 Not Started |
 | Phase 6: Finalist | 2 | 🔴 2 Not Started |
-| **Total** | **28** | **1 Done, 9 Partial, 18 Not Started** |
+| **Total** | **28** | **1 Done, 10 Partial, 17 Not Started** |
 
 ---
 

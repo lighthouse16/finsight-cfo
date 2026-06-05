@@ -1,7 +1,7 @@
 import { MarketWatchSnapshot, MarketWatchInsight, TabInsightSet } from '../types'
 
 export function evaluateReceivablesRules(snapshot: MarketWatchSnapshot): TabInsightSet {
-  const { company } = snapshot
+  const { company, financialSummary } = snapshot
   const watchSignals: MarketWatchInsight[] = []
   const supportingInsights: MarketWatchInsight[] = []
   let takeaway: MarketWatchInsight | null = null
@@ -15,6 +15,65 @@ export function evaluateReceivablesRules(snapshot: MarketWatchSnapshot): TabInsi
     }
   }
 
+  // ── Priority 1: use backend summary if available ──────────────────────────
+  if (financialSummary) {
+    const band = financialSummary.receivablesBand
+    const arSignal = financialSummary.keySignals.find(s => s.key === 'receivables_risk')
+    const arMsg = arSignal?.message ?? 'Receivables quality assessed from demo financial analysis.'
+    
+    if (band === 'constrained') {
+      takeaway = {
+        id: 'receivables-takeaway-constrained',
+        title: 'Receivables Risk: Elevated',
+        description: arMsg,
+        severity: 'High',
+        category: 'receivables',
+        metricRefs: ['dsoDays'],
+        sourceRefs: ['financial-demo-analysis'],
+        requiresCompanyData: false,
+        confidence: 'high',
+      }
+    } else if (band === 'watch') {
+      takeaway = {
+        id: 'receivables-takeaway-watch',
+        title: 'Receivables Risk: Moderate',
+        description: arMsg,
+        severity: 'Caution',
+        category: 'receivables',
+        metricRefs: ['dsoDays'],
+        sourceRefs: ['financial-demo-analysis'],
+        requiresCompanyData: false,
+        confidence: 'high',
+      }
+    } else if (band === 'adequate' || band === 'strong') {
+      takeaway = {
+        id: 'receivables-takeaway-healthy',
+        title: 'Optimal Receivables Cycle',
+        description: arMsg,
+        severity: 'Positive',
+        category: 'receivables',
+        metricRefs: ['dsoDays'],
+        sourceRefs: ['financial-demo-analysis'],
+        requiresCompanyData: false,
+        confidence: 'high',
+      }
+    } else {
+      takeaway = {
+        id: 'receivables-takeaway-missing',
+        title: 'Receivables Review Pending',
+        description: 'Financial analysis summary unavailable. Company records required for production.',
+        severity: 'Neutral',
+        category: 'receivables',
+        metricRefs: [],
+        sourceRefs: [],
+        requiresCompanyData: true,
+        confidence: 'low',
+      }
+    }
+    return { takeaway, watchSignals, supportingInsights }
+  }
+
+  // ── Priority 2: Fallback to raw company data ──────────────────────────────
   const hasDso = typeof company.dsoDays === 'number' && company.dsoDays > 0
 
   if (!hasDso) {

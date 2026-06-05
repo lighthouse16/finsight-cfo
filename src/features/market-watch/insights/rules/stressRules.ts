@@ -1,7 +1,7 @@
 import { MarketWatchSnapshot, MarketWatchInsight, TabInsightSet } from '../types'
 
 export function evaluateStressRules(snapshot: MarketWatchSnapshot): TabInsightSet {
-  const { company } = snapshot
+  const { company, financialSummary } = snapshot
   const watchSignals: MarketWatchInsight[] = []
   const supportingInsights: MarketWatchInsight[] = []
   let takeaway: MarketWatchInsight | null = null
@@ -138,25 +138,43 @@ export function evaluateStressRules(snapshot: MarketWatchSnapshot): TabInsightSe
 
   // 5. Liquidity Squeeze Scenario (Supporting)
   const liquidityConnected = isConnected('bank-transactions')
-  const isLiquiditySqueezeActive = liquidityConnected && (company.cashBalanceHkd / (company.monthlyDebtServiceHkd || 1) < 3)
   let liquidityStatus: 'context_only' | 'requires_company_data' | 'ready_for_model' = 'context_only'
   let liquiditySeverity: 'Positive' | 'Neutral' | 'Caution' | 'High' = 'Neutral'
+  let liquidityDesc = 'Review revolving facility commit status during interbank rate spikes.'
 
-  if (!liquidityConnected) {
-    liquidityStatus = 'requires_company_data'
-    liquiditySeverity = 'Neutral'
-  } else if (isLiquiditySqueezeActive) {
-    liquidityStatus = 'ready_for_model'
-    liquiditySeverity = 'High'
+  if (financialSummary) {
+    const band = financialSummary.liquidityBand
+    const currentRatioSignal = financialSummary.keySignals.find(s => s.key === 'current_ratio')
+    liquidityDesc = currentRatioSignal?.message ?? 'Review revolving facility commit status during interbank rate spikes.'
+    
+    if (band === 'constrained') {
+      liquidityStatus = 'ready_for_model'
+      liquiditySeverity = 'High'
+    } else if (band === 'watch') {
+      liquidityStatus = 'ready_for_model'
+      liquiditySeverity = 'Caution'
+    } else {
+      liquidityStatus = 'context_only'
+      liquiditySeverity = 'Neutral'
+    }
   } else {
-    liquidityStatus = 'context_only'
-    liquiditySeverity = 'Neutral'
+    const isLiquiditySqueezeActive = liquidityConnected && (company.cashBalanceHkd / (company.monthlyDebtServiceHkd || 1) < 3)
+    if (!liquidityConnected) {
+      liquidityStatus = 'requires_company_data'
+      liquiditySeverity = 'Neutral'
+    } else if (isLiquiditySqueezeActive) {
+      liquidityStatus = 'ready_for_model'
+      liquiditySeverity = 'High'
+    } else {
+      liquidityStatus = 'context_only'
+      liquiditySeverity = 'Neutral'
+    }
   }
 
   const liquidityInsight: MarketWatchInsight = {
     id: 'stress-liquidity-squeeze',
     title: 'Liquidity Squeeze',
-    description: 'Review revolving facility commit status during interbank rate spikes.',
+    description: liquidityDesc,
     severity: liquiditySeverity,
     category: 'stress',
     metricRefs: ['cashBalanceHkd', 'monthlyDebtServiceHkd'],
@@ -172,7 +190,26 @@ export function evaluateStressRules(snapshot: MarketWatchSnapshot): TabInsightSe
   let takeawayDesc = 'Connect financial records to assess vulnerability to interest rates, receivables delay, and exchange rate shock.'
   let takeawaySev: 'Positive' | 'Neutral' | 'Caution' | 'High' = 'Neutral'
 
-  if (!rateShockConnected || !receivablesConnected || !fxConnected) {
+  if (financialSummary) {
+    const overall = financialSummary.overallBand
+    if (overall === 'constrained') {
+      takeawayTitle = 'Financial Coverage Constraint'
+      takeawaySev = 'High'
+      takeawayDesc = financialSummary.constraints[0] || 'Demo financial analysis indicates constraints in coverage capacity.'
+    } else if (overall === 'watch') {
+      takeawayTitle = 'Financial Metrics Under Watch'
+      takeawaySev = 'Caution'
+      takeawayDesc = financialSummary.watchItems[0] || 'Certain financial indicators warrant close monitoring.'
+    } else if (overall === 'strong' || overall === 'adequate') {
+      takeawayTitle = 'Resilient Stress Position'
+      takeawaySev = 'Positive'
+      takeawayDesc = financialSummary.strengths[0] || 'Demo financial analysis indicates adequate stress buffer.'
+    } else {
+      takeawayTitle = 'Stress Analysis Complete'
+      takeawaySev = 'Neutral'
+      takeawayDesc = 'Financial analysis summary unavailable. Company records required for production.'
+    }
+  } else if (!rateShockConnected || !receivablesConnected || !fxConnected) {
     takeawayTitle = 'Scenario Analysis Pending'
     takeawayDesc = 'Integration with bank accounts and debt schedules is required to model cashflow stress tolerance.'
     takeawaySev = 'Neutral'

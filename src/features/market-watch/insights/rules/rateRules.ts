@@ -1,7 +1,7 @@
 import { MarketWatchSnapshot, MarketWatchInsight, TabInsightSet } from '../types'
 
 export function evaluateRateRules(snapshot: MarketWatchSnapshot): TabInsightSet {
-  const { company, rates } = snapshot
+  const { company, rates, financialSummary } = snapshot
   const watchSignals: MarketWatchInsight[] = []
   const supportingInsights: MarketWatchInsight[] = []
   let takeaway: MarketWatchInsight | null = null
@@ -47,12 +47,25 @@ export function evaluateRateRules(snapshot: MarketWatchSnapshot): TabInsightSet 
     }
   }
 
-  // Supporting rates insights
-  if (company.interestCoverage !== undefined && company.interestCoverage !== null && company.interestCoverage > 5.0) {
+  // Supporting rates insights — prefer summary interest coverage message
+  let showStrongCoverage = false
+  let coverageDesc = ''
+  if (financialSummary) {
+    const icSignal = financialSummary.keySignals.find(s => s.key === 'interest_coverage')
+    if (icSignal && (icSignal.band === 'strong' || icSignal.band === 'adequate')) {
+      showStrongCoverage = true
+      coverageDesc = icSignal.message
+    }
+  } else if (company.interestCoverage !== undefined && company.interestCoverage !== null && company.interestCoverage > 5.0) {
+    showStrongCoverage = true
+    coverageDesc = `EBIT covers interest obligations ${company.interestCoverage.toFixed(1)}x, providing positive cushion against floating-rate increases.`
+  }
+
+  if (showStrongCoverage) {
     supportingInsights.push({
       id: 'rates-coverage-strong',
       title: 'Strong Interest Coverage',
-      description: `EBIT covers interest obligations ${company.interestCoverage.toFixed(1)}x, providing positive cushion against floating-rate increases.`,
+      description: coverageDesc,
       severity: 'Positive',
       category: 'rates',
       metricRefs: [],
