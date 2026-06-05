@@ -36,3 +36,30 @@ class HardGatePrecheckResult(AdvisoryBaseModel):
     next_data_needed: List[str]
     disclaimer: str
     warnings: List[str] = Field(default_factory=list)
+
+RiskScoreBand = Literal["low", "moderate", "elevated", "high", "unavailable"]
+
+class RiskScoreFactor(AdvisoryBaseModel):
+    key: str
+    label: str
+    score_impact: int
+    band: str
+    message: str
+    evidence: str
+    source: str
+    weight: float
+    warnings: List[str] = Field(default_factory=list)
+
+class UnifiedRiskScoreResult(AdvisoryBaseModel):
+    company_id: str
+    company_name: str
+    score: int
+    band: RiskScoreBand
+    score_scale: str = "0 to 100"
+    factors: List[RiskScoreFactor]
+    strengths: List[str]
+    constraints: List[str]
+    watch_items: List[str]
+    hard_gate_status: str
+    disclaimer: str
+    warnings: List[str] = Field(default_factory=list)

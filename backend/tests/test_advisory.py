@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.models.financials import FinancialAnalysisResponse, FinancialRatios, RatioMetric
 from app.services.advisory.hard_gate_engine import build_hard_gate_precheck
+from app.services.advisory.risk_score_engine import build_unified_risk_score
 from app.routes.financials import get_demo_analysis
 
 client = TestClient(app)
@@ -131,5 +132,85 @@ def test_nan_infinity_protection():
     assert dscr_check.status in ("unavailable", "watch", "fail")
     
     # Ensure serialization doesn't fail. We can dump to dict / json
+    result_dict = result.model_dump()
+    assert result_dict is not None
+
+def test_demo_risk_score_endpoint_200():
+    response = client.get("/api/advisory/demo-risk-score")
+    assert response.status_code == 200
+    data = response.json()
+    assert "companyId" in data
+    assert "companyName" in data
+    assert "score" in data
+    assert 0 <= data["score"] <= 100
+    assert "band" in data
+    assert data["band"] in ("low", "moderate", "elevated", "high", "unavailable")
+    assert "factors" in data
+    assert "strengths" in data
+    assert "constraints" in data
+    assert "watchItems" in data
+    assert "hardGateStatus" in data
+    assert "disclaimer" in data
+    assert "warnings" in data
+
+def test_risk_score_calm_language():
+    response = client.get("/api/advisory/demo-risk-score")
+    assert response.status_code == 200
+    data = response.json()
+    
+    unsafe_words = [
+        "approval", "rejection", "lender approved", "predicted default",
+        "probability of default", "underwriting decision", "automated credit decision",
+        "pd", "default probability", "approval score", "credit decision"
+    ]
+    
+    json_str = str(data).lower()
+    for word in unsafe_words:
+        assert word not in json_str, f"Unsafe word '{word}' found in risk score response: {data}"
+
+def test_build_unified_risk_score_impact():
+    analysis = get_demo_analysis()
+    precheck = build_hard_gate_precheck(analysis)
+    
+    # Base score verification
+    result = build_unified_risk_score(analysis, precheck)
+    assert 0 <= result.score <= 100
+    assert result.band == "high"  # due to fail in precheck and constrained DSCR
+    
+    # Verify that a passing precheck and strong DSCR raises the score
+    analysis_strong = get_demo_analysis()
+    analysis_strong.ratios.dscr.value = 1.6  # strong DSCR
+    # Let's mock a passing precheck
+    precheck_pass = build_hard_gate_precheck(analysis_strong)
+    precheck_pass.overall_status = "pass"
+    
+    result_strong = build_unified_risk_score(analysis_strong, precheck_pass)
+    # The score should be much higher than 28
+    assert result_strong.score > result.score
+    assert result_strong.band in ("low", "moderate", "elevated")
+
+def test_risk_score_missing_inputs_fallback():
+    # Make a minimal response structure with missing summary and precheck
+    analysis = get_demo_analysis()
+    analysis.summary = None
+    
+    precheck = build_hard_gate_precheck(analysis)
+    
+    result = build_unified_risk_score(analysis, precheck)
+    assert result.band == "unavailable"
+    for factor in result.factors:
+        assert factor.score_impact < 0 or factor.score_impact == 0
+        assert math.isfinite(factor.score_impact)
+
+def test_risk_score_nan_infinity_protection():
+    analysis = get_demo_analysis()
+    analysis.ratios.dscr.value = float("nan")
+    analysis.ratios.current_ratio.value = float("inf")
+    
+    precheck = build_hard_gate_precheck(analysis)
+    result = build_unified_risk_score(analysis, precheck)
+    
+    assert math.isfinite(result.score)
+    # Ensure serialization doesn't fail
     result_dict = result.model_dump()
     assert result_dict is not None
