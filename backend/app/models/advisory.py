@@ -103,3 +103,54 @@ class StressTestingResponse(AdvisoryBaseModel):
     scenarios: List[StressScenarioResult]
     disclaimer: str
     warnings: List[str] = Field(default_factory=list)
+
+
+# Phase 3.4 Facility Structuring Models
+
+from enum import Enum
+
+class FacilityType(str, Enum):
+    revolving_working_capital = "revolving_working_capital"
+    trade_finance = "trade_finance"
+    receivables_finance = "receivables_finance"
+    term_loan = "term_loan"
+    fx_hedging_context = "fx_hedging_context"
+    liquidity_buffer = "liquidity_buffer"
+
+class FacilityFitAssessment(AdvisoryBaseModel):
+    fit_band: Literal["strong", "adequate", "watch", "constrained", "unavailable"]
+    rationale: str
+    constraints: List[str] = Field(default_factory=list)
+    watch_items: List[str] = Field(default_factory=list)
+    required_data: List[str] = Field(default_factory=list)
+
+class FacilityCandidate(AdvisoryBaseModel):
+    facility_key: str
+    facility_type: FacilityType
+    label: str
+    estimated_limit: Optional[float] = None
+    currency: str = "HKD"
+    estimated_pricing_bps: Optional[int] = None
+    estimated_annual_cost: Optional[float] = None
+    tenor_months: Optional[int] = None
+    repayment_profile: str
+    purpose: str
+    fit_assessment: FacilityFitAssessment
+    supporting_signals: List[str] = Field(default_factory=list)
+    sensitivity_notes: str
+    warnings: List[str] = Field(default_factory=list)
+    disclaimer: str
+
+class FacilityStructuringResponse(AdvisoryBaseModel):
+    company_id: str
+    company_name: str
+    base_risk_score: int
+    base_risk_band: RiskScoreBand
+    hard_gate_status: HardGateStatus
+    candidates: List[FacilityCandidate]
+    preferred_candidate_keys: List[str]
+    constraints: List[str] = Field(default_factory=list)
+    next_data_needed: List[str] = Field(default_factory=list)
+    disclaimer: str
+    warnings: List[str] = Field(default_factory=list)
+

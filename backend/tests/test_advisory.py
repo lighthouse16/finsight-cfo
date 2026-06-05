@@ -297,3 +297,124 @@ def test_stress_tests_nan_infinity_protection():
     # Ensure serialization doesn't fail
     result_dict = result.model_dump()
     assert result_dict is not None
+
+
+# Phase 3.4 Facility Structuring Tests
+
+from app.services.advisory.facility_structuring_engine import build_facility_structuring
+
+def test_demo_facility_structures_endpoint_200():
+    response = client.get("/api/advisory/demo-facility-structures")
+    assert response.status_code == 200
+    data = response.json()
+    assert "companyId" in data
+    assert "companyName" in data
+    assert "candidates" in data
+    assert len(data["candidates"]) > 0
+    assert "preferredCandidateKeys" in data
+    assert "disclaimer" in data
+    assert "warnings" in data
+
+def test_facility_structuring_candidates():
+    analysis = get_demo_analysis()
+    precheck = build_hard_gate_precheck(analysis)
+    risk_score = build_unified_risk_score(analysis, precheck)
+    stress_tests = build_demo_stress_tests(analysis, risk_score)
+    
+    result = build_facility_structuring(analysis, precheck, risk_score, stress_tests)
+    
+    # Check revolving working capital line
+    wc_facility = next(c for c in result.candidates if c.facility_key == "revolving_working_capital")
+    assert wc_facility.label == "Revolving Working Capital Line"
+    assert wc_facility.estimated_limit > 0
+    assert wc_facility.estimated_pricing_bps is not None
+    assert wc_facility.estimated_annual_cost == (wc_facility.estimated_limit * wc_facility.estimated_pricing_bps) / 10000.0
+    
+    # Check receivables finance
+    ar_facility = next(c for c in result.candidates if c.facility_key == "receivables_finance")
+    assert ar_facility.label == "Receivables Financing Facility"
+    assert ar_facility.estimated_limit > 0
+    
+    # Check trade finance
+    trade_facility = next(c for c in result.candidates if c.facility_key == "trade_finance")
+    assert trade_facility.label == "Trade Finance & LC Facility"
+    assert trade_facility.estimated_limit > 0
+    
+    # Check term loan
+    term_loan = next(c for c in result.candidates if c.facility_key == "term_loan")
+    # In demo, DSCR = 0.62 < 1.0, so fit band should be constrained and not in preferred
+    assert term_loan.fit_assessment.fit_band == "constrained"
+    assert "term_loan" not in result.preferred_candidate_keys
+    
+    # Check FX hedging context
+    fx_hedging = next(c for c in result.candidates if c.facility_key == "fx_hedging")
+    assert fx_hedging.estimated_limit is None
+    assert fx_hedging.estimated_pricing_bps is None
+    assert fx_hedging.estimated_annual_cost is None
+    assert fx_hedging.fit_assessment.fit_band == "adequate" # high FX stress in demo
+
+def test_facility_pricing_scales_with_risk_band():
+    analysis = get_demo_analysis()
+    precheck = build_hard_gate_precheck(analysis)
+    
+    # Elevated risk band
+    risk_score_elevated = build_unified_risk_score(analysis, precheck)
+    risk_score_elevated.band = "elevated"
+    stress_tests = build_demo_stress_tests(analysis, risk_score_elevated)
+    
+    result_elevated = build_facility_structuring(analysis, precheck, risk_score_elevated, stress_tests)
+    wc_elevated = next(c for c in result_elevated.candidates if c.facility_key == "revolving_working_capital")
+    
+    # High risk band
+    risk_score_high = build_unified_risk_score(analysis, precheck)
+    risk_score_high.band = "high"
+    result_high = build_facility_structuring(analysis, precheck, risk_score_high, stress_tests)
+    wc_high = next(c for c in result_high.candidates if c.facility_key == "revolving_working_capital")
+    
+    assert wc_high.estimated_pricing_bps > wc_elevated.estimated_pricing_bps
+
+def test_facility_hard_gate_fail_reduces_limits():
+    analysis = get_demo_analysis()
+    precheck = build_hard_gate_precheck(analysis)
+    precheck.overall_status = "fail"
+    risk_score = build_unified_risk_score(analysis, precheck)
+    stress_tests = build_demo_stress_tests(analysis, risk_score)
+    
+    # Mock very large WC gap
+    analysis.ratios.working_capital_gap.value = 10_000_000.0
+    
+    result = build_facility_structuring(analysis, precheck, risk_score, stress_tests)
+    wc_facility = next(c for c in result.candidates if c.facility_key == "revolving_working_capital")
+    
+    # Capped at 1.5M because hard gate failed
+    assert wc_facility.estimated_limit == 1500000.0
+
+def test_facility_structuring_safety_language():
+    response = client.get("/api/advisory/demo-facility-structures")
+    assert response.status_code == 200
+    data = response.json()
+    
+    unsafe_words = [
+        "approved", "rejected", "lender approved", "final offer",
+        "guaranteed rate", "guaranteed limit", "formal underwriting",
+        "automated credit decision", "approval probability"
+    ]
+    
+    json_str = str(data).lower()
+    for word in unsafe_words:
+        assert word not in json_str, f"Unsafe word '{word}' found in response: {data}"
+
+def test_facility_structuring_nan_infinity_protection():
+    analysis = get_demo_analysis()
+    analysis.ratios.working_capital_gap.value = float("nan")
+    
+    precheck = build_hard_gate_precheck(analysis)
+    risk_score = build_unified_risk_score(analysis, precheck)
+    stress_tests = build_demo_stress_tests(analysis, risk_score)
+    result = build_facility_structuring(analysis, precheck, risk_score, stress_tests)
+    
+    assert result.candidates is not None
+    # Ensure serialization doesn't fail
+    result_dict = result.model_dump()
+    assert result_dict is not None
+
