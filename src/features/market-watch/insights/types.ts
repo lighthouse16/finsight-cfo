@@ -1,3 +1,5 @@
+import type { FinancialAnalysisSummary } from '../types'
+
 export type CompanyDataMode = 'demo_workspace' | 'connected_workspace' | 'fallback'
 
 export type ConnectedRecordStatus = 'connected' | 'pending' | 'missing'
@@ -40,6 +42,8 @@ export interface CompanyContext {
 
 export interface MarketWatchSnapshot {
   company: CompanyContext
+  /** Unified interpretation from backend summary engine. Null if backend unavailable. */
+  financialSummary: FinancialAnalysisSummary | null
   rates: unknown
   fx: unknown
   sector: unknown
@@ -48,6 +52,7 @@ export interface MarketWatchSnapshot {
   sourceStatus: unknown[]
   refreshedAt: string
 }
+
 
 export interface MarketWatchInsight {
   id: string

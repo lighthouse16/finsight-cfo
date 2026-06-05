@@ -45,6 +45,7 @@ import {
   CompanyContext,
   CompanyProfile,
   CompanyExposure,
+  FinancialAnalysisSummary,
 } from './types'
 
 export type RatesSourceInfo = {
@@ -117,6 +118,7 @@ export default function MarketWatchPage() {
   const [stressSource, setStressSource] = useState<StressSourceInfo | null>(null)
   const [sources, setSources] = useState<SourceStatusItem[]>([])
   const [companyContext, setCompanyContext] = useState<CompanyContext | null>(null)
+  const [financialSummary, setFinancialSummary] = useState<FinancialAnalysisSummary | null>(null)
 
   // Card-level loading state for executive signal cards
   const [cardLoadState, setCardLoadState] = useState<'initial' | 'updating' | 'idle'>('initial')
@@ -266,6 +268,9 @@ export default function MarketWatchPage() {
           dataMode: isFallback ? 'fallback' : 'connected_workspace'
         })
 
+        // Store the summary from backend (or null/fallback if unavailable)
+        setFinancialSummary(financials.summary ?? null)
+
         setMetrics(overview.metrics)
         setSignals(overview.signals)
         setRates(ratesLiq.rates)
@@ -368,6 +373,7 @@ export default function MarketWatchPage() {
               dataMode: companyContext.dataMode,
             }
           : null,
+        financialSummary: financialSummary,
         ratesData: rates,
         fxData: fxPairs,
         sectorData: benchmarks,
@@ -380,7 +386,7 @@ export default function MarketWatchPage() {
       console.error('Failed to build snapshot', e)
       return null
     }
-  }, [companyContext, rates, fxPairs, benchmarks, commodities, scenarios, sources, lastRefreshed])
+  }, [companyContext, financialSummary, rates, fxPairs, benchmarks, commodities, scenarios, sources, lastRefreshed])
 
   const insights = useMemo(() => {
     if (!snapshot) return null
@@ -399,13 +405,16 @@ export default function MarketWatchPage() {
         const card = insights.executiveCards.find(c => c.id === 'exec-card-funding')
         if (card) {
           const isFallback = companyContext?.profile.isFallbackFinancials
+          const hasSummary = financialSummary !== null && financialSummary.overallBand !== 'unavailable'
           return {
             ...m,
             value: card.value,
             interpretation: card.description,
             severity: card.severity,
             freshness: 'Workspace' as const,
-            source: isFallback
+            source: hasSummary
+              ? 'Financial demo analysis · Workspace-derived · Company records required for production'
+              : isFallback
               ? 'Local fallback financials · Workspace-derived'
               : 'Financial demo analysis · Workspace-derived',
           }

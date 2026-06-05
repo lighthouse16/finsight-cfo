@@ -1,11 +1,13 @@
 import { CompanyContext, MarketWatchSnapshot } from './types'
 import { defaultCompanyProfile } from './companyProfiles'
+import type { FinancialAnalysisSummary } from '../types'
 
 export interface BuildSnapshotInput {
   companyContext?: {
     profile: unknown
     dataMode: string
   } | null
+  financialSummary?: FinancialAnalysisSummary | null
   ratesData?: unknown
   fxData?: unknown
   sectorData?: unknown
@@ -95,6 +97,7 @@ export function buildMarketWatchSnapshot(input: BuildSnapshotInput): MarketWatch
 
   return {
     company,
+    financialSummary: input.financialSummary ?? null,
     rates: input.ratesData || null,
     fx: input.fxData || null,
     sector: input.sectorData || null,

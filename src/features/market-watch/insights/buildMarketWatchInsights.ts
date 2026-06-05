@@ -75,12 +75,44 @@ export function buildMarketWatchInsights(snapshot: MarketWatchSnapshot): MarketW
   // 2. Generate Executive Cards
   const executiveCards: ExecutiveSignal[] = []
 
-  // Funding Conditions Card
+  // Funding Conditions Card — primary source: financialSummary.debtServiceBand
+  const financialSummary = snapshot.financialSummary
   const fundingConnected = company.connectedRecords.find(r => r.id === 'bank-transactions')?.status === 'connected'
+
   let fundingVal = 'Pending'
   let fundingSev: 'Positive' | 'Neutral' | 'Caution' | 'High' = 'Neutral'
   let fundingDesc = 'Connect bank accounts and debt schedules to assess runway.'
-  if (fundingConnected) {
+
+  if (financialSummary) {
+    // Use backend summary as interpretation contract
+    const band = financialSummary.debtServiceBand
+    const dscrSignal = financialSummary.keySignals.find(s => s.key === 'dscr')
+    const summaryDesc = dscrSignal?.message ?? financialSummary.constraints[0] ?? financialSummary.watchItems[0] ?? ''
+
+    if (band === 'constrained') {
+      fundingVal = 'Debt-Service Watch'
+      fundingSev = 'High'
+      fundingDesc = summaryDesc || 'DSCR is below 1.0x — current cash flow does not fully cover scheduled debt obligations under this demo analysis.'
+    } else if (band === 'watch') {
+      fundingVal = 'Coverage Watch'
+      fundingSev = 'Caution'
+      fundingDesc = summaryDesc || 'Debt service coverage warrants monitoring under this demo analysis.'
+    } else if (band === 'adequate') {
+      fundingVal = 'Coverage Adequate'
+      fundingSev = 'Positive'
+      fundingDesc = summaryDesc || 'Debt service coverage is adequate under this demo analysis.'
+    } else if (band === 'strong') {
+      fundingVal = 'Coverage Strong'
+      fundingSev = 'Positive'
+      fundingDesc = summaryDesc || 'Debt service coverage is strong under this demo analysis.'
+    } else {
+      // unavailable
+      fundingVal = 'Pending'
+      fundingSev = 'Neutral'
+      fundingDesc = 'Financial analysis summary unavailable. Company records required for production analysis.'
+    }
+  } else if (fundingConnected) {
+    // Raw fallback: cash runway vs debt service
     if (company.dscr !== undefined && company.dscr !== null && company.dscr < 1.0) {
       fundingVal = 'Attention Required'
       fundingSev = 'High'
@@ -96,7 +128,7 @@ export function buildMarketWatchInsights(snapshot: MarketWatchSnapshot): MarketW
         fundingSev = 'Caution'
         fundingDesc = 'Cash runway covers 3 to 6 months of debt service.'
       } else {
-        fundingVal = 'Resilient'
+        fundingVal = 'Cash Buffer Adequate'
         fundingSev = 'Positive'
         fundingDesc = 'Cash reserves cover more than 6 months of debt service.'
       }
@@ -106,16 +138,20 @@ export function buildMarketWatchInsights(snapshot: MarketWatchSnapshot): MarketW
       fundingDesc = 'Cash reserves are stable with no active monthly debt payments.'
     }
   }
+
   executiveCards.push({
     id: 'exec-card-funding',
     label: 'Funding Conditions',
     value: fundingVal,
-    status: fundingConnected ? 'Connected' : 'Missing Data',
+    status: financialSummary
+      ? 'Financial Demo Analysis'
+      : (fundingConnected ? 'Connected' : 'Missing Data'),
     severity: fundingSev,
     description: fundingDesc,
-    sourceRefs: ['bank-transactions', 'debt-schedule'],
-    metricRefs: ['cashBalanceHkd', 'monthlyDebtServiceHkd']
+    sourceRefs: ['financial-demo-analysis', 'bank-transactions', 'debt-schedule'],
+    metricRefs: ['dscr', 'cashBalanceHkd', 'monthlyDebtServiceHkd']
   })
+
 
   // Rate Pressure Card
   const ratesConnected = company.connectedRecords.find(r => r.id === 'debt-schedule')?.status === 'connected'

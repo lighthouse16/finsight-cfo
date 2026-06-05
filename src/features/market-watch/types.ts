@@ -417,10 +417,42 @@ export interface CompanyFinancialSnapshot {
   metadata?: Record<string, unknown> | null
 }
 
+/** Band returned by the backend Financial Analysis Summary engine */
+export type FinancialBand = 'strong' | 'adequate' | 'watch' | 'constrained' | 'unavailable'
+
+export interface FinancialSignal {
+  key: string
+  label: string
+  value?: number | null
+  unit?: string | null
+  band: FinancialBand
+  message: string
+  evidence: string
+  source: string
+  warnings: string[]
+}
+
+export interface FinancialAnalysisSummary {
+  overallBand: FinancialBand
+  liquidityBand: FinancialBand
+  debtServiceBand: FinancialBand
+  leverageBand: FinancialBand
+  receivablesBand: FinancialBand
+  valuationBand: FinancialBand
+  keySignals: FinancialSignal[]
+  watchItems: string[]
+  strengths: string[]
+  constraints: string[]
+  nextDataNeeded: string[]
+  warnings: string[]
+  disclaimer?: string
+}
+
 export interface FinancialAnalysisResponse {
   snapshot: CompanyFinancialSnapshot
   integrityChecks: IntegrityCheckResult[]
   ratios: FinancialRatios
+  summary?: FinancialAnalysisSummary | null
   warnings: string[]
 }
 

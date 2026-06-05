@@ -28,6 +28,7 @@ import {
   CompanyProfile,
   CompanyExposure,
   FinancialAnalysisResponse,
+  FinancialAnalysisSummary,
 } from '../types'
 
 const API_BASE_URL =
@@ -1050,6 +1051,28 @@ export async function getCompanyContext(): Promise<{
   }
 }
 
+/** Explicitly unavailable summary — used when backend is unreachable. */
+const FALLBACK_SUMMARY: FinancialAnalysisSummary = {
+  overallBand: 'unavailable',
+  liquidityBand: 'unavailable',
+  debtServiceBand: 'unavailable',
+  leverageBand: 'unavailable',
+  receivablesBand: 'unavailable',
+  valuationBand: 'unavailable',
+  keySignals: [],
+  watchItems: [],
+  strengths: [],
+  constraints: [],
+  nextDataNeeded: [
+    'Backend financial analysis unavailable.',
+    'Company records required for production advisory or credit analysis.',
+  ],
+  warnings: ['Backend unavailable. Using local fallback snapshot. This is not a financial analysis summary.'],
+  disclaimer:
+    'This is a local fallback — not a financial analysis summary. ' +
+    'Company records required for production advisory or credit analysis.',
+}
+
 export function getLocalFinancialDemoAnalysisFallback(): FinancialAnalysisResponse {
   return {
     snapshot: {
@@ -1152,6 +1175,7 @@ export function getLocalFinancialDemoAnalysisFallback(): FinancialAnalysisRespon
       workingCapitalGap: { value: 4700000.0, warning: null, label: 'Working Capital Gap' },
       expectedCreditLossAr: { value: 255000.0, warning: null, label: 'Expected Credit Loss AR' },
     },
+    summary: FALLBACK_SUMMARY,
     warnings: [
       'Backend unavailable. Using local fallback snapshot.',
     ],
