@@ -44,7 +44,8 @@ def get_demo_financial_snapshot() -> CompanyFinancialSnapshot:
         lease_liabilities=500_000.0,
         current_liabilities=13_500_000.0,
         total_liabilities=17_000_000.0,
-        equity=5_900_000.0
+        equity=5_900_000.0,
+        retained_earnings=4_200_000.0
     )
 
     # 3. Cash Flow Statement for FY2025

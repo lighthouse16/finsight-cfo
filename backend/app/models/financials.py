@@ -39,6 +39,7 @@ class BalanceSheetPeriod(FinancialsBaseModel):
     current_liabilities: float
     total_liabilities: float
     equity: float
+    retained_earnings: Optional[float] = None
 
 class CashFlowStatementPeriod(FinancialsBaseModel):
     cfo: float
@@ -95,8 +96,31 @@ class IntegrityCheckResult(FinancialsBaseModel):
     message: str
     details: Optional[dict] = None
 
+class AltmanZScoreResult(FinancialsBaseModel):
+    value: Optional[float] = None
+    band: Optional[str] = None  # "safe", "grey", "distress"
+    components: Optional[dict] = None  # X1, X2, X3, X4
+    warnings: List[str] = Field(default_factory=list)
+    source: str
+    methodology_label: str
+
+class ReceivablesRiskResult(FinancialsBaseModel):
+    total_ar: float
+    expected_credit_loss: Optional[float] = None
+    ecl_ratio: Optional[float] = None
+    ar_90_plus_concentration: Optional[float] = None
+    zone: Optional[str] = None  # "low", "moderate", "elevated"
+    warnings: List[str] = Field(default_factory=list)
+    source: str
+    methodology_label: str
+
+class FinancialRiskDiagnostics(FinancialsBaseModel):
+    altman_z_score: AltmanZScoreResult = Field(..., alias="altmanZScore")
+    receivables_risk: ReceivablesRiskResult = Field(..., alias="receivablesRisk")
+
 class FinancialAnalysisResponse(FinancialsBaseModel):
     snapshot: CompanyFinancialSnapshot
     integrity_checks: List[IntegrityCheckResult] = Field(..., alias="integrityChecks")
     ratios: FinancialRatios
+    risk_diagnostics: FinancialRiskDiagnostics = Field(..., alias="riskDiagnostics")
     warnings: List[str] = Field(default_factory=list)

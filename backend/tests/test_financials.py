@@ -8,6 +8,10 @@ from app.services.financials.ratio_engine import (
     calculate_net_debt
 )
 from app.services.financials.integrity_checks import run_integrity_checks
+from app.services.financials.risk_diagnostics import (
+    calculate_altman_z_service,
+    calculate_receivables_risk
+)
 
 client = TestClient(app)
 
@@ -147,6 +151,7 @@ def test_demo_endpoint_response():
     assert "snapshot" in data
     assert "integrityChecks" in data
     assert "ratios" in data
+    assert "riskDiagnostics" in data
     assert "warnings" in data
     
     # Verify no Infinity or NaN is present in JSON
@@ -158,5 +163,71 @@ def test_demo_endpoint_response():
             assert not math.isinf(val)
             assert not math.isnan(val)
             
+    risk = data["riskDiagnostics"]
+    assert "altmanZScore" in risk
+    assert "receivablesRisk" in risk
+    z_val = risk["altmanZScore"]["value"]
+    assert z_val is None or (isinstance(z_val, (int, float)) and not math.isinf(z_val) and not math.isnan(z_val))
+            
     snapshot = data["snapshot"]
     assert snapshot["companyName"] == "Harbour & Finch Trading Ltd."
+
+def test_altman_z_service_calculation():
+    snapshot = get_demo_financial_snapshot()
+    res = calculate_altman_z_service(snapshot)
+    assert res.value is not None
+    assert round(res.value, 4) == round(3.53978, 4)
+    assert res.band == "safe"
+    assert "X1" in res.components
+    assert res.components["X1"] == 4_900_000.0 / 22_900_000.0
+    assert len(res.warnings) == 0
+
+def test_altman_z_band_mapping():
+    snapshot = get_demo_financial_snapshot()
+    snapshot.income_statement.ebit = -20_000_000.0
+    res = calculate_altman_z_service(snapshot)
+    assert res.value is not None
+    assert res.value < 1.10
+    assert res.band == "distress"
+
+    snapshot.income_statement.ebit = -3_000_000.0
+    res = calculate_altman_z_service(snapshot)
+    assert res.value is not None
+    assert 1.10 <= res.value <= 2.60
+    assert res.band == "grey"
+
+def test_altman_z_missing_retained_earnings():
+    snapshot = get_demo_financial_snapshot()
+    snapshot.balance_sheet.retained_earnings = None
+    res = calculate_altman_z_service(snapshot)
+    assert res.value is None
+    assert res.band is None
+    assert len(res.warnings) > 0
+    assert "missing" in res.warnings[0].lower()
+
+def test_receivables_risk_calculation():
+    snapshot = get_demo_financial_snapshot()
+    res = calculate_receivables_risk(snapshot)
+    assert res.total_ar == 8_900_000.0
+    assert res.expected_credit_loss == 255_000.0
+    assert round(res.ecl_ratio, 4) == round(255_000.0 / 8_900_000.0, 4)
+    assert round(res.ar_90_plus_concentration, 4) == round(400_000.0 / 8_900_000.0, 4)
+    assert res.zone == "moderate"
+
+def test_receivables_risk_elevated_zone():
+    snapshot = get_demo_financial_snapshot()
+    snapshot.receivables_aging.days_90_plus = 2_000_000.0
+    snapshot.balance_sheet.accounts_receivable = 10_500_000.0
+    res = calculate_receivables_risk(snapshot)
+    assert res.zone == "elevated"
+
+def test_receivables_risk_zero_ar():
+    snapshot = get_demo_financial_snapshot()
+    snapshot.balance_sheet.accounts_receivable = 0.0
+    res = calculate_receivables_risk(snapshot)
+    assert res.total_ar == 0.0
+    assert res.expected_credit_loss == 0.0
+    assert res.ecl_ratio is None
+    assert res.zone is None
+    assert len(res.warnings) > 0
+    assert "zero" in res.warnings[0].lower()

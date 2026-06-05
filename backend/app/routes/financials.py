@@ -1,8 +1,12 @@
 from fastapi import APIRouter
-from app.models.financials import FinancialAnalysisResponse
+from app.models.financials import FinancialAnalysisResponse, FinancialRiskDiagnostics
 from app.services.financials.demo_company import get_demo_financial_snapshot
 from app.services.financials.ratio_engine import calculate_ratios
 from app.services.financials.integrity_checks import run_integrity_checks
+from app.services.financials.risk_diagnostics import (
+    calculate_altman_z_service,
+    calculate_receivables_risk
+)
 
 router = APIRouter()
 
@@ -10,7 +14,7 @@ router = APIRouter()
 def get_demo_analysis():
     """
     Returns the financial snapshot, integrity check validation results,
-    calculated financial ratios, and any analysis warnings.
+    calculated financial ratios, risk diagnostics, and any analysis warnings.
     """
     # 1. Fetch demo snapshot
     snapshot = get_demo_financial_snapshot()
@@ -21,7 +25,16 @@ def get_demo_analysis():
     # 3. Calculate ratios
     ratios = calculate_ratios(snapshot)
     
-    # 4. Consolidate warnings
+    # 4. Calculate risk diagnostics
+    altman_z = calculate_altman_z_service(snapshot)
+    receivables_risk = calculate_receivables_risk(snapshot)
+    
+    risk_diagnostics = FinancialRiskDiagnostics(
+        altmanZScore=altman_z,
+        receivablesRisk=receivables_risk
+    )
+    
+    # 5. Consolidate warnings
     warnings = []
     
     # Add warnings from failed integrity checks
@@ -34,6 +47,14 @@ def get_demo_analysis():
         if ratio_val.warning:
             warnings.append(f"Ratio Warning ({ratio_val.label}): {ratio_val.warning}")
             
+    # Add warnings from risk diagnostics
+    if altman_z.warnings:
+        for w in altman_z.warnings:
+            warnings.append(f"Risk Diagnostic Warning (Altman Z''): {w}")
+    if receivables_risk.warnings:
+        for w in receivables_risk.warnings:
+            warnings.append(f"Risk Diagnostic Warning (AR Risk): {w}")
+
     # Add general financial risk warnings based on ratio values
     if ratios.dscr.value is not None and ratios.dscr.value < 1.25:
         warnings.append(
@@ -48,9 +69,23 @@ def get_demo_analysis():
             "A current ratio under 1.5x may indicate tight short-term liquidity."
         )
 
+    # Add warnings based on risk diagnostics outcomes (using safe, context-only language)
+    if altman_z.value is not None:
+        if altman_z.band == "distress":
+            warnings.append("Altman Z'' independent distress check indicates distress zone. Company records required for production risk diagnostics.")
+        elif altman_z.band == "grey":
+            warnings.append("Altman Z'' independent distress check indicates grey zone. Suggest close monitoring of balance sheet leverage.")
+
+    if receivables_risk.zone == "elevated":
+        warnings.append("Receivables Credit Risk zone is elevated. Days past due and Expected Credit Loss exceed standard parameters.")
+    elif receivables_risk.zone == "moderate":
+        warnings.append("Receivables Credit Risk zone is moderate. Suggest review of collection cycles.")
+
     return FinancialAnalysisResponse(
         snapshot=snapshot,
         integrityChecks=checks,
         ratios=ratios,
+        riskDiagnostics=risk_diagnostics,
         warnings=warnings
     )
+
