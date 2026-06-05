@@ -12,6 +12,10 @@ from app.services.financials.risk_diagnostics import (
     calculate_altman_z_service,
     calculate_receivables_risk
 )
+from app.services.financials.projection_engine import (
+    build_default_projection_assumptions,
+    calculate_projection
+)
 
 client = TestClient(app)
 
@@ -231,3 +235,83 @@ def test_receivables_risk_zero_ar():
     assert res.zone is None
     assert len(res.warnings) > 0
     assert "zero" in res.warnings[0].lower()
+
+def test_default_projection_five_years():
+    snapshot = get_demo_financial_snapshot()
+    assumptions = build_default_projection_assumptions(snapshot)
+    assert assumptions.forecast_years == 5
+    
+    analysis = calculate_projection(snapshot, assumptions)
+    assert len(analysis.projected_years) == 5
+    assert analysis.projected_years[0].year == 2026
+    assert analysis.projected_years[4].year == 2030
+
+def test_revenue_growth_fades_linearly():
+    snapshot = get_demo_financial_snapshot()
+    assumptions = build_default_projection_assumptions(snapshot)
+    assumptions.revenue_growth_start = 0.10
+    assumptions.revenue_growth_terminal = 0.02
+    assumptions.forecast_years = 5
+    
+    analysis = calculate_projection(snapshot, assumptions)
+    growth_rates = [round(y.revenue_growth, 4) for y in analysis.projected_years]
+    # Expected: 10%, 8%, 6%, 4%, 2%
+    assert growth_rates == [0.10, 0.08, 0.06, 0.04, 0.02]
+
+def test_fcff_formulas_and_variance():
+    snapshot = get_demo_financial_snapshot()
+    assumptions = build_default_projection_assumptions(snapshot)
+    
+    analysis = calculate_projection(snapshot, assumptions)
+    for year in analysis.projected_years:
+        ebit = year.ebit
+        da = year.depreciation_amortization
+        tax_rate = assumptions.tax_rate
+        capex = year.capex
+        delta_nwc = year.delta_nwc
+        cfo = year.cfo_estimate
+        interest_adj = year.interest_tax_adjustment
+        
+        # Primary: EBIT * (1 - tax) + D&A - CapEx - Delta NWC
+        expected_primary = ebit * (1.0 - tax_rate) + da - capex - delta_nwc
+        assert round(year.fcff_primary, 4) == round(expected_primary, 4)
+        
+        # Cross-check: CFO + Interest * (1 - tax) - CapEx
+        expected_cross_check = cfo + interest_adj - capex
+        assert round(year.fcff_cross_check, 4) == round(expected_cross_check, 4)
+        
+        # Variance should be 0.0
+        assert round(year.fcff_variance, 4) == 0.0
+
+def test_invalid_assumptions_guards():
+    snapshot = get_demo_financial_snapshot()
+    assumptions = build_default_projection_assumptions(snapshot)
+    assumptions.forecast_years = 20  # Clamps to 10
+    assumptions.tax_rate = 0.8  # Clamps to 0.5
+    assumptions.ebit_margin = -2.0  # Clamps to -1.0
+    assumptions.revenue_growth_start = 0.9  # Clamps to 0.5
+    
+    analysis = calculate_projection(snapshot, assumptions)
+    assert len(analysis.warnings) > 0
+    assert len(analysis.projected_years) == 10
+    assert analysis.projected_years[0].taxes == max(analysis.projected_years[0].ebit * 0.5, 0.0)
+    assert analysis.projected_years[0].ebit == analysis.projected_years[0].revenue * -1.0
+
+def test_endpoint_includes_projections_and_no_nan():
+    response = client.get("/api/financials/demo-analysis")
+    assert response.status_code == 200
+    data = response.json()
+    
+    assert "projections" in data
+    proj = data["projections"]
+    assert "assumptions" in proj
+    assert "projectedYears" in proj
+    assert len(proj["projectedYears"]) == 5
+    
+    # Verify no Infinity or NaN is present
+    for yr in proj["projectedYears"]:
+        for field, val in yr.items():
+            if isinstance(val, (int, float)):
+                assert not math.isinf(val)
+                assert not math.isnan(val)
+

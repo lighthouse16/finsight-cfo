@@ -118,9 +118,46 @@ class FinancialRiskDiagnostics(FinancialsBaseModel):
     altman_z_score: AltmanZScoreResult = Field(..., alias="altmanZScore")
     receivables_risk: ReceivablesRiskResult = Field(..., alias="receivablesRisk")
 
+class ProjectionAssumptions(FinancialsBaseModel):
+    forecast_years: int = Field(5, alias="forecastYears")
+    revenue_growth_start: float = Field(..., alias="revenueGrowthStart")
+    revenue_growth_terminal: float = Field(..., alias="revenueGrowthTerminal")
+    ebit_margin: float = Field(..., alias="ebitMargin")
+    da_percent_revenue: float = Field(..., alias="daPercentRevenue")
+    capex_percent_revenue: float = Field(..., alias="capexPercentRevenue")
+    nwc_percent_incremental_revenue: float = Field(..., alias="nwcPercentIncrementalRevenue")
+    tax_rate: float = Field(..., alias="taxRate")
+    terminal_growth_reference: Optional[float] = Field(None, alias="terminalGrowthReference")
+    currency: str
+
+class ProjectedFinancialYear(FinancialsBaseModel):
+    year: int
+    revenue: float
+    revenue_growth: float = Field(..., alias="revenueGrowth")
+    ebit: float
+    depreciation_amortization: float = Field(..., alias="depreciationAmortization")
+    ebitda: float
+    taxes: float
+    capex: float
+    delta_nwc: float = Field(..., alias="deltaNwc")
+    cfo_estimate: float = Field(..., alias="cfoEstimate")
+    interest_tax_adjustment: float = Field(..., alias="interestTaxAdjustment")
+    fcff_primary: float = Field(..., alias="fcffPrimary")
+    fcff_cross_check: float = Field(..., alias="fcffCrossCheck")
+    fcff_variance: float = Field(..., alias="fcffVariance")
+    warnings: List[str] = Field(default_factory=list)
+
+class ProjectionAnalysis(FinancialsBaseModel):
+    assumptions: ProjectionAssumptions
+    projected_years: List[ProjectedFinancialYear] = Field(..., alias="projectedYears")
+    warnings: List[str] = Field(default_factory=list)
+    methodology_label: str = Field("Assumptions-Based Driver Forecast and FCFF Analysis", alias="methodologyLabel")
+
 class FinancialAnalysisResponse(FinancialsBaseModel):
     snapshot: CompanyFinancialSnapshot
     integrity_checks: List[IntegrityCheckResult] = Field(..., alias="integrityChecks")
     ratios: FinancialRatios
     risk_diagnostics: FinancialRiskDiagnostics = Field(..., alias="riskDiagnostics")
+    projections: Optional[ProjectionAnalysis] = None
     warnings: List[str] = Field(default_factory=list)
+

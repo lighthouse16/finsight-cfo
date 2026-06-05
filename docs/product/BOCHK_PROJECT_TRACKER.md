@@ -39,10 +39,10 @@ The team document defines the following core architecture:
 | 1.2 | Integrity Check (Cân bằng) | **Partial** | Pydantic models for `BalanceSheetPeriod` etc. and `run_integrity_checks` service in [integrity_checks.py](file:///D:/projects/finsight-cfo/backend/app/services/financials/integrity_checks.py) validates `TotalAssets = TotalLiabilities + Equity` with 1.0 tolerance. Tested in [test_financials.py](file:///D:/projects/finsight-cfo/backend/tests/test_financials.py). No DB persistence/user upload yet. |
 | 1.3 | Trích xuất Chỉ số (Ratios) | **Partial** | Stateless [ratio_engine.py](file:///D:/projects/finsight-cfo/backend/app/services/financials/ratio_engine.py) calculates Current Ratio, Quick Ratio, Interest Coverage, DSCR, Debt Ratio, Net Debt/EBITDA, DSO, Working Capital Gap, and ECL AR from normalized CompanyFinancialSnapshot. Tested in [test_financials.py](file:///D:/projects/finsight-cfo/backend/tests/test_financials.py). No historical metrics database or dashboard wired yet. |
 | 1.4 | Động cơ Tính rủi ro (Z-Score) | **Partial** | Altman Z'' Score and Receivables Risk diagnostics implemented in [risk_diagnostics.py](file:///D:/projects/finsight-cfo/backend/app/services/financials/risk_diagnostics.py) and integrated into the `GET /api/financials/demo-analysis` endpoint. Validated in [test_financials.py](file:///D:/projects/finsight-cfo/backend/tests/test_financials.py). Full PD model integration remains. |
-| 1.5 | Dự phóng Dòng tiền (FCFF) | **Not Started** | No FCFF calculation, no driver-based forecasting, no 5-year projection model. |
+| 1.5 | Dự phóng Dòng tiền (FCFF) | **Partial** | Driver-based 5-year projections and primary/cross-check FCFF calculations implemented in [projection_engine.py](file:///D:/projects/finsight-cfo/backend/app/services/financials/projection_engine.py). Fully validated in [test_financials.py](file:///D:/projects/finsight-cfo/backend/tests/test_financials.py). Integration with actual historical database remains. |
 | 1.6 | Định giá Chiết khấu (DCF) | **Not Started** | No WACC, CAPM, Hamada beta, or terminal value computation. No DCF valuation whatsoever. |
 
-**Phase 1 verdict**: 🟡 **3 Tasks Partial — rest Not Started.** The data structure foundation, ratio calculation engine, and risk diagnostics are ready and validated. Ingestion and valuation (DCF, PD) are next.
+**Phase 1 verdict**: 🟡 **4 Tasks Partial — rest Not Started.** The data structure foundation, ratios, risk diagnostics, and FCFF projections are ready and validated. Ingestion and valuation (DCF, PD) are next.
 
 ---
 
@@ -114,13 +114,13 @@ The team document defines the following core architecture:
 | Phase | Tasks | Status |
 |---|---|---|
 | Phase 0: Infrastructure | 4 | 🟡 1 Done, 1 Partial, 2 Not Started |
-| Phase 1: Business Valuation | 6 | 🟡 3 Partial, 3 Not Started |
+| Phase 1: Business Valuation | 6 | 🟡 4 Partial, 2 Not Started |
 | Phase 2: Market Prediction | 5 | 🟡 1 Partial, 4 Not Started |
 | Phase 3: Advisory & Structuring | 5 | 🔴 5 Not Started |
 | Phase 4: UI/UX & E2E | 3 | 🟡 1 Partial, 2 Not Started |
 | Phase 5: First Round | 3 | 🟡 1 Partial, 2 Not Started |
 | Phase 6: Finalist | 2 | 🔴 2 Not Started |
-| **Total** | **28** | **1 Done, 7 Partial, 20 Not Started** |
+| **Total** | **28** | **1 Done, 8 Partial, 19 Not Started** |
 
 ---
 

@@ -7,6 +7,10 @@ from app.services.financials.risk_diagnostics import (
     calculate_altman_z_service,
     calculate_receivables_risk
 )
+from app.services.financials.projection_engine import (
+    build_default_projection_assumptions,
+    calculate_projection
+)
 
 router = APIRouter()
 
@@ -14,7 +18,7 @@ router = APIRouter()
 def get_demo_analysis():
     """
     Returns the financial snapshot, integrity check validation results,
-    calculated financial ratios, risk diagnostics, and any analysis warnings.
+    calculated financial ratios, risk diagnostics, projections, and any analysis warnings.
     """
     # 1. Fetch demo snapshot
     snapshot = get_demo_financial_snapshot()
@@ -34,7 +38,11 @@ def get_demo_analysis():
         receivablesRisk=receivables_risk
     )
     
-    # 5. Consolidate warnings
+    # 5. Calculate projections
+    projection_assumptions = build_default_projection_assumptions(snapshot)
+    projections = calculate_projection(snapshot, projection_assumptions)
+    
+    # 6. Consolidate warnings
     warnings = []
     
     # Add warnings from failed integrity checks
@@ -54,6 +62,11 @@ def get_demo_analysis():
     if receivables_risk.warnings:
         for w in receivables_risk.warnings:
             warnings.append(f"Risk Diagnostic Warning (AR Risk): {w}")
+            
+    # Add warnings from projections
+    if projections.warnings:
+        for w in projections.warnings:
+            warnings.append(f"Projection Warning: {w} Company records required for production forecast context.")
 
     # Add general financial risk warnings based on ratio values
     if ratios.dscr.value is not None and ratios.dscr.value < 1.25:
@@ -86,6 +99,7 @@ def get_demo_analysis():
         integrityChecks=checks,
         ratios=ratios,
         riskDiagnostics=risk_diagnostics,
+        projections=projections,
         warnings=warnings
     )
 
