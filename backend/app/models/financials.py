@@ -153,11 +153,96 @@ class ProjectionAnalysis(FinancialsBaseModel):
     warnings: List[str] = Field(default_factory=list)
     methodology_label: str = Field("Assumptions-Based Driver Forecast and FCFF Analysis", alias="methodologyLabel")
 
+class ComparableBetaInput(FinancialsBaseModel):
+    comparable_name: str = Field(..., alias="comparableName")
+    observed_levered_beta: float = Field(..., alias="observedLeveredBeta")
+    debt_to_equity: float = Field(..., alias="debtToEquity")
+    tax_rate: float = Field(..., alias="taxRate")
+    unlevered_beta: Optional[float] = Field(None, alias="unleveredBeta")
+
+class WaccAssumptions(FinancialsBaseModel):
+    risk_free_rate: float = Field(..., alias="riskFreeRate")
+    observed_beta: float = Field(..., alias="observedBeta")
+    target_debt_weight: float = Field(..., alias="targetDebtWeight")
+    target_equity_weight: float = Field(..., alias="targetEquityWeight")
+    equity_risk_premium: float = Field(..., alias="equityRiskPremium")
+    size_premium: float = Field(..., alias="sizePremium")
+    industry_risk_premium: float = Field(..., alias="industryRiskPremium")
+    company_specific_premium: float = Field(..., alias="companySpecificPremium")
+    pre_tax_cost_of_debt: float = Field(..., alias="preTaxCostOfDebt")
+    tax_rate: float = Field(..., alias="taxRate")
+    terminal_growth_rate: float = Field(..., alias="terminalGrowthRate")
+    exit_multiple: Optional[float] = Field(None, alias="exitMultiple")
+    currency: str
+    use_book_weights_as_proxy: bool = Field(True, alias="useBookWeightsAsProxy")
+    comparable_betas: Optional[List[ComparableBetaInput]] = Field(None, alias="comparableBetas")
+
+class WaccResult(FinancialsBaseModel):
+    observed_beta: float = Field(..., alias="observedBeta")
+    unlevered_beta: float = Field(..., alias="unleveredBeta")
+    relevered_beta: float = Field(..., alias="releveredBeta")
+    cost_of_equity: float = Field(..., alias="costOfEquity")
+    pre_tax_cost_of_debt: float = Field(..., alias="preTaxCostOfDebt")
+    after_tax_cost_of_debt: float = Field(..., alias="afterTaxCostOfDebt")
+    debt_weight: float = Field(..., alias="debtWeight")
+    equity_weight: float = Field(..., alias="equityWeight")
+    wacc: float
+    warnings: List[str] = Field(default_factory=list)
+
+class DcfValuationYear(FinancialsBaseModel):
+    year: int
+    fcff: float
+    discount_factor: float = Field(..., alias="discountFactor")
+    pv_fcff: float = Field(..., alias="pvFcff")
+
+class DcfValuationResult(FinancialsBaseModel):
+    valuation_years: List[DcfValuationYear] = Field(..., alias="valuationYears")
+    pv_explicit_fcff: float = Field(..., alias="pvExplicitFcff")
+    terminal_value_gordon_growth: Optional[float] = Field(None, alias="terminalValueGordonGrowth")
+    pv_terminal_value: Optional[float] = Field(None, alias="pvTerminalValue")
+    enterprise_value: Optional[float] = Field(None, alias="enterpriseValue")
+    total_debt: float = Field(..., alias="totalDebt")
+    cash: float
+    net_debt: float = Field(..., alias="netDebt")
+    equity_value: Optional[float] = Field(None, alias="equityValue")
+    implied_ev_ebitda: Optional[float] = Field(None, alias="impliedEvEbitda")
+    terminal_growth_rate: float = Field(..., alias="terminalGrowthRate")
+    wacc: float
+    terminal_value_share_of_enterprise_value: Optional[float] = Field(None, alias="terminalValueShareOfEnterpriseValue")
+    exit_multiple_terminal_value: Optional[float] = Field(None, alias="exitMultipleTerminalValue")
+    implied_exit_multiple: Optional[float] = Field(None, alias="impliedExitMultiple")
+    warnings: List[str] = Field(default_factory=list)
+
+class ValuationSensitivityPoint(FinancialsBaseModel):
+    wacc: float
+    terminal_growth_rate: float = Field(..., alias="terminalGrowthRate")
+    enterprise_value: Optional[float] = Field(None, alias="enterpriseValue")
+    equity_value: Optional[float] = Field(None, alias="equityValue")
+    is_valid: bool = Field(True, alias="isValid")
+    warning: Optional[str] = None
+
+class ValuationSanityCheck(FinancialsBaseModel):
+    name: str
+    status: str  # "pass" | "warning" | "fail"
+    message: str
+    value: Optional[float] = None
+
+class ValuationAnalysis(FinancialsBaseModel):
+    assumptions: WaccAssumptions
+    wacc: WaccResult
+    dcf: DcfValuationResult
+    sensitivity: List[ValuationSensitivityPoint] = Field(default_factory=list)
+    sanity_checks: List[ValuationSanityCheck] = Field(default_factory=list, alias="sanityChecks")
+    warnings: List[str] = Field(default_factory=list)
+
 class FinancialAnalysisResponse(FinancialsBaseModel):
     snapshot: CompanyFinancialSnapshot
     integrity_checks: List[IntegrityCheckResult] = Field(..., alias="integrityChecks")
     ratios: FinancialRatios
     risk_diagnostics: FinancialRiskDiagnostics = Field(..., alias="riskDiagnostics")
     projections: Optional[ProjectionAnalysis] = None
+    valuation: Optional[ValuationAnalysis] = None
     warnings: List[str] = Field(default_factory=list)
+
+
 

@@ -16,6 +16,17 @@ from app.services.financials.projection_engine import (
     build_default_projection_assumptions,
     calculate_projection
 )
+from app.services.financials.valuation_engine import (
+    build_default_wacc_assumptions,
+    calculate_wacc,
+    calculate_dcf,
+    calculate_unlevered_beta,
+    calculate_relevered_beta,
+    calculate_cost_of_equity,
+    calculate_after_tax_cost_of_debt,
+    build_sensitivity_grid,
+    run_valuation_sanity_checks
+)
 
 client = TestClient(app)
 
@@ -301,17 +312,287 @@ def test_endpoint_includes_projections_and_no_nan():
     response = client.get("/api/financials/demo-analysis")
     assert response.status_code == 200
     data = response.json()
-    
+
     assert "projections" in data
     proj = data["projections"]
     assert "assumptions" in proj
     assert "projectedYears" in proj
     assert len(proj["projectedYears"]) == 5
-    
-    # Verify no Infinity or NaN is present
+
     for yr in proj["projectedYears"]:
         for field, val in yr.items():
             if isinstance(val, (int, float)):
                 assert not math.isinf(val)
                 assert not math.isnan(val)
+
+# ---------------------------------------------------------------------------
+# Hamada Beta
+# ---------------------------------------------------------------------------
+
+def test_hamada_unlevered_beta():
+    # βU = 1.1 / (1 + (1 - 0.165) * 1.102) = 1.1 / 1.921 ≈ 0.5726
+    de = 6_500_000.0 / 5_900_000.0  # total_debt / equity
+    bu = calculate_unlevered_beta(1.10, de, 0.165)
+    expected = 1.10 / (1.0 + (1.0 - 0.165) * de)
+    assert round(bu, 6) == round(expected, 6)
+
+def test_hamada_relevered_beta():
+    bu = 0.60
+    # relevered at 30/70 split, tax 0.165
+    bl = calculate_relevered_beta(bu, 0.30, 0.70, 0.165)
+    expected = bu * (1.0 + (1.0 - 0.165) * (0.30 / 0.70))
+    assert round(bl, 6) == round(expected, 6)
+
+def test_hamada_zero_equity_guard():
+    # Should not crash; returns observed beta as unlevered
+    bu = calculate_unlevered_beta(1.10, 0.0, 0.165)
+    assert bu == 1.10
+
+# ---------------------------------------------------------------------------
+# Cost of Equity (Extended CAPM)
+# ---------------------------------------------------------------------------
+
+def test_cost_of_equity_full_formula():
+    snapshot = get_demo_financial_snapshot()
+    ratios = calculate_ratios(snapshot)
+    proj_assumptions = build_default_projection_assumptions(snapshot)
+    projections = calculate_projection(snapshot, proj_assumptions)
+
+    assumptions = build_default_wacc_assumptions(snapshot, ratios, projections)
+    # Fix to clean round values for assertion
+    assumptions.risk_free_rate = 0.04
+    assumptions.equity_risk_premium = 0.055
+    assumptions.size_premium = 0.025
+    assumptions.industry_risk_premium = 0.010
+    assumptions.company_specific_premium = 0.015
+
+    wacc_res = calculate_wacc(snapshot, ratios, assumptions)
+    relevered = wacc_res.relevered_beta
+    expected_coe = 0.04 + relevered * 0.055 + 0.025 + 0.010 + 0.015
+    assert round(wacc_res.cost_of_equity, 6) == round(expected_coe, 6)
+
+def test_after_tax_cost_of_debt_formula():
+    cod = calculate_after_tax_cost_of_debt(0.06923, 0.1648)
+    assert round(cod, 6) == round(0.06923 * (1.0 - 0.1648), 6)
+
+# ---------------------------------------------------------------------------
+# WACC
+# ---------------------------------------------------------------------------
+
+def test_wacc_formula():
+    snapshot = get_demo_financial_snapshot()
+    ratios = calculate_ratios(snapshot)
+    proj_assumptions = build_default_projection_assumptions(snapshot)
+    projections = calculate_projection(snapshot, proj_assumptions)
+
+    assumptions = build_default_wacc_assumptions(snapshot, ratios, projections)
+    assumptions.target_debt_weight = 0.30
+    assumptions.target_equity_weight = 0.70
+
+    wacc_res = calculate_wacc(snapshot, ratios, assumptions)
+    expected = 0.70 * wacc_res.cost_of_equity + 0.30 * wacc_res.after_tax_cost_of_debt
+    assert round(wacc_res.wacc, 6) == round(expected, 6)
+
+def test_wacc_result_includes_beta_fields():
+    snapshot = get_demo_financial_snapshot()
+    ratios = calculate_ratios(snapshot)
+    proj_assumptions = build_default_projection_assumptions(snapshot)
+    projections = calculate_projection(snapshot, proj_assumptions)
+
+    assumptions = build_default_wacc_assumptions(snapshot, ratios, projections)
+    wacc_res = calculate_wacc(snapshot, ratios, assumptions)
+
+    assert wacc_res.observed_beta == assumptions.observed_beta
+    assert wacc_res.unlevered_beta < wacc_res.observed_beta  # leverage unleverages beta
+    assert wacc_res.relevered_beta > 0.0
+    assert wacc_res.pre_tax_cost_of_debt == assumptions.pre_tax_cost_of_debt
+
+# ---------------------------------------------------------------------------
+# DCF
+# ---------------------------------------------------------------------------
+
+def _setup_dcf():
+    snapshot = get_demo_financial_snapshot()
+    ratios = calculate_ratios(snapshot)
+    proj_assumptions = build_default_projection_assumptions(snapshot)
+    projections = calculate_projection(snapshot, proj_assumptions)
+    assumptions = build_default_wacc_assumptions(snapshot, ratios, projections)
+    wacc_res = calculate_wacc(snapshot, ratios, assumptions)
+    return snapshot, ratios, projections, assumptions, wacc_res
+
+def test_dcf_enterprise_value_positive():
+    snapshot, ratios, projections, assumptions, wacc_res = _setup_dcf()
+    dcf = calculate_dcf(snapshot, ratios, projections, wacc_res, assumptions)
+    assert dcf.enterprise_value is not None
+    assert dcf.enterprise_value > 0.0
+    assert dcf.terminal_value_gordon_growth is not None
+    assert dcf.terminal_value_gordon_growth > 0.0
+
+def test_pv_explicit_fcff_is_sum_of_pv_years():
+    snapshot, ratios, projections, assumptions, wacc_res = _setup_dcf()
+    dcf = calculate_dcf(snapshot, ratios, projections, wacc_res, assumptions)
+    year_sum = sum(y.pv_fcff for y in dcf.valuation_years)
+    assert round(dcf.pv_explicit_fcff, 4) == round(year_sum, 4)
+
+def test_equity_value_adjustment():
+    snapshot, ratios, projections, assumptions, wacc_res = _setup_dcf()
+    dcf = calculate_dcf(snapshot, ratios, projections, wacc_res, assumptions)
+    # Net Debt = 6.5M - 3.2M = 3.3M
+    assert dcf.total_debt == 6_500_000.0
+    assert dcf.cash == 3_200_000.0
+    assert dcf.net_debt == 3_300_000.0
+    assert round(dcf.equity_value, 4) == round(dcf.enterprise_value - 3_300_000.0, 4)
+
+def test_terminal_value_gordon_calculation():
+    snapshot, ratios, projections, assumptions, wacc_res = _setup_dcf()
+    dcf = calculate_dcf(snapshot, ratios, projections, wacc_res, assumptions)
+    final_fcff = projections.projected_years[-1].fcff_primary
+    g = assumptions.terminal_growth_rate
+    wacc = wacc_res.wacc
+    expected_tv = final_fcff * (1.0 + g) / (wacc - g)
+    assert round(dcf.terminal_value_gordon_growth, 4) == round(expected_tv, 4)
+
+def test_implied_ev_ebitda_finite():
+    snapshot, ratios, projections, assumptions, wacc_res = _setup_dcf()
+    dcf = calculate_dcf(snapshot, ratios, projections, wacc_res, assumptions)
+    assert dcf.implied_ev_ebitda is not None
+    assert dcf.implied_ev_ebitda > 0.0
+    assert not math.isinf(dcf.implied_ev_ebitda)
+    assert not math.isnan(dcf.implied_ev_ebitda)
+
+def test_terminal_value_share_present():
+    snapshot, ratios, projections, assumptions, wacc_res = _setup_dcf()
+    dcf = calculate_dcf(snapshot, ratios, projections, wacc_res, assumptions)
+    assert dcf.terminal_value_share_of_enterprise_value is not None
+    assert 0.0 < dcf.terminal_value_share_of_enterprise_value < 1.0
+
+def test_exit_multiple_terminal_value_present():
+    snapshot, ratios, projections, assumptions, wacc_res = _setup_dcf()
+    # Default exit_multiple is 6.5
+    dcf = calculate_dcf(snapshot, ratios, projections, wacc_res, assumptions)
+    assert dcf.exit_multiple_terminal_value is not None
+    assert dcf.exit_multiple_terminal_value > 0.0
+
+def test_terminal_value_guard_wacc_growth():
+    snapshot = get_demo_financial_snapshot()
+    ratios = calculate_ratios(snapshot)
+    proj_assumptions = build_default_projection_assumptions(snapshot)
+    projections = calculate_projection(snapshot, proj_assumptions)
+    assumptions = build_default_wacc_assumptions(snapshot, ratios, projections)
+    assumptions.terminal_growth_rate = 0.15  # force WACC <= growth
+
+    wacc_res = calculate_wacc(snapshot, ratios, assumptions)
+    dcf = calculate_dcf(snapshot, ratios, projections, wacc_res, assumptions)
+
+    assert dcf.terminal_value_gordon_growth is None
+    assert dcf.enterprise_value is None
+    assert dcf.equity_value is None
+    assert len(dcf.warnings) > 0
+    assert "invalid" in dcf.warnings[0].lower() or "suppressed" in dcf.warnings[0].lower()
+
+# ---------------------------------------------------------------------------
+# Sanity Checks
+# ---------------------------------------------------------------------------
+
+def test_sanity_check_tv_share():
+    snapshot, ratios, projections, assumptions, wacc_res = _setup_dcf()
+    dcf = calculate_dcf(snapshot, ratios, projections, wacc_res, assumptions)
+    checks = run_valuation_sanity_checks(dcf, projections, assumptions)
+
+    tv_check = next((c for c in checks if c.name == "Terminal Value Share"), None)
+    assert tv_check is not None
+    assert tv_check.status in ("pass", "warning")
+
+def test_sanity_checks_include_wacc_guard():
+    snapshot, ratios, projections, assumptions, wacc_res = _setup_dcf()
+    dcf = calculate_dcf(snapshot, ratios, projections, wacc_res, assumptions)
+    checks = run_valuation_sanity_checks(dcf, projections, assumptions)
+
+    wacc_check = next((c for c in checks if c.name == "WACC vs Terminal Growth"), None)
+    assert wacc_check is not None
+    assert wacc_check.status == "pass"  # demo data should pass
+
+def test_sanity_checks_implied_ev_ebitda_range():
+    snapshot, ratios, projections, assumptions, wacc_res = _setup_dcf()
+    dcf = calculate_dcf(snapshot, ratios, projections, wacc_res, assumptions)
+    checks = run_valuation_sanity_checks(dcf, projections, assumptions)
+
+    ev_check = next((c for c in checks if c.name == "Implied EV/EBITDA"), None)
+    assert ev_check is not None
+    # Demo EV/EBITDA is ~11x, should be pass
+    assert ev_check.status == "pass"
+
+# ---------------------------------------------------------------------------
+# Sensitivity Grid
+# ---------------------------------------------------------------------------
+
+def test_sensitivity_grid_nine_points():
+    snapshot = get_demo_financial_snapshot()
+    ratios = calculate_ratios(snapshot)
+    proj_assumptions = build_default_projection_assumptions(snapshot)
+    projections = calculate_projection(snapshot, proj_assumptions)
+    assumptions = build_default_wacc_assumptions(snapshot, ratios, projections)
+    wacc_res = calculate_wacc(snapshot, ratios, assumptions)
+
+    grid = build_sensitivity_grid(snapshot, ratios, projections, assumptions, wacc_res.wacc)
+    assert len(grid) == 9
+    for pt in grid:
+        if pt.is_valid:
+            assert pt.enterprise_value is not None
+            assert pt.equity_value is not None
+            assert pt.warning is None
+        else:
+            assert pt.enterprise_value is None
+            assert pt.equity_value is None
+            assert pt.warning is not None
+
+# ---------------------------------------------------------------------------
+# Endpoint: valuation
+# ---------------------------------------------------------------------------
+
+def test_endpoint_includes_valuation_and_no_nan():
+    response = client.get("/api/financials/demo-analysis")
+    assert response.status_code == 200
+    data = response.json()
+
+    assert "valuation" in data
+    val = data["valuation"]
+    assert "assumptions" in val
+    assert "wacc" in val
+    assert "dcf" in val
+    assert "sensitivity" in val
+    assert "sanityChecks" in val
+    assert len(val["sensitivity"]) == 9
+    assert len(val["sanityChecks"]) >= 3
+
+    # New DCF fields present
+    dcf = val["dcf"]
+    assert "pvExplicitFcff" in dcf
+    assert "terminalValueGordonGrowth" in dcf
+    assert "totalDebt" in dcf
+    assert "cash" in dcf
+    assert "terminalValueShareOfEnterpriseValue" in dcf
+
+    # New WACC fields present
+    w = val["wacc"]
+    assert "observedBeta" in w
+    assert "unleveredBeta" in w
+    assert "releveredBeta" in w
+    assert "preTaxCostOfDebt" in w
+
+    # No Inf or NaN
+    def check_no_nan(obj):
+        if isinstance(obj, dict):
+            for v in obj.values():
+                check_no_nan(v)
+        elif isinstance(obj, list):
+            for item in obj:
+                check_no_nan(item)
+        elif isinstance(obj, float):
+            assert not math.isinf(obj)
+            assert not math.isnan(obj)
+
+    check_no_nan(val)
+
+
 

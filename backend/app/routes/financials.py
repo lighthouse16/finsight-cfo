@@ -11,6 +11,7 @@ from app.services.financials.projection_engine import (
     build_default_projection_assumptions,
     calculate_projection
 )
+from app.services.financials.valuation_engine import build_valuation_analysis
 
 router = APIRouter()
 
@@ -18,7 +19,7 @@ router = APIRouter()
 def get_demo_analysis():
     """
     Returns the financial snapshot, integrity check validation results,
-    calculated financial ratios, risk diagnostics, projections, and any analysis warnings.
+    calculated financial ratios, risk diagnostics, projections, valuations, and any analysis warnings.
     """
     # 1. Fetch demo snapshot
     snapshot = get_demo_financial_snapshot()
@@ -42,7 +43,10 @@ def get_demo_analysis():
     projection_assumptions = build_default_projection_assumptions(snapshot)
     projections = calculate_projection(snapshot, projection_assumptions)
     
-    # 6. Consolidate warnings
+    # 6. Calculate valuation analysis
+    valuation = build_valuation_analysis(snapshot, ratios, projections)
+    
+    # 7. Consolidate warnings
     warnings = []
     
     # Add warnings from failed integrity checks
@@ -67,6 +71,11 @@ def get_demo_analysis():
     if projections.warnings:
         for w in projections.warnings:
             warnings.append(f"Projection Warning: {w} Company records required for production forecast context.")
+
+    # Add warnings from valuation
+    if valuation.warnings:
+        for w in valuation.warnings:
+            warnings.append(f"Valuation Warning: {w} Company records required for production valuation context.")
 
     # Add general financial risk warnings based on ratio values
     if ratios.dscr.value is not None and ratios.dscr.value < 1.25:
@@ -100,6 +109,7 @@ def get_demo_analysis():
         ratios=ratios,
         riskDiagnostics=risk_diagnostics,
         projections=projections,
+        valuation=valuation,
         warnings=warnings
     )
 
