@@ -10,6 +10,7 @@ import {
   BotMessageSquare,
   FileText,
   Settings,
+  ScrollText,
 } from 'lucide-react'
 import { type ElementType } from 'react'
 import LandingPage from '../pages/LandingPage'
@@ -19,6 +20,7 @@ import PlatformPlaceholderPage from '../pages/PlatformPlaceholderPage'
 import NotFoundPage from '../pages/NotFoundPage'
 import PlatformShell from '../components/platform/PlatformShell'
 import MarketWatchPage from '../features/market-watch/MarketWatchPage'
+import AdvisoryBlueprintPage from '../features/advisory-blueprint/AdvisoryBlueprintPage'
 
 type PlatformRoute = {
   path: string
@@ -84,6 +86,15 @@ const platformRoutes: PlatformRoute[] = [
       'Funding Strategy will help compare timing, channels, structure options, and stress scenarios to support funding decisions.',
   },
   {
+    path: 'advisory-blueprint',
+    title: 'Advisory Blueprint',
+    subtitle:
+      'Context-only financing readiness brief based on demo financial analysis.',
+    icon: ScrollText,
+    modulePurpose:
+      'Advisory Blueprint consolidates financial analysis, precheck, risk score, stress testing, and facility structuring into an advisor-ready brief.',
+  },
+  {
     path: 'valuation',
     title: 'Valuation',
     subtitle:
@@ -144,6 +155,8 @@ export default function AppRouter() {
               element={
                 route.path === 'market-watch' ? (
                   <MarketWatchPage />
+                ) : route.path === 'advisory-blueprint' ? (
+                  <AdvisoryBlueprintPage />
                 ) : (
                   <PlatformPlaceholderPage
                     title={route.title}

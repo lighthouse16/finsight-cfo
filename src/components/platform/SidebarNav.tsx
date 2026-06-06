@@ -13,6 +13,7 @@ import {
   X,
   PanelLeftClose,
   PanelLeftOpen,
+  ScrollText,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { type ElementType, useState, useRef, useEffect } from 'react'
@@ -48,8 +49,9 @@ const navGroups: NavGroup[] = [
   {
     label: 'Funding',
     items: [
-      { label: 'Funding Strategy', path: '/platform/funding-strategy', icon: Landmark },
-      { label: 'Valuation',        path: '/platform/valuation',        icon: BarChart3 },
+      { label: 'Funding Strategy',   path: '/platform/funding-strategy',   icon: Landmark },
+      { label: 'Advisory Blueprint', path: '/platform/advisory-blueprint', icon: ScrollText },
+      { label: 'Valuation',          path: '/platform/valuation',          icon: BarChart3 },
     ],
   },
   {
