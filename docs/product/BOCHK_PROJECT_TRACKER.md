@@ -69,9 +69,9 @@ The team document defines the following core architecture:
 | 3.2 | Unified PD (Xác suất vỡ nợ) | **Partial** | Unified risk scoring foundation added. Score scale 0-100 built on top of financial summary and precheck factors with explainable penalties. Not a calibrated PD engine yet (future production PD requires historical default data and calibration). |
 | 3.3 | Stress-Testing Engine | **Partial** | Deterministic stress testing foundation added in backend ([stress_testing_engine.py](file:///D:/projects/finsight-cfo/backend/app/services/advisory/stress_testing_engine.py)) applying rate, DSO, input cost, and FX import-cost shocks. Reports deltas for DSCR, EBITDA, FCFF, etc. This is a context-only sensitivity analysis tool, not a formal underwriting credit decision engine. Production requires company records and calibrated market scenarios. |
 | 3.4 | Băm nhỏ Gói vay (Optimization) | **Partial** | Candidate structure foundation added in backend ([facility_structuring_engine.py](file:///D:/projects/finsight-cfo/backend/app/services/advisory/facility_structuring_engine.py)). Estimates limits, pricing spreads, and annual costs under baseline, hard-gate, and stress scenario constraints. This is assumptions-based and subject to lender review. Full multi-tranche structuring optimization remains. |
-| 3.5 | RAG & GenAI Output (Blueprint) | **Not Started** | No LLM integration. No RAG pipeline. No structured JSON → LLM blueprint generation. AI CFO feature section in [AppRouter.tsx](file:///D:/projects/finsight-cfo/src/routes/AppRouter.tsx#L96-L103) is a placeholder page. |
+| 3.5 | RAG & GenAI Output (Blueprint) | **Partial** | Deterministic advisory blueprint foundation added in backend ([blueprint_engine.py](file:///D:/projects/finsight-cfo/backend/app/services/advisory/blueprint_engine.py)). `GET /api/advisory/demo-blueprint` consolidates financial summary, hard-gate precheck, unified risk score, stress tests, and facility structuring into an advisor-ready JSON brief without calling an LLM. RAG pipeline and GenAI generation remain future work. |
 
-**Phase 3 verdict**: 🟡 **3.1, 3.2, 3.3, & 3.4 Partial — rest Not Started.** Hard-gate precheck, unified risk scoring, deterministic stress testing, and facility structuring foundations implemented and fully tested. Labeled historical data calibration, full loan optimization, and CDI alternative data integrations remain.
+**Phase 3 verdict**: 🟡 **3.1, 3.2, 3.3, 3.4, & 3.5 Partial.** Hard-gate precheck, unified risk scoring, deterministic stress testing, facility structuring, and deterministic advisory blueprint foundations implemented and tested. Labeled historical data calibration, full loan optimization, CDI alternative data integrations, RAG, and GenAI generation remain.
 
 ---
 
@@ -117,11 +117,11 @@ The team document defines the following core architecture:
 | Phase 0: Infrastructure | 4 | 🟡 1 Done, 1 Partial, 2 Not Started |
 | Phase 1: Business Valuation | 6 | 🟡 5 Partial, 1 Not Started |
 | Phase 2: Market Prediction | 5 | 🟡 1 Partial, 4 Not Started |
-| Phase 3: Advisory & Structuring | 5 | 🟡 4 Partial, 1 Not Started |
+| Phase 3: Advisory & Structuring | 5 | 🟡 5 Partial |
 | Phase 4: UI/UX & E2E | 3 | 🟡 1 Partial, 2 Not Started |
 | Phase 5: First Round | 3 | 🟡 1 Partial, 2 Not Started |
 | Phase 6: Finalist | 2 | 🔴 2 Not Started |
-| **Total** | **28** | **1 Done, 13 Partial, 14 Not Started** |
+| **Total** | **28** | **1 Done, 14 Partial, 13 Not Started** |
 
 ---
 

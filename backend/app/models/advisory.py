@@ -154,3 +154,49 @@ class FacilityStructuringResponse(AdvisoryBaseModel):
     disclaimer: str
     warnings: List[str] = Field(default_factory=list)
 
+
+# Phase 3.5 Advisory Blueprint Models
+
+BlueprintReadinessStatus = Literal[
+    "ready_context",
+    "watch_context",
+    "constrained_context",
+    "unavailable_context",
+]
+
+class AdvisoryBriefSection(AdvisoryBaseModel):
+    section_key: str
+    title: str
+    summary: str
+    signals: List[str] = Field(default_factory=list)
+    constraints: List[str] = Field(default_factory=list)
+    next_data_needed: List[str] = Field(default_factory=list)
+    source_refs: List[str] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
+
+class AdvisoryBlueprintAction(AdvisoryBaseModel):
+    action_key: str
+    label: str
+    priority: Literal["high", "medium", "low"]
+    rationale: str
+    owner_hint: str
+    required_data: List[str] = Field(default_factory=list)
+    related_candidate_keys: List[str] = Field(default_factory=list)
+
+class BlueprintKeySections(AdvisoryBaseModel):
+    financial_posture: AdvisoryBriefSection
+    advisory_readiness: AdvisoryBriefSection
+    stress_context: AdvisoryBriefSection
+    candidate_structures: AdvisoryBriefSection
+    data_readiness: AdvisoryBriefSection
+
+class AdvisoryBlueprintResponse(AdvisoryBaseModel):
+    company_id: str
+    company_name: str
+    blueprint_status: BlueprintReadinessStatus
+    executive_brief: str
+    key_sections: BlueprintKeySections
+    recommended_actions: List[AdvisoryBlueprintAction]
+    source_outputs: List[str] = Field(default_factory=list)
+    disclaimer: str
+    warnings: List[str] = Field(default_factory=list)
