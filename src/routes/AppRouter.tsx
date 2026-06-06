@@ -21,6 +21,7 @@ import NotFoundPage from '../pages/NotFoundPage'
 import PlatformShell from '../components/platform/PlatformShell'
 import MarketWatchPage from '../features/market-watch/MarketWatchPage'
 import AdvisoryBlueprintPage from '../features/advisory-blueprint/AdvisoryBlueprintPage'
+import DataRoomPage from '../features/data-room/DataRoomPage'
 
 type PlatformRoute = {
   path: string
@@ -157,6 +158,8 @@ export default function AppRouter() {
                   <MarketWatchPage />
                 ) : route.path === 'advisory-blueprint' ? (
                   <AdvisoryBlueprintPage />
+                ) : route.path === 'data-room' ? (
+                  <DataRoomPage />
                 ) : (
                   <PlatformPlaceholderPage
                     title={route.title}
