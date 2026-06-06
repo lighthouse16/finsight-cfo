@@ -127,21 +127,21 @@ export default function AdvisoryBlueprintPage() {
     return (
       <div className="softform-card rounded-[32px] p-8 sm:p-10 text-center">
         <div className="mx-auto flex max-w-md flex-col items-center">
-          <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-[20px] bg-red-50 text-red-600">
+          <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-[20px] bg-red-50 text-red-600 border border-red-100">
             <AlertTriangle size={24} />
           </div>
           <p className="mb-2 text-lg font-semibold text-softform-navy-950">
             Service Connection Issue
           </p>
-          <p className="mb-6 text-sm text-softform-text-secondary">
+          <p className="mb-6 text-sm text-softform-text-secondary leading-relaxed">
             {error || 'Unable to connect to the advisory services.'}
           </p>
           <button
             type="button"
             onClick={loadAllData}
-            className="inline-flex items-center gap-2 rounded-xl bg-softform-navy-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-softform-navy-800 transition"
+            className="inline-flex items-center gap-2 rounded-xl bg-softform-navy-900 px-5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-softform-navy-800 transition"
           >
-            <RotateCw size={16} />
+            <RotateCw size={14} />
             Retry Connection
           </button>
         </div>
@@ -152,7 +152,7 @@ export default function AdvisoryBlueprintPage() {
   const { keySections, recommendedActions, executiveBrief, blueprintStatus, companyName } = blueprint
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-12">
       {/* 1. Page Header */}
       <PageHeader
         title="Advisory Blueprint"
@@ -171,23 +171,27 @@ export default function AdvisoryBlueprintPage() {
         }
       />
 
-      <div className="rounded-2xl border border-white/50 bg-white/20 p-4 backdrop-blur-sm">
-        <p className="text-xs leading-relaxed text-softform-text-muted">
-          <strong>Quiet Disclaimer:</strong> Not a formal credit decision. Company records are required for production use.
-        </p>
-      </div>
-
       {/* 2. Executive Brief Panel */}
-      <section className="softform-card rounded-[32px] p-6 sm:p-8 space-y-4">
-        <div className="flex items-center justify-between border-b border-softform-navy-950/5 pb-4">
-          <h2 className="text-lg font-bold text-softform-navy-950">Executive Briefing</h2>
-          <span className="text-xs font-semibold uppercase tracking-wider text-softform-text-muted">
-            {companyName}
-          </span>
+      <section className="softform-panel rounded-[32px] p-8 space-y-6 shadow-floating-panel relative overflow-hidden bg-gradient-to-br from-white/95 via-softform-mist-50/70 to-softform-ice-100/50 border border-white">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-softform-aqua-300/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="relative space-y-4">
+          <div className="flex items-center justify-between border-b border-softform-navy-950/5 pb-4">
+            <div className="space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-softform-teal-deep">
+                Executive Briefing
+              </span>
+              <h2 className="text-2xl font-black text-softform-navy-950 tracking-tight">
+                Financing Readiness Outlook
+              </h2>
+            </div>
+            <span className="text-xs font-bold uppercase tracking-wider text-softform-navy-950/60 bg-white/60 px-3 py-1 rounded-full border border-white">
+              {companyName}
+            </span>
+          </div>
+          <p className="text-base md:text-lg text-softform-text-secondary font-medium leading-relaxed max-w-4xl">
+            {executiveBrief}
+          </p>
         </div>
-        <p className="text-base leading-relaxed text-softform-text-secondary">
-          {executiveBrief}
-        </p>
       </section>
 
       {/* 3. Key Sections */}
@@ -196,43 +200,46 @@ export default function AdvisoryBlueprintPage() {
         <div className="grid gap-6 md:grid-cols-2">
           {/* Financial Posture */}
           {keySections.financialPosture && (
-            <div className="softform-card rounded-2xl p-6 space-y-4 flex flex-col justify-between">
-              <div className="space-y-3">
+            <div className="softform-card rounded-[26px] p-6 sm:p-8 flex flex-col justify-between h-full border border-white/60 hover-lift">
+              <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg bg-softform-mist-100 text-softform-teal-deep">
-                      <BarChart3 size={16} />
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-softform-mist-100/60 text-softform-teal-deep border border-softform-aqua-300/20 shadow-sm">
+                      <BarChart3 size={18} />
                     </div>
-                    <h3 className="font-bold text-softform-navy-950">
+                    <h3 className="font-bold text-softform-navy-950 text-base">
                       {keySections.financialPosture.title}
                     </h3>
                   </div>
                   <StatusChip variant="neutral">Financial</StatusChip>
                 </div>
+                
                 <p className="text-sm leading-relaxed text-softform-text-secondary">
                   {keySections.financialPosture.summary}
                 </p>
+
                 {keySections.financialPosture.signals && keySections.financialPosture.signals.length > 0 && (
-                  <div className="space-y-1.5 pt-2">
-                    <p className="text-xs font-semibold text-softform-text-secondary uppercase tracking-wider">
-                      Signals
-                    </p>
-                    <ul className="space-y-1">
+                  <div className="space-y-2 pt-1.5">
+                    <h4 className="text-xs font-bold text-softform-navy-950/70 tracking-wide">
+                      Key Indicators
+                    </h4>
+                    <ul className="space-y-2">
                       {keySections.financialPosture.signals.map((sig, i) => (
-                        <li key={i} className="text-xs text-softform-text-secondary flex items-start gap-1.5">
-                          <span className="text-softform-teal-deep mt-0.5">•</span>
-                          <span>{sig}</span>
+                        <li key={i} className="text-xs text-softform-text-secondary flex items-start gap-2">
+                          <span className="text-softform-teal-500 font-bold mt-0.5">•</span>
+                          <span className="leading-relaxed">{sig}</span>
                         </li>
                       ))}
                     </ul>
                   </div>
                 )}
               </div>
+
               {keySections.financialPosture.warnings && keySections.financialPosture.warnings.length > 0 && (
-                <div className="rounded-xl bg-softform-cream/40 p-3 text-xs text-softform-amber-500 border border-softform-amber-200/20">
+                <div className="mt-5 rounded-xl bg-softform-cream/60 p-3.5 text-xs text-softform-amber-500 border border-softform-amber-300/30">
                   {keySections.financialPosture.warnings.map((w, idx) => (
-                    <p key={idx} className="flex gap-1.5 items-start">
-                      <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+                    <p key={idx} className="flex gap-2 items-start leading-relaxed font-medium">
+                      <AlertTriangle size={13} className="shrink-0 mt-0.5 text-softform-amber-500" />
                       <span>{w}</span>
                     </p>
                   ))}
@@ -243,43 +250,46 @@ export default function AdvisoryBlueprintPage() {
 
           {/* Advisory Readiness */}
           {keySections.advisoryReadiness && (
-            <div className="softform-card rounded-2xl p-6 space-y-4 flex flex-col justify-between">
-              <div className="space-y-3">
+            <div className="softform-card rounded-[26px] p-6 sm:p-8 flex flex-col justify-between h-full border border-white/60 hover-lift">
+              <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg bg-softform-mist-100 text-softform-teal-deep">
-                      <ShieldCheck size={16} />
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-softform-mist-100/60 text-softform-teal-deep border border-softform-aqua-300/20 shadow-sm">
+                      <ShieldCheck size={18} />
                     </div>
-                    <h3 className="font-bold text-softform-navy-950">
+                    <h3 className="font-bold text-softform-navy-950 text-base">
                       {keySections.advisoryReadiness.title}
                     </h3>
                   </div>
                   <StatusChip variant="signal">Readiness</StatusChip>
                 </div>
+                
                 <p className="text-sm leading-relaxed text-softform-text-secondary">
                   {keySections.advisoryReadiness.summary}
                 </p>
+
                 {keySections.advisoryReadiness.constraints && keySections.advisoryReadiness.constraints.length > 0 && (
-                  <div className="space-y-1.5 pt-2">
-                    <p className="text-xs font-semibold text-softform-text-secondary uppercase tracking-wider">
-                      Constraints
-                    </p>
-                    <ul className="space-y-1">
+                  <div className="space-y-2 pt-1.5">
+                    <h4 className="text-xs font-bold text-softform-navy-950/70 tracking-wide">
+                      Identified Constraints
+                    </h4>
+                    <ul className="space-y-2">
                       {keySections.advisoryReadiness.constraints.map((c, i) => (
-                        <li key={i} className="text-xs text-softform-text-secondary flex items-start gap-1.5">
-                          <span className="text-red-500 mt-0.5">•</span>
-                          <span>{c}</span>
+                        <li key={i} className="text-xs text-softform-text-secondary flex items-start gap-2">
+                          <span className="text-red-500 font-bold mt-0.5">•</span>
+                          <span className="leading-relaxed">{c}</span>
                         </li>
                       ))}
                     </ul>
                   </div>
                 )}
               </div>
+
               {keySections.advisoryReadiness.warnings && keySections.advisoryReadiness.warnings.length > 0 && (
-                <div className="rounded-xl bg-softform-cream/40 p-3 text-xs text-softform-amber-500 border border-softform-amber-200/20">
+                <div className="mt-5 rounded-xl bg-softform-cream/60 p-3.5 text-xs text-softform-amber-500 border border-softform-amber-300/30">
                   {keySections.advisoryReadiness.warnings.map((w, idx) => (
-                    <p key={idx} className="flex gap-1.5 items-start">
-                      <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+                    <p key={idx} className="flex gap-2 items-start leading-relaxed font-medium">
+                      <AlertTriangle size={13} className="shrink-0 mt-0.5 text-softform-amber-500" />
                       <span>{w}</span>
                     </p>
                   ))}
@@ -290,43 +300,46 @@ export default function AdvisoryBlueprintPage() {
 
           {/* Stress Context */}
           {keySections.stressContext && (
-            <div className="softform-card rounded-2xl p-6 space-y-4 flex flex-col justify-between">
-              <div className="space-y-3">
+            <div className="softform-card rounded-[26px] p-6 sm:p-8 flex flex-col justify-between h-full border border-white/60 hover-lift">
+              <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg bg-softform-mist-100 text-softform-teal-deep">
-                      <AlertTriangle size={16} />
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-softform-mist-100/60 text-softform-teal-deep border border-softform-aqua-300/20 shadow-sm">
+                      <AlertTriangle size={18} />
                     </div>
-                    <h3 className="font-bold text-softform-navy-950">
+                    <h3 className="font-bold text-softform-navy-950 text-base">
                       {keySections.stressContext.title}
                     </h3>
                   </div>
                   <StatusChip variant="caution">Sensitivity</StatusChip>
                 </div>
+                
                 <p className="text-sm leading-relaxed text-softform-text-secondary">
                   {keySections.stressContext.summary}
                 </p>
+
                 {keySections.stressContext.signals && keySections.stressContext.signals.length > 0 && (
-                  <div className="space-y-1.5 pt-2">
-                    <p className="text-xs font-semibold text-softform-text-secondary uppercase tracking-wider">
-                      Sensitivity Takeaways
-                    </p>
-                    <ul className="space-y-1">
+                  <div className="space-y-2 pt-1.5">
+                    <h4 className="text-xs font-bold text-softform-navy-950/70 tracking-wide">
+                      Sensitivity Outcomes
+                    </h4>
+                    <ul className="space-y-2">
                       {keySections.stressContext.signals.map((sig, i) => (
-                        <li key={i} className="text-xs text-softform-text-secondary flex items-start gap-1.5">
-                          <span className="text-softform-teal-deep mt-0.5">•</span>
-                          <span>{sig}</span>
+                        <li key={i} className="text-xs text-softform-text-secondary flex items-start gap-2">
+                          <span className="text-softform-teal-500 font-bold mt-0.5">•</span>
+                          <span className="leading-relaxed">{sig}</span>
                         </li>
                       ))}
                     </ul>
                   </div>
                 )}
               </div>
+
               {keySections.stressContext.warnings && keySections.stressContext.warnings.length > 0 && (
-                <div className="rounded-xl bg-softform-cream/40 p-3 text-xs text-softform-amber-500 border border-softform-amber-200/20">
+                <div className="mt-5 rounded-xl bg-softform-cream/60 p-3.5 text-xs text-softform-amber-500 border border-softform-amber-300/30">
                   {keySections.stressContext.warnings.map((w, idx) => (
-                    <p key={idx} className="flex gap-1.5 items-start">
-                      <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+                    <p key={idx} className="flex gap-2 items-start leading-relaxed font-medium">
+                      <AlertTriangle size={13} className="shrink-0 mt-0.5 text-softform-amber-500" />
                       <span>{w}</span>
                     </p>
                   ))}
@@ -337,43 +350,46 @@ export default function AdvisoryBlueprintPage() {
 
           {/* Candidate Structures */}
           {keySections.candidateStructures && (
-            <div className="softform-card rounded-2xl p-6 space-y-4 flex flex-col justify-between">
-              <div className="space-y-3">
+            <div className="softform-card rounded-[26px] p-6 sm:p-8 flex flex-col justify-between h-full border border-white/60 hover-lift">
+              <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg bg-softform-mist-100 text-softform-teal-deep">
-                      <Landmark size={16} />
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-softform-mist-100/60 text-softform-teal-deep border border-softform-aqua-300/20 shadow-sm">
+                      <Landmark size={18} />
                     </div>
-                    <h3 className="font-bold text-softform-navy-950">
+                    <h3 className="font-bold text-softform-navy-950 text-base">
                       {keySections.candidateStructures.title}
                     </h3>
                   </div>
                   <StatusChip variant="signal">Structures</StatusChip>
                 </div>
+                
                 <p className="text-sm leading-relaxed text-softform-text-secondary">
                   {keySections.candidateStructures.summary}
                 </p>
+
                 {keySections.candidateStructures.signals && keySections.candidateStructures.signals.length > 0 && (
-                  <div className="space-y-1.5 pt-2">
-                    <p className="text-xs font-semibold text-softform-text-secondary uppercase tracking-wider">
-                      Preferred Candidates
-                    </p>
-                    <ul className="space-y-1">
+                  <div className="space-y-2 pt-1.5">
+                    <h4 className="text-xs font-bold text-softform-navy-950/70 tracking-wide">
+                      Selected Structure Fit
+                    </h4>
+                    <ul className="space-y-2">
                       {keySections.candidateStructures.signals.map((sig, i) => (
-                        <li key={i} className="text-xs text-softform-text-secondary flex items-start gap-1.5">
-                          <span className="text-softform-teal-deep mt-0.5">•</span>
-                          <span>{sig}</span>
+                        <li key={i} className="text-xs text-softform-text-secondary flex items-start gap-2">
+                          <span className="text-softform-teal-500 font-bold mt-0.5">•</span>
+                          <span className="leading-relaxed">{sig}</span>
                         </li>
                       ))}
                     </ul>
                   </div>
                 )}
               </div>
+
               {keySections.candidateStructures.warnings && keySections.candidateStructures.warnings.length > 0 && (
-                <div className="rounded-xl bg-softform-cream/40 p-3 text-xs text-softform-amber-500 border border-softform-amber-200/20">
+                <div className="mt-5 rounded-xl bg-softform-cream/60 p-3.5 text-xs text-softform-amber-500 border border-softform-amber-300/30">
                   {keySections.candidateStructures.warnings.map((w, idx) => (
-                    <p key={idx} className="flex gap-1.5 items-start">
-                      <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+                    <p key={idx} className="flex gap-2 items-start leading-relaxed font-medium">
+                      <AlertTriangle size={13} className="shrink-0 mt-0.5 text-softform-amber-500" />
                       <span>{w}</span>
                     </p>
                   ))}
@@ -403,14 +419,14 @@ export default function AdvisoryBlueprintPage() {
             return (
               <div
                 key={act.actionKey}
-                className="softform-card rounded-2xl p-5 flex flex-col md:flex-row md:items-start justify-between gap-4"
+                className="softform-card rounded-[22px] p-6 flex flex-col md:flex-row md:items-start justify-between gap-5 border border-white/60 hover-lift"
               >
-                <div className="space-y-3 flex-1">
+                <div className="space-y-3.5 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-softform-teal-deep">
+                    <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-teal-deep">
                       {category}
                     </span>
-                    <StatusChip variant={act.priority === 'high' ? 'caution' : 'neutral'}>
+                    <StatusChip variant={act.priority === 'high' ? 'caution' : 'neutral'} className="text-[9px] px-2 py-0.5">
                       {act.priority} priority
                     </StatusChip>
                   </div>
@@ -418,22 +434,24 @@ export default function AdvisoryBlueprintPage() {
                     <CheckSquare size={16} className="text-softform-teal-deep shrink-0" />
                     {act.label}
                   </h3>
-                  <p className="text-sm text-softform-text-secondary leading-relaxed">
-                    <strong>Rationale:</strong> {act.rationale}
-                  </p>
-                  <p className="text-sm text-softform-text-secondary leading-relaxed">
-                    <strong>Expected Outcome:</strong> {expectedOutcome}
-                  </p>
+                  <div className="space-y-1.5">
+                    <p className="text-sm text-softform-text-secondary leading-relaxed">
+                      <strong>Rationale:</strong> {act.rationale}
+                    </p>
+                    <p className="text-sm text-softform-text-secondary leading-relaxed">
+                      <strong>Expected Outcome:</strong> {expectedOutcome}
+                    </p>
+                  </div>
                   {act.requiredData && act.requiredData.length > 0 && (
-                    <div className="pt-1.5">
-                      <span className="text-xs font-semibold text-softform-text-secondary uppercase tracking-wider">
+                    <div className="pt-2">
+                      <span className="text-[10px] font-bold text-softform-text-muted/95 uppercase tracking-[0.12em] block mb-1">
                         Required Records
                       </span>
-                      <div className="flex flex-wrap gap-1.5 mt-1">
+                      <div className="flex flex-wrap gap-1.5">
                         {act.requiredData.map((d, idx) => (
                           <span
                             key={idx}
-                            className="inline-block rounded-lg bg-softform-mist-100/50 px-2.5 py-1 text-xs text-softform-text-secondary border border-white/50"
+                            className="inline-block rounded-lg bg-softform-mist-100/50 px-2.5 py-1 text-xs text-softform-text-secondary border border-white/60 shadow-sm"
                           >
                             {d}
                           </span>
@@ -443,9 +461,9 @@ export default function AdvisoryBlueprintPage() {
                   )}
                 </div>
                 {act.ownerHint && (
-                  <div className="shrink-0 text-xs text-softform-text-muted md:text-right md:border-l md:border-softform-navy-950/5 md:pl-4 md:h-full flex flex-col justify-center">
-                    <span className="font-semibold text-softform-navy-950 block">Assigned Owner</span>
-                    <span>{act.ownerHint}</span>
+                  <div className="shrink-0 text-xs text-softform-text-muted md:text-right md:border-l md:border-softform-navy-950/5 md:pl-5 md:h-full flex flex-col justify-center gap-0.5">
+                    <span className="font-bold text-softform-navy-950 block">Assigned Owner</span>
+                    <span className="font-medium">{act.ownerHint}</span>
                   </div>
                 )}
               </div>
@@ -472,15 +490,15 @@ export default function AdvisoryBlueprintPage() {
             {facilityStructures.candidates.slice(0, 3).map((cand) => (
               <div
                 key={cand.facilityKey}
-                className="rounded-2xl bg-white/45 p-5 border border-white/60 shadow-sm flex flex-col justify-between gap-4"
+                className="rounded-[22px] bg-white/40 p-5 border border-white/60 shadow-sm flex flex-col justify-between gap-4 hover-lift"
               >
-                <div className="space-y-3">
-                  <div className="flex items-start justify-between">
+                <div className="space-y-3.5">
+                  <div className="flex items-start justify-between gap-2">
                     <h3 className="font-bold text-softform-navy-950 text-sm leading-snug">
                       {cand.label}
                     </h3>
                     <span
-                      className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
+                      className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
                         cand.fitAssessment.fitBand === 'strong'
                           ? 'bg-emerald-500/10 text-emerald-700'
                           : cand.fitAssessment.fitBand === 'adequate'
@@ -491,18 +509,21 @@ export default function AdvisoryBlueprintPage() {
                       {cand.fitAssessment.fitBand} fit
                     </span>
                   </div>
-                  <div className="space-y-1">
-                    <div className="text-xs text-softform-text-secondary">
-                      <span className="font-semibold">Est. Limit:</span> {formatHKD(cand.estimatedLimit)}
+                  <div className="space-y-1.5 text-xs text-softform-text-secondary">
+                    <div className="flex justify-between border-b border-softform-navy-950/5 pb-1">
+                      <span className="font-semibold text-softform-navy-950/80">Est. Limit</span>
+                      <span className="tabular-finance font-bold text-softform-navy-950">{formatHKD(cand.estimatedLimit)}</span>
                     </div>
                     {cand.estimatedPricingBps !== undefined && cand.estimatedPricingBps !== null && (
-                      <div className="text-xs text-softform-text-secondary">
-                        <span className="font-semibold">Est. Pricing:</span> {cand.estimatedPricingBps} bps spread
+                      <div className="flex justify-between border-b border-softform-navy-950/5 pb-1">
+                        <span className="font-semibold text-softform-navy-950/80">Est. Pricing</span>
+                        <span className="tabular-finance font-bold text-softform-navy-950">{cand.estimatedPricingBps} bps spread</span>
                       </div>
                     )}
                     {cand.estimatedAnnualCost !== undefined && cand.estimatedAnnualCost !== null && (
-                      <div className="text-xs text-softform-text-secondary">
-                        <span className="font-semibold">Est. Annual Cost:</span> {formatHKD(cand.estimatedAnnualCost)}
+                      <div className="flex justify-between pb-0.5">
+                        <span className="font-semibold text-softform-navy-950/80">Est. Annual Cost</span>
+                        <span className="tabular-finance font-bold text-softform-navy-950">{formatHKD(cand.estimatedAnnualCost)}</span>
                       </div>
                     )}
                   </div>
@@ -529,29 +550,29 @@ export default function AdvisoryBlueprintPage() {
             </h2>
             <StatusChip variant="signal">Readiness Score</StatusChip>
           </div>
-          <div className="flex flex-col md:flex-row gap-6 items-center">
-            <div className="flex flex-col items-center justify-center p-6 rounded-2xl bg-softform-mist-100/60 border border-softform-aqua-300/30 w-36 shrink-0 shadow-inner">
-              <span className="text-3xl font-black text-softform-teal-deep">{riskScore.score}</span>
-              <span className="text-[10px] uppercase tracking-wider font-semibold text-softform-text-muted mt-0.5">
+          <div className="flex flex-col md:flex-row gap-8 items-center">
+            <div className="flex flex-col items-center justify-center p-6 rounded-[22px] bg-softform-mist-100/60 border border-softform-aqua-300/30 w-36 shrink-0 shadow-inner">
+              <span className="text-4xl font-black text-softform-teal-deep tracking-tight">{riskScore.score}</span>
+              <span className="text-[9px] uppercase tracking-[0.14em] font-bold text-softform-text-muted/80 mt-1">
                 Scale 0-100
               </span>
-              <span className="mt-2 text-xs font-semibold px-2 py-0.5 rounded-full bg-softform-navy-950 text-white uppercase tracking-wider">
+              <span className="mt-3 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-softform-navy-950 text-white uppercase tracking-[0.08em]">
                 {riskScore.band} Band
               </span>
             </div>
-            <div className="space-y-3 flex-1">
-              <p className="text-sm text-softform-text-secondary leading-relaxed">
+            <div className="space-y-4 flex-1">
+              <p className="text-sm text-softform-text-secondary leading-relaxed font-medium">
                 This score provides context for advisory readiness and financing fit only. It does not represent a probability of default or a credit rating.
               </p>
               {riskScore.factors && riskScore.factors.length > 0 && (
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-3.5 sm:grid-cols-2">
                   {riskScore.factors.slice(0, 4).map((f) => (
-                    <div key={f.key} className="p-3 rounded-xl bg-white/40 border border-white/50 text-xs space-y-1">
-                      <div className="flex justify-between font-semibold text-softform-navy-950">
+                    <div key={f.key} className="p-4 rounded-xl bg-white/40 border border-white/50 text-xs space-y-1.5 hover-lift shadow-sm">
+                      <div className="flex justify-between font-bold text-softform-navy-950">
                         <span>{f.label}</span>
-                        <span className="text-softform-teal-deep">Impact: -{f.scoreImpact}</span>
+                        <span className="text-softform-teal-deep font-semibold">Impact: -{f.scoreImpact}</span>
                       </div>
-                      <p className="text-softform-text-secondary">{f.message}</p>
+                      <p className="text-softform-text-secondary leading-relaxed">{f.message}</p>
                     </div>
                   ))}
                 </div>
@@ -579,12 +600,12 @@ export default function AdvisoryBlueprintPage() {
             {stressTests.scenarios.map((scen) => (
               <div
                 key={scen.scenarioKey}
-                className="p-5 rounded-2xl bg-white/45 border border-white/60 shadow-sm space-y-3"
+                className="p-5 rounded-[22px] bg-white/40 border border-white/60 shadow-sm space-y-4 hover-lift"
               >
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <h3 className="font-bold text-softform-navy-950 text-sm">{scen.label}</h3>
                   <span
-                    className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${
+                    className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
                       scen.severity === 'high'
                         ? 'bg-red-500/10 text-red-700'
                         : scen.severity === 'elevated'
@@ -595,15 +616,15 @@ export default function AdvisoryBlueprintPage() {
                     {scen.severity} severity
                   </span>
                 </div>
-                <p className="text-xs text-softform-text-secondary italic">
+                <p className="text-xs text-softform-text-secondary italic leading-relaxed">
                   {scen.keyTakeaway}
                 </p>
                 {scen.impacts && scen.impacts.length > 0 && (
-                  <div className="border-t border-softform-navy-950/5 pt-2 space-y-2">
+                  <div className="border-t border-softform-navy-950/5 pt-3 space-y-2">
                     {scen.impacts.slice(0, 2).map((imp, idx) => (
-                      <div key={idx} className="flex justify-between text-xs">
-                        <span className="text-softform-text-secondary">{imp.metric}:</span>
-                        <span className="font-medium text-softform-navy-950">
+                      <div key={idx} className="flex justify-between text-xs items-center">
+                        <span className="text-softform-text-secondary font-medium">{imp.metric}:</span>
+                        <span className="font-bold text-softform-navy-950 tabular-finance">
                           {imp.baseValue.toFixed(2)} → {imp.stressedValue.toFixed(2)} ({imp.interpretation})
                         </span>
                       </div>
@@ -618,7 +639,7 @@ export default function AdvisoryBlueprintPage() {
 
       {/* 8. Data Readiness Gaps */}
       {keySections.dataReadiness && (
-        <section className="softform-card rounded-[32px] p-6 sm:p-8 space-y-4">
+        <section className="softform-card rounded-[32px] p-6 sm:p-8 space-y-5">
           <div className="flex items-center justify-between border-b border-softform-navy-950/5 pb-4">
             <h2 className="text-lg font-bold text-softform-navy-950 flex items-center gap-2">
               <FolderOpen size={20} className="text-softform-teal-deep" />
@@ -627,13 +648,13 @@ export default function AdvisoryBlueprintPage() {
             <StatusChip variant="neutral">Data Readiness</StatusChip>
           </div>
           <p className="text-sm leading-relaxed text-softform-text-secondary">
-            The following documentation gaps must be resolved to transition from this demo context to a record-backed production analysis:
+            The following documentation gaps must be resolved to transition from this demo context to a record-backed production advisory:
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             {keySections.dataReadiness.nextDataNeeded.map((gap, idx) => (
               <div
                 key={idx}
-                className="flex items-center gap-2.5 p-3.5 rounded-xl bg-white/45 border border-white/60 text-xs text-softform-text-secondary font-medium"
+                className="flex items-center gap-3 p-4 rounded-xl bg-white/40 border border-white/60 text-xs text-softform-text-secondary font-semibold hover-lift shadow-sm"
               >
                 <div className="h-2 w-2 rounded-full bg-softform-teal-deep shrink-0" />
                 <span>{gap}</span>
@@ -644,26 +665,26 @@ export default function AdvisoryBlueprintPage() {
       )}
 
       {/* Subtle CTA to Data Room & Market Watch */}
-      <section className="flex flex-col sm:flex-row gap-4 items-center justify-between p-6 rounded-3xl border border-white/70 bg-gradient-to-r from-softform-mist-100/50 to-white/50 backdrop-blur-md text-xs">
-        <div className="space-y-1 text-center sm:text-left">
-          <p className="font-semibold text-softform-navy-950">Advisory Planning Context</p>
-          <p className="text-softform-text-muted leading-relaxed">
-            Blueprint uses demo analysis until production records are connected.
+      <section className="flex flex-col sm:flex-row gap-6 items-center justify-between p-8 rounded-[36px] border border-white/70 bg-gradient-to-r from-softform-mist-100/50 to-white/50 backdrop-blur-md shadow-base-card">
+        <div className="space-y-1.5 text-center sm:text-left max-w-2xl">
+          <p className="font-bold text-softform-navy-950 text-base">Advisory Planning Context</p>
+          <p className="text-xs leading-relaxed text-softform-text-secondary">
+            Blueprint uses demo analysis until production records are connected in the Data Room.
           </p>
         </div>
-        <div className="flex gap-3 shrink-0">
+        <div className="flex gap-3.5 shrink-0 w-full sm:w-auto justify-center sm:justify-end">
           <Link
             to="/platform/market-watch"
-            className="inline-flex items-center gap-1.5 rounded-xl border border-white/80 bg-white/60 px-4 py-2 text-xs font-semibold text-softform-navy-950 hover:bg-white transition"
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/80 bg-white/60 px-4 py-2.5 text-xs font-bold text-softform-navy-950 hover:bg-white transition shadow-sm"
           >
             Review Market Watch
           </Link>
           <Link
             to="/platform/data-room"
-            className="inline-flex items-center gap-1.5 rounded-xl bg-softform-navy-900 px-4 py-2 text-xs font-semibold text-white hover:bg-softform-navy-800 transition"
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-softform-navy-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-softform-navy-800 transition shadow-sm"
           >
             Review Data Room
-            <ArrowRight size={12} />
+            <ArrowRight size={14} />
           </Link>
         </div>
       </section>
@@ -671,7 +692,7 @@ export default function AdvisoryBlueprintPage() {
       {/* Footer Info */}
       <footer className="pt-6 border-t border-softform-navy-950/5 text-center space-y-2">
         <p className="text-xs text-softform-text-muted">
-          All data in this report is context-only, assumptions-based, and for planning purposes.
+          All data in this report is context-only, assumptions-based, and for planning purposes. Not a formal credit decision.
         </p>
         <p className="text-xs text-softform-text-muted">
           FinSight CFO Workspace • Powered by softform design token system.
