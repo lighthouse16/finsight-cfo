@@ -1,3 +1,4 @@
+import { lazy, Suspense, type ElementType } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import {
   LayoutDashboard,
@@ -12,16 +13,23 @@ import {
   Settings,
   ScrollText,
 } from 'lucide-react'
-import { type ElementType } from 'react'
-import LandingPage from '../pages/LandingPage'
-import LoginPage from '../pages/LoginPage'
-import SignupPage from '../pages/SignupPage'
-import PlatformPlaceholderPage from '../pages/PlatformPlaceholderPage'
-import NotFoundPage from '../pages/NotFoundPage'
 import PlatformShell from '../components/platform/PlatformShell'
-import MarketWatchPage from '../features/market-watch/MarketWatchPage'
-import AdvisoryBlueprintPage from '../features/advisory-blueprint/AdvisoryBlueprintPage'
-import DataRoomPage from '../features/data-room/DataRoomPage'
+import RouteLoadingFallback from '../components/platform/RouteLoadingFallback'
+
+const LandingPage = lazy(() => import('../pages/LandingPage'))
+const LoginPage = lazy(() => import('../pages/LoginPage'))
+const SignupPage = lazy(() => import('../pages/SignupPage'))
+const PlatformPlaceholderPage = lazy(
+  () => import('../pages/PlatformPlaceholderPage'),
+)
+const NotFoundPage = lazy(() => import('../pages/NotFoundPage'))
+const MarketWatchPage = lazy(
+  () => import('../features/market-watch/MarketWatchPage'),
+)
+const AdvisoryBlueprintPage = lazy(
+  () => import('../features/advisory-blueprint/AdvisoryBlueprintPage'),
+)
+const DataRoomPage = lazy(() => import('../features/data-room/DataRoomPage'))
 
 type PlatformRoute = {
   path: string
@@ -133,18 +141,80 @@ const platformRoutes: PlatformRoute[] = [
   },
 ]
 
+function withShellFallback(element: JSX.Element, copy?: string) {
+  return (
+    <Suspense fallback={<RouteLoadingFallback copy={copy} />}>
+      {element}
+    </Suspense>
+  )
+}
+
+function withPageFallback(element: JSX.Element, copy?: string) {
+  return (
+    <Suspense
+      fallback={
+        <div className="softform-page flex min-h-dvh items-center justify-center px-4 text-softform-text-primary">
+          <div className="w-full max-w-2xl">
+            <RouteLoadingFallback copy={copy} />
+          </div>
+        </div>
+      }
+    >
+      {element}
+    </Suspense>
+  )
+}
+
+function renderPlatformRoute(route: PlatformRoute) {
+  if (route.path === 'market-watch') {
+    return withShellFallback(
+      <MarketWatchPage />,
+      'Loading market intelligence...',
+    )
+  }
+
+  if (route.path === 'advisory-blueprint') {
+    return withShellFallback(
+      <AdvisoryBlueprintPage />,
+      'Loading advisory workspace...',
+    )
+  }
+
+  if (route.path === 'data-room') {
+    return withShellFallback(<DataRoomPage />, 'Loading data room...')
+  }
+
+  return withShellFallback(
+    <PlatformPlaceholderPage
+      title={route.title}
+      subtitle={route.subtitle}
+      icon={route.icon}
+      modulePurpose={route.modulePurpose}
+    />,
+  )
+}
+
 export default function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
         {/* Landing page — untouched */}
-        <Route path="/" element={<LandingPage />} />
-        
+        <Route
+          path="/"
+          element={withPageFallback(<LandingPage />, 'Loading FinSight CFO...')}
+        />
+
         {/* Login page */}
-        <Route path="/login" element={<LoginPage />} />
-        
+        <Route
+          path="/login"
+          element={withPageFallback(<LoginPage />, 'Loading secure sign in...')}
+        />
+
         {/* Signup page */}
-        <Route path="/signup" element={<SignupPage />} />
+        <Route
+          path="/signup"
+          element={withPageFallback(<SignupPage />, 'Loading workspace setup...')}
+        />
 
         {/* Platform shell with nested routes */}
         <Route path="/platform" element={<PlatformShell />}>
@@ -153,37 +223,19 @@ export default function AppRouter() {
             <Route
               key={route.path}
               path={route.path}
-              element={
-                route.path === 'market-watch' ? (
-                  <MarketWatchPage />
-                ) : route.path === 'advisory-blueprint' ? (
-                  <AdvisoryBlueprintPage />
-                ) : route.path === 'data-room' ? (
-                  <DataRoomPage />
-                ) : (
-                  <PlatformPlaceholderPage
-                    title={route.title}
-                    subtitle={route.subtitle}
-                    icon={route.icon}
-                    modulePurpose={route.modulePurpose}
-                  />
-                )
-              }
+              element={renderPlatformRoute(route)}
             />
           ))}
-          <Route path="*" element={<NotFoundPage />} />
+          <Route
+            path="*"
+            element={withShellFallback(<NotFoundPage />, 'Loading route...')}
+          />
         </Route>
 
         {/* Global not-found fallback — standalone wrapper */}
         <Route
           path="*"
-          element={
-            <div className="softform-page flex min-h-dvh items-center justify-center px-4 text-softform-text-primary">
-              <div className="w-full max-w-2xl">
-                <NotFoundPage />
-              </div>
-            </div>
-          }
+          element={withPageFallback(<NotFoundPage />, 'Loading route...')}
         />
       </Routes>
     </BrowserRouter>
