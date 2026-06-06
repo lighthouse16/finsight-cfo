@@ -1,8 +1,8 @@
 import { useEffect, useState, useMemo } from 'react'
-import { Activity, AlertTriangle, Box, Globe, PieChart, TrendingUp, RotateCw } from 'lucide-react'
+import { Activity, AlertTriangle, Box, Globe, PieChart, TrendingUp, RotateCw, ArrowRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import clsx from 'clsx'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, Link } from 'react-router-dom'
 import PageHeader from '../../components/platform/PageHeader'
 import InfoTooltip from '../../components/ui/InfoTooltip'
 import {
@@ -680,6 +680,20 @@ export default function MarketWatchPage() {
                 )}
               </motion.div>
             </AnimatePresence>
+          </div>
+
+          {/* Subtle CTA to Data Room */}
+          <div className="mt-8 pt-6 border-t border-softform-navy-950/5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+            <span className="text-softform-text-muted leading-relaxed">
+              Company records improve the precision of financial context. Connect records to transition from demo context to production-ready analysis.
+            </span>
+            <Link
+              to="/platform/data-room"
+              className="inline-flex items-center gap-1 font-semibold text-softform-teal-deep hover:text-softform-teal-deep/80 transition shrink-0"
+            >
+              Review Data Room
+              <ArrowRight size={12} />
+            </Link>
           </div>
         </>
       </div>

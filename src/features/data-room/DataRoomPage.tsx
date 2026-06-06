@@ -267,7 +267,7 @@ export default function DataRoomPage() {
         <div className="space-y-1 text-center sm:text-left">
           <h3 className="font-bold text-softform-navy-950 text-sm">Explore Workspace Modules</h3>
           <p className="text-xs text-softform-text-secondary">
-            Navigate to active intelligence and planning outputs
+            The Data Room is the primary source of company records. Connect records to transition from demo context to production-ready analysis in other modules.
           </p>
         </div>
         <div className="flex gap-3 shrink-0">

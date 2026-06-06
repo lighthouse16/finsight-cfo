@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   BarChart3,
   ShieldCheck,
@@ -7,6 +8,7 @@ import {
   FolderOpen,
   RotateCw,
   CheckSquare,
+  ArrowRight,
 } from 'lucide-react'
 import PageHeader from '../../components/platform/PageHeader'
 import StatusChip from '../../components/platform/StatusChip'
@@ -640,6 +642,31 @@ export default function AdvisoryBlueprintPage() {
           </div>
         </section>
       )}
+
+      {/* Subtle CTA to Data Room & Market Watch */}
+      <section className="flex flex-col sm:flex-row gap-4 items-center justify-between p-6 rounded-3xl border border-white/70 bg-gradient-to-r from-softform-mist-100/50 to-white/50 backdrop-blur-md text-xs">
+        <div className="space-y-1 text-center sm:text-left">
+          <p className="font-semibold text-softform-navy-950">Advisory Planning Context</p>
+          <p className="text-softform-text-muted leading-relaxed">
+            Blueprint uses demo analysis until production records are connected.
+          </p>
+        </div>
+        <div className="flex gap-3 shrink-0">
+          <Link
+            to="/platform/market-watch"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-white/80 bg-white/60 px-4 py-2 text-xs font-semibold text-softform-navy-950 hover:bg-white transition"
+          >
+            Review Market Watch
+          </Link>
+          <Link
+            to="/platform/data-room"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-softform-navy-900 px-4 py-2 text-xs font-semibold text-white hover:bg-softform-navy-800 transition"
+          >
+            Review Data Room
+            <ArrowRight size={12} />
+          </Link>
+        </div>
+      </section>
 
       {/* Footer Info */}
       <footer className="pt-6 border-t border-softform-navy-950/5 text-center space-y-2">
