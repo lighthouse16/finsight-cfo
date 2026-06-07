@@ -74,3 +74,33 @@ export interface DataRoomUploadResponse {
   warnings: string[]
   disclaimer: string
 }
+
+export type ParsedFinancialConfidence = 'high' | 'medium' | 'low' | 'unavailable'
+
+export interface ParsedFinancialRecord {
+  fieldKey: string
+  label: string
+  rawValue: string
+  normalizedValue: number | null
+  confidence: ParsedFinancialConfidence
+  warnings: string[]
+}
+
+export interface DataRoomParsePreview {
+  recordKey: string
+  statementType: string
+  parsedRecords: ParsedFinancialRecord[]
+  missingExpectedFields: string[]
+  unsupportedFields: string[]
+  rowCount: number
+  warnings: string[]
+}
+
+export interface DataRoomParseResponse {
+  companyId: string
+  companyName: string
+  uploadedFile: DataRoomUploadedFile
+  preview: DataRoomParsePreview
+  disclaimer: string
+  warnings: string[]
+}

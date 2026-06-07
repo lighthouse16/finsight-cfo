@@ -92,3 +92,38 @@ class DataRoomUploadResponse(BaseModel):
     disclaimer: str = (
         "Metadata received. Analysis will update after production ingestion is connected."
     )
+
+
+# --- Structured parsing preview types ---
+
+ParsedFinancialConfidence = Literal["high", "medium", "low", "unavailable"]
+
+
+class ParsedFinancialRecord(BaseModel):
+    fieldKey: str
+    label: str
+    rawValue: str
+    normalizedValue: Optional[float] = None
+    confidence: ParsedFinancialConfidence
+    warnings: List[str] = Field(default_factory=list)
+
+
+class DataRoomParsePreview(BaseModel):
+    recordKey: str
+    statementType: str
+    parsedRecords: List[ParsedFinancialRecord] = Field(default_factory=list)
+    missingExpectedFields: List[str] = Field(default_factory=list)
+    unsupportedFields: List[str] = Field(default_factory=list)
+    rowCount: int
+    warnings: List[str] = Field(default_factory=list)
+
+
+class DataRoomParseResponse(BaseModel):
+    companyId: str = "demo-company"
+    companyName: str = "Harbour & Finch Trading Ltd."
+    uploadedFile: DataRoomUploadedFile
+    preview: DataRoomParsePreview
+    disclaimer: str = (
+        "Structured parsing preview only. Analysis was not updated and file was not stored."
+    )
+    warnings: List[str] = Field(default_factory=list)

@@ -15,12 +15,13 @@ import {
 import PageHeader from '../../components/platform/PageHeader'
 import StatusChip from '../../components/platform/StatusChip'
 import SourceInfoTooltip from '../market-watch/components/SourceInfoTooltip'
-import { fetchDataRoomReadiness, uploadDataRoomMetadata } from './api/dataRoomApi'
-import type { DataRoomRecord, DataRoomResponse, DataRoomUploadResponse } from './types'
+import { fetchDataRoomReadiness, parseDataRoomPreview, uploadDataRoomMetadata } from './api/dataRoomApi'
+import type { DataRoomParseResponse, DataRoomRecord, DataRoomResponse, DataRoomUploadResponse } from './types'
 
 type UploadState = {
   uploading: boolean
   result: DataRoomUploadResponse | null
+  parsePreview: DataRoomParseResponse | null
   error: string | null
 }
 
@@ -65,14 +66,18 @@ export default function DataRoomPage() {
 
       setUploadStates((prev) => ({
         ...prev,
-        [record.id]: { uploading: true, result: null, error: null },
+        [record.id]: { uploading: true, result: null, parsePreview: null, error: null },
       }))
 
       try {
         const result = await uploadDataRoomMetadata(record.id, file)
+        let parsePreview: DataRoomParseResponse | null = null
+        if (result.uploadedFile.status !== 'unsupported_type') {
+          parsePreview = await parseDataRoomPreview(record.id, file)
+        }
         setUploadStates((prev) => ({
           ...prev,
-          [record.id]: { uploading: false, result, error: null },
+          [record.id]: { uploading: false, result, parsePreview, error: null },
         }))
       } catch (err) {
         const message =
@@ -81,7 +86,7 @@ export default function DataRoomPage() {
             : 'Upload metadata service unavailable. Please try again later.'
         setUploadStates((prev) => ({
           ...prev,
-          [record.id]: { uploading: false, result: null, error: message },
+          [record.id]: { uploading: false, result: null, parsePreview: null, error: message },
         }))
       }
 
@@ -295,8 +300,17 @@ export default function DataRoomPage() {
                               <p className="text-xs text-softform-text-secondary leading-relaxed">
                                 {uploadState.result.uploadedFile.status === 'unsupported_type'
                                   ? 'This file type is not supported. Analysis will not be updated.'
-                                  : 'File metadata received. Analysis will update after production ingestion is connected.'}
+                                  : 'File metadata received. Analysis remains unchanged until production ingestion is connected.'}
                               </p>
+                              {uploadState.parsePreview && (
+                                <div className="rounded-lg bg-softform-mist-100/50 px-2.5 py-2 text-[11px] text-softform-text-secondary">
+                                  <span className="font-bold text-softform-navy-950">
+                                    Structured preview:
+                                  </span>{' '}
+                                  {uploadState.parsePreview.preview.parsedRecords.length} fields read ·{' '}
+                                  {uploadState.parsePreview.preview.missingExpectedFields.length} expected fields missing
+                                </div>
+                              )}
                               {uploadState.result.warnings.length > 0 && (
                                 <p className="text-xs text-softform-amber-500 font-medium">
                                   {uploadState.result.warnings[0]}
