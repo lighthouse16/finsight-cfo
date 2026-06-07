@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
 import {
@@ -11,12 +11,26 @@ import {
   Upload,
   AlertCircle,
   Loader2,
+  ShieldCheck,
+  Activity,
 } from 'lucide-react'
 import PageHeader from '../../components/platform/PageHeader'
 import StatusChip from '../../components/platform/StatusChip'
 import SourceInfoTooltip from '../market-watch/components/SourceInfoTooltip'
-import { fetchDataRoomReadiness, parseDataRoomPreview, uploadDataRoomMetadata } from './api/dataRoomApi'
-import type { DataRoomParseResponse, DataRoomRecord, DataRoomResponse, DataRoomUploadResponse } from './types'
+import {
+  buildDataRoomSnapshotPreview,
+  fetchDataRoomReadiness,
+  parseDataRoomPreview,
+  uploadDataRoomMetadata,
+} from './api/dataRoomApi'
+import type {
+  DataRoomParsedRecordSet,
+  DataRoomParseResponse,
+  DataRoomRecord,
+  DataRoomResponse,
+  DataRoomSnapshotPreviewResponse,
+  DataRoomUploadResponse,
+} from './types'
 
 type UploadState = {
   uploading: boolean
@@ -25,11 +39,47 @@ type UploadState = {
   error: string | null
 }
 
+type SnapshotPreviewState = {
+  loading: boolean
+  result: DataRoomSnapshotPreviewResponse | null
+  error: string | null
+}
+
+const REQUIRED_SNAPSHOT_RECORD_KEYS = ['pl-statement', 'balance-sheet', 'cash-flow', 'debt-schedule'] as const
+
+const SNAPSHOT_RECORD_LABELS: Record<string, string> = {
+  'pl-statement': 'P&L Statement',
+  'balance-sheet': 'Balance Sheet',
+  'cash-flow': 'Cash Flow',
+  'debt-schedule': 'Debt Schedule',
+  'receivables-aging': 'Receivables Aging',
+}
+
+const CORE_RATIO_KEYS = [
+  'currentRatio',
+  'quickRatio',
+  'interestCoverage',
+  'dscr',
+  'workingCapitalGap',
+] as const
+
+const formatRatioValue = (value: number | null | undefined, key: string) => {
+  if (value === null || value === undefined) return '—'
+  if (key === 'workingCapitalGap') return value.toLocaleString(undefined, { maximumFractionDigits: 0 })
+  return value.toLocaleString(undefined, { maximumFractionDigits: 2 })
+}
+
 export default function DataRoomPage() {
   const [activeNotification, setActiveNotification] = useState<string | null>(null)
   const [readinessData, setReadinessData] = useState<DataRoomResponse | null>(null)
   const [isLoadingReadiness, setIsLoadingReadiness] = useState(true)
   const [uploadStates, setUploadStates] = useState<Record<string, UploadState>>({})
+  const [parsedRecordSets, setParsedRecordSets] = useState<Record<string, DataRoomParsedRecordSet>>({})
+  const [snapshotPreview, setSnapshotPreview] = useState<SnapshotPreviewState>({
+    loading: false,
+    result: null,
+    error: null,
+  })
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
   useEffect(() => {
@@ -45,6 +95,50 @@ export default function DataRoomPage() {
       isMounted = false
     }
   }, [])
+
+  const snapshotRecordSets = useMemo(() => Object.values(parsedRecordSets), [parsedRecordSets])
+
+  const locallyMissingRequiredStatements = useMemo(
+    () => REQUIRED_SNAPSHOT_RECORD_KEYS.filter((recordKey) => !parsedRecordSets[recordKey]),
+    [parsedRecordSets]
+  )
+
+  const snapshotRequestKey = useMemo(
+    () => snapshotRecordSets.map((recordSet) => recordSet.recordKey).sort().join('|'),
+    [snapshotRecordSets]
+  )
+
+  useEffect(() => {
+    if (snapshotRecordSets.length === 0 || locallyMissingRequiredStatements.length > 0) {
+      setSnapshotPreview((prev) => ({ ...prev, loading: false, result: null, error: null }))
+      return
+    }
+
+    let isMounted = true
+    setSnapshotPreview((prev) => ({ ...prev, loading: true, error: null }))
+
+    buildDataRoomSnapshotPreview({
+      currency: 'HKD',
+      reportingPeriod: 'FY2025',
+      recordSets: snapshotRecordSets,
+    })
+      .then((result) => {
+        if (!isMounted) return
+        setSnapshotPreview({ loading: false, result, error: null })
+      })
+      .catch(() => {
+        if (!isMounted) return
+        setSnapshotPreview({
+          loading: false,
+          result: null,
+          error: 'Snapshot preview service unavailable. Uploaded metadata and parse preview remain available.',
+        })
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [locallyMissingRequiredStatements.length, snapshotRecordSets, snapshotRequestKey])
 
   const handleActionClick = (recordName: string, action: string) => {
     setActiveNotification(
@@ -73,7 +167,16 @@ export default function DataRoomPage() {
         const result = await uploadDataRoomMetadata(record.id, file)
         let parsePreview: DataRoomParseResponse | null = null
         if (result.uploadedFile.status !== 'unsupported_type') {
-          parsePreview = await parseDataRoomPreview(record.id, file)
+          const parsedResponse = await parseDataRoomPreview(record.id, file)
+          parsePreview = parsedResponse
+          setParsedRecordSets((prev) => ({
+            ...prev,
+            [record.id]: {
+              recordKey: record.id,
+              parsedRecords: parsedResponse.preview.parsedRecords,
+              warnings: [...parsedResponse.preview.warnings, ...parsedResponse.warnings],
+            },
+          }))
         }
         setUploadStates((prev) => ({
           ...prev,
@@ -102,6 +205,22 @@ export default function DataRoomPage() {
   const connectedRequired = readinessData?.summary.connectedRequired ?? 0
   const missingRequired = readinessData?.summary.missingRequired ?? 0
   const readinessPercentage = readinessData?.summary.readinessPercentage ?? 0
+  const backendMissingRequiredStatements = snapshotPreview.result?.missingRequiredStatements ?? []
+  const displayedMissingRequiredStatements = backendMissingRequiredStatements.length
+    ? backendMissingRequiredStatements
+    : locallyMissingRequiredStatements
+  const passedIntegrityCount = snapshotPreview.result?.integrityChecks.filter((check) => check.passed).length ?? 0
+  const failedIntegrityCount = snapshotPreview.result?.integrityChecks.filter((check) => !check.passed).length ?? 0
+  const warningIntegrityCount = snapshotPreview.result?.integrityChecks.filter((check) => check.message).length ?? 0
+  const previewStatus = snapshotPreview.error
+    ? 'Unavailable'
+    : snapshotPreview.result?.snapshotPreview
+      ? 'Ready'
+      : displayedMissingRequiredStatements.length
+        ? 'Missing statements'
+        : snapshotPreview.loading
+          ? 'Building preview'
+          : 'Awaiting uploads'
 
   const getStatusChipVariant = (status: string) => {
     switch (status) {
@@ -392,7 +511,134 @@ export default function DataRoomPage() {
         </div>
       </section>
 
-      {/* 4. Analysis Dependency Map */}
+      {/* 4. Financial Snapshot Preview */}
+      <section className="softform-card rounded-[32px] p-6 sm:p-8 space-y-6">
+        <div className="flex flex-col gap-3 border-b border-softform-navy-950/5 pb-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <ShieldCheck size={16} className="text-softform-teal-deep" />
+              <h2 className="text-lg font-bold text-softform-navy-950">Financial Snapshot Preview</h2>
+            </div>
+            <p className="text-xs text-softform-text-muted leading-relaxed">
+              Preview-only ingestion from structured files. The main financial and advisory analysis remains unchanged.
+            </p>
+          </div>
+          <StatusChip variant={snapshotPreview.error ? 'caution' : snapshotPreview.result?.snapshotPreview ? 'signal' : 'neutral'}>
+            {previewStatus}
+          </StatusChip>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-4">
+          <div className="rounded-[22px] border border-white/60 bg-white/40 p-4 space-y-1.5">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted/90">
+              Parsed Statements
+            </p>
+            <p className="text-2xl font-black text-softform-navy-950 tabular-finance">
+              {snapshotRecordSets.length}/{REQUIRED_SNAPSHOT_RECORD_KEYS.length}
+            </p>
+            <p className="text-xs text-softform-text-secondary">Required structured files uploaded</p>
+          </div>
+          <div className="rounded-[22px] border border-white/60 bg-white/40 p-4 space-y-1.5">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted/90">
+              Integrity Checks
+            </p>
+            <p className="text-2xl font-black text-softform-teal-deep tabular-finance">
+              {passedIntegrityCount}/{snapshotPreview.result?.integrityChecks.length ?? 0}
+            </p>
+            <p className="text-xs text-softform-text-secondary">Passed in preview response</p>
+          </div>
+          <div className="rounded-[22px] border border-white/60 bg-white/40 p-4 space-y-1.5">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted/90">
+              Review Signals
+            </p>
+            <p className="text-2xl font-black text-softform-amber-500 tabular-finance">
+              {failedIntegrityCount + warningIntegrityCount}
+            </p>
+            <p className="text-xs text-softform-text-secondary">Failures or backend warnings</p>
+          </div>
+          <div className="rounded-[22px] border border-white/60 bg-white/40 p-4 space-y-1.5">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted/90">
+              Ratios Returned
+            </p>
+            <p className="text-2xl font-black text-softform-navy-950 tabular-finance">
+              {snapshotPreview.result?.ratios ? Object.keys(snapshotPreview.result.ratios).length : 0}
+            </p>
+            <p className="text-xs text-softform-text-secondary">Core ratio preview metrics</p>
+          </div>
+        </div>
+
+        {snapshotPreview.loading && (
+          <div className="flex items-center gap-2 rounded-2xl border border-softform-aqua-300/25 bg-softform-mist-100/40 px-4 py-3 text-xs font-semibold text-softform-text-secondary">
+            <Loader2 size={14} className="animate-spin text-softform-teal-deep" />
+            Building normalized snapshot preview from parsed structured files...
+          </div>
+        )}
+
+        {snapshotPreview.error && (
+          <div className="flex items-start gap-2 rounded-2xl border border-softform-amber-500/20 bg-softform-cream/30 px-4 py-3 text-xs text-softform-amber-500">
+            <AlertCircle size={14} className="mt-0.5 shrink-0" />
+            <span>{snapshotPreview.error}</span>
+          </div>
+        )}
+
+        {displayedMissingRequiredStatements.length > 0 && !snapshotPreview.error && (
+          <div className="rounded-2xl border border-softform-navy-950/5 bg-white/35 px-4 py-3 text-xs text-softform-text-secondary">
+            <span className="font-bold text-softform-navy-950">Missing required statements:</span>{' '}
+            {displayedMissingRequiredStatements.map((recordKey) => SNAPSHOT_RECORD_LABELS[recordKey] ?? recordKey).join(', ')}
+          </div>
+        )}
+
+        {snapshotPreview.result && (
+          <div className="grid gap-5 lg:grid-cols-[1fr_1.1fr]">
+            <div className="rounded-[22px] border border-white/60 bg-white/40 p-5 space-y-3">
+              <div className="flex items-center gap-2">
+                <Activity size={14} className="text-softform-teal-deep" />
+                <h3 className="text-sm font-bold text-softform-navy-950">Integrity Check Preview</h3>
+              </div>
+              <div className="space-y-2">
+                {snapshotPreview.result.integrityChecks.slice(0, 4).map((check) => (
+                  <div key={check.checkName} className="rounded-xl bg-white/45 px-3 py-2 text-xs">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-bold text-softform-navy-950">{check.checkName}</span>
+                      <StatusChip variant={check.passed ? 'signal' : 'caution'}>
+                        {check.passed ? 'Passed' : 'Review'}
+                      </StatusChip>
+                    </div>
+                    <p className="mt-1 text-softform-text-secondary leading-relaxed">{check.message}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-[22px] border border-white/60 bg-white/40 p-5 space-y-3">
+              <h3 className="text-sm font-bold text-softform-navy-950">Core Ratio Preview</h3>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {CORE_RATIO_KEYS.map((ratioKey) => {
+                  const ratio = snapshotPreview.result?.ratios?.[ratioKey]
+                  return (
+                    <div key={ratioKey} className="rounded-xl bg-white/45 px-3 py-2">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-softform-text-muted">
+                        {ratio?.label ?? ratioKey}
+                      </p>
+                      <p className="mt-1 text-lg font-black text-softform-navy-950 tabular-finance">
+                        {formatRatioValue(ratio?.value, ratioKey)}
+                      </p>
+                      {ratio?.warning && (
+                        <p className="mt-1 text-[11px] font-medium text-softform-amber-500">{ratio.warning}</p>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+              <p className="text-[11px] text-softform-text-muted leading-relaxed">
+                {snapshotPreview.result.disclaimer}
+              </p>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* 5. Analysis Dependency Map */}
       <section className="softform-card rounded-[32px] p-6 sm:p-8 space-y-6">
         <div className="border-b border-softform-navy-950/5 pb-4">
           <h2 className="text-lg font-bold text-softform-navy-950">Analysis Dependency Mapping</h2>

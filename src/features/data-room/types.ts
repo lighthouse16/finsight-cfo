@@ -104,3 +104,58 @@ export interface DataRoomParseResponse {
   disclaimer: string
   warnings: string[]
 }
+
+// --- Financial snapshot preview types ---
+
+export interface DataRoomParsedRecordSet {
+  recordKey: string
+  parsedRecords: ParsedFinancialRecord[]
+  warnings: string[]
+}
+
+export interface DataRoomSnapshotPreviewInput {
+  companyId?: string
+  companyName?: string
+  currency?: string
+  reportingPeriod?: string
+  recordSets: DataRoomParsedRecordSet[]
+}
+
+export interface DataRoomIntegrityCheck {
+  checkName: string
+  passed: boolean
+  message: string
+  details?: Record<string, number | string | boolean | null>
+}
+
+export interface DataRoomRatioMetric {
+  value: number | null
+  warning: string | null
+  label: string
+}
+
+export type DataRoomRatioKey =
+  | 'currentRatio'
+  | 'quickRatio'
+  | 'interestCoverage'
+  | 'dscr'
+  | 'debtRatio'
+  | 'netDebtToEbitda'
+  | 'dso'
+  | 'workingCapitalGap'
+  | 'expectedCreditLossAr'
+
+export type DataRoomRatioPreview = Partial<Record<DataRoomRatioKey, DataRoomRatioMetric>>
+
+export interface DataRoomSnapshotPreviewResponse {
+  companyId: string
+  companyName: string
+  currency: string
+  reportingPeriod: string
+  snapshotPreview?: Record<string, unknown> | null
+  integrityChecks: DataRoomIntegrityCheck[]
+  ratios: DataRoomRatioPreview | null
+  missingRequiredStatements: string[]
+  warnings: string[]
+  disclaimer: string
+}
