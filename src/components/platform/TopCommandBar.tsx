@@ -32,9 +32,12 @@ export default function TopCommandBar({ onMenuToggle }: TopCommandBarProps) {
             className="absolute left-3 top-1/2 -translate-y-1/2 text-softform-text-muted"
           />
           <input
+            id="workspace-search"
+            name="workspace-search"
             type="text"
             placeholder="Search workspace…"
             disabled
+            aria-label="Search workspace"
             className="w-full rounded-xl border border-white/50 bg-white/40 py-2 pl-9 pr-4 text-sm text-softform-text-primary placeholder:text-softform-text-muted/60 focus-visible:outline-none disabled:cursor-default"
           />
         </div>
