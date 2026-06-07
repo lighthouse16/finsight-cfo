@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
 import {
@@ -12,10 +12,27 @@ import {
 import PageHeader from '../../components/platform/PageHeader'
 import StatusChip from '../../components/platform/StatusChip'
 import SourceInfoTooltip from '../market-watch/components/SourceInfoTooltip'
-import { dataRoomRecords, dependencyFeeds } from './data/dataRoomSeed'
+import { fetchDataRoomReadiness } from './api/dataRoomApi'
+import type { DataRoomResponse } from './types'
 
 export default function DataRoomPage() {
   const [activeNotification, setActiveNotification] = useState<string | null>(null)
+  const [readinessData, setReadinessData] = useState<DataRoomResponse | null>(null)
+  const [isLoadingReadiness, setIsLoadingReadiness] = useState(true)
+
+  useEffect(() => {
+    let isMounted = true
+
+    fetchDataRoomReadiness().then((data) => {
+      if (!isMounted) return
+      setReadinessData(data)
+      setIsLoadingReadiness(false)
+    })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   const handleActionClick = (recordName: string, action: string) => {
     setActiveNotification(
@@ -26,15 +43,12 @@ export default function DataRoomPage() {
     }, 6000)
   }
 
-  // Calculate quick stats
-  const totalRequired = dataRoomRecords.filter((r) => r.status !== 'optional').length
-  const connectedRequired = dataRoomRecords.filter(
-    (r) => r.status === 'demo_available' || r.status === 'connected'
-  ).length
-  const missingRequired = dataRoomRecords.filter(
-    (r) => r.status === 'missing'
-  ).length
-  const readinessPercentage = Math.round((connectedRequired / totalRequired) * 100)
+  const records = readinessData?.records ?? []
+  const dependencies = readinessData?.dependencies ?? []
+  const totalRequired = readinessData?.summary.totalRequired ?? 0
+  const connectedRequired = readinessData?.summary.connectedRequired ?? 0
+  const missingRequired = readinessData?.summary.missingRequired ?? 0
+  const readinessPercentage = readinessData?.summary.readinessPercentage ?? 0
 
   // Status mapping to calm colors/chips
   const getStatusChipVariant = (status: string) => {
@@ -146,7 +160,9 @@ export default function DataRoomPage() {
       <section className="softform-card rounded-[32px] p-6 sm:p-8 space-y-6">
         <div className="flex items-center justify-between border-b border-softform-navy-950/5 pb-4">
           <h2 className="text-lg font-bold text-softform-navy-950">Integration Status</h2>
-          <span className="text-xs font-medium text-softform-text-muted">Required records checklist</span>
+          <span className="text-xs font-medium text-softform-text-muted">
+            {isLoadingReadiness ? 'Loading readiness contract' : 'Required records checklist'}
+          </span>
         </div>
 
         <div className="overflow-x-auto">
@@ -162,7 +178,7 @@ export default function DataRoomPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-softform-navy-950/5">
-              {dataRoomRecords.map((rec) => (
+              {records.map((rec) => (
                 <tr key={rec.id} className="group hover:bg-white/20 transition-all duration-200">
                   <td className="py-4 pl-3">
                     {/* Checkbox indicator */}
@@ -242,9 +258,9 @@ export default function DataRoomPage() {
         </div>
 
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {dependencyFeeds.map((feed, idx) => (
+          {dependencies.map((feed) => (
             <div
-              key={idx}
+              key={feed.recordGroup}
               className="p-5 rounded-[22px] bg-white/40 border border-white/60 shadow-sm space-y-4 hover-lift"
             >
               <h3 className="font-bold text-softform-navy-950 text-sm leading-snug">
