@@ -5,6 +5,9 @@ import type {
   DataRoomSnapshotPreviewInput,
   DataRoomSnapshotPreviewResponse,
   DataRoomUploadResponse,
+  DataRoomWorkspacePreviewContextInput,
+  DataRoomWorkspacePreviewContextResponse,
+  DataRoomWorkspacePreviewContextStatus,
 } from '../types'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000'
@@ -106,4 +109,48 @@ export async function buildDataRoomSnapshotPreview(
   }
 
   return (await response.json()) as DataRoomSnapshotPreviewResponse
+}
+
+
+export async function activateDataRoomWorkspacePreviewContext(
+  input: DataRoomWorkspacePreviewContextInput,
+): Promise<DataRoomWorkspacePreviewContextResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/data-room/demo-workspace-preview-context`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(input),
+  })
+
+  if (!response.ok) {
+    const detail = await response.json().then((d) => d.detail ?? response.statusText).catch(() => response.statusText)
+    throw new Error(detail)
+  }
+
+  return (await response.json()) as DataRoomWorkspacePreviewContextResponse
+}
+
+export async function fetchDataRoomWorkspacePreviewContext(): Promise<DataRoomWorkspacePreviewContextStatus> {
+  const response = await fetch(`${API_BASE_URL}/api/data-room/demo-workspace-preview-context`)
+
+  if (!response.ok) {
+    const detail = await response.json().then((d) => d.detail ?? response.statusText).catch(() => response.statusText)
+    throw new Error(detail)
+  }
+
+  return (await response.json()) as DataRoomWorkspacePreviewContextStatus
+}
+
+export async function clearDataRoomWorkspacePreviewContext(): Promise<DataRoomWorkspacePreviewContextStatus> {
+  const response = await fetch(`${API_BASE_URL}/api/data-room/demo-workspace-preview-context`, {
+    method: 'DELETE',
+  })
+
+  if (!response.ok) {
+    const detail = await response.json().then((d) => d.detail ?? response.statusText).catch(() => response.statusText)
+    throw new Error(detail)
+  }
+
+  return (await response.json()) as DataRoomWorkspacePreviewContextStatus
 }

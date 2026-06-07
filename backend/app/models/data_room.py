@@ -159,3 +159,45 @@ class DataRoomSnapshotPreviewResponse(BaseModel):
     disclaimer: str = (
         "Financial snapshot preview only. Analysis was not updated and no file or snapshot was stored."
     )
+
+
+# --- Workspace preview context stub types ---
+
+
+class DataRoomWorkspacePreviewContextInput(BaseModel):
+    companyId: str = "demo-company"
+    companyName: str = "Harbour & Finch Trading Ltd."
+    currency: str = "HKD"
+    reportingPeriod: str = "FY2025"
+    snapshotPreview: dict
+    integrityChecks: List[dict] = Field(default_factory=list)
+    ratios: Optional[dict] = None
+    warnings: List[str] = Field(default_factory=list)
+
+
+class DataRoomWorkspacePreviewContextResponse(BaseModel):
+    workspaceId: str = "demo-workspace"
+    companyId: str
+    companyName: str
+    currency: str
+    reportingPeriod: str
+    activatedAt: str
+    source: Literal["data_room_snapshot_preview"] = "data_room_snapshot_preview"
+    snapshotPreview: dict
+    integrityChecks: List[dict] = Field(default_factory=list)
+    ratios: Optional[dict] = None
+    warnings: List[str] = Field(default_factory=list)
+    disclaimer: str = (
+        "Workspace preview context is stored in memory for the demo workspace only. "
+        "It does not update production analysis and will reset when the backend restarts."
+    )
+
+
+class DataRoomWorkspacePreviewContextStatus(BaseModel):
+    workspaceId: str = "demo-workspace"
+    active: bool
+    context: Optional[DataRoomWorkspacePreviewContextResponse] = None
+    disclaimer: str = (
+        "Workspace preview context is temporary and in-memory only. "
+        "Production financial analysis remains unchanged."
+    )

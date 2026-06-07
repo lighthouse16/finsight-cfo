@@ -159,3 +159,32 @@ export interface DataRoomSnapshotPreviewResponse {
   warnings: string[]
   disclaimer: string
 }
+
+
+// --- Workspace preview context API types ---
+
+export interface DataRoomWorkspacePreviewContextInput {
+  companyId?: string
+  companyName: string
+  currency: string
+  reportingPeriod: string
+  snapshotPreview: Record<string, unknown>
+  integrityChecks: DataRoomIntegrityCheck[]
+  ratios: DataRoomRatioPreview | null
+  warnings: string[]
+}
+
+export interface DataRoomWorkspacePreviewContextResponse extends DataRoomWorkspacePreviewContextInput {
+  workspaceId: string
+  companyId: string
+  activatedAt: string
+  source: 'data_room_snapshot_preview'
+  disclaimer: string
+}
+
+export interface DataRoomWorkspacePreviewContextStatus {
+  workspaceId: string
+  active: boolean
+  context: DataRoomWorkspacePreviewContextResponse | null
+  disclaimer: string
+}

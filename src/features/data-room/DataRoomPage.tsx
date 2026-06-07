@@ -18,8 +18,11 @@ import PageHeader from '../../components/platform/PageHeader'
 import StatusChip from '../../components/platform/StatusChip'
 import SourceInfoTooltip from '../market-watch/components/SourceInfoTooltip'
 import {
+  activateDataRoomWorkspacePreviewContext,
   buildDataRoomSnapshotPreview,
+  clearDataRoomWorkspacePreviewContext,
   fetchDataRoomReadiness,
+  fetchDataRoomWorkspacePreviewContext,
   parseDataRoomPreview,
   uploadDataRoomMetadata,
 } from './api/dataRoomApi'
@@ -94,6 +97,7 @@ export default function DataRoomPage() {
   })
   const [hasSavedPreviewState, setHasSavedPreviewState] = useState(false)
   const [workspaceContext, setWorkspaceContext] = useState<WorkspaceAnalysisContext | null>(null)
+  const [workspaceContextError, setWorkspaceContextError] = useState<string | null>(null)
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
   useEffect(() => {
@@ -118,7 +122,31 @@ export default function DataRoomPage() {
         Object.keys(savedPreviewState.uploadResultsByKey).length > 0 ||
         Object.keys(savedPreviewState.parseResultsByKey).length > 0
     )
-    setWorkspaceContext(loadWorkspaceAnalysisContext())
+    const localContext = loadWorkspaceAnalysisContext()
+    setWorkspaceContext(localContext)
+    fetchDataRoomWorkspacePreviewContext()
+      .then((status) => {
+        if (!status.active || !status.context) return
+        const backendContext: WorkspaceAnalysisContext = {
+          source: 'data_room_preview',
+          activatedAt: status.context.activatedAt,
+          companyName: status.context.companyName,
+          reportingPeriod: status.context.reportingPeriod,
+          currency: status.context.currency,
+          snapshotPreviewSummary: {
+            integrityPassedCount: status.context.integrityChecks.filter((check) => check.passed).length,
+            integrityWarningCount: status.context.warnings.length,
+            integrityFailedCount: status.context.integrityChecks.filter((check) => !check.passed).length,
+            ratioKeys: status.context.ratios ? Object.keys(status.context.ratios) : [],
+          },
+          disclaimer: status.context.disclaimer,
+        }
+        saveWorkspaceAnalysisContext(backendContext)
+        setWorkspaceContext(backendContext)
+      })
+      .catch(() => {
+        // Backend preview context is optional; keep local workspace provenance if available.
+      })
   }, [])
 
   useEffect(() => {
@@ -275,9 +303,11 @@ export default function DataRoomPage() {
     setSnapshotPreview({ loading: false, result: null, error: null })
     setHasSavedPreviewState(false)
     setWorkspaceContext(null)
+    setWorkspaceContextError(null)
+    void clearDataRoomWorkspacePreviewContext().catch(() => undefined)
   }, [])
 
-  const handleActivateWorkspaceContext = useCallback(() => {
+  const handleActivateWorkspaceContext = useCallback(async () => {
     const preview = snapshotPreview.result
     if (!preview?.snapshotPreview) return
 
@@ -301,11 +331,40 @@ export default function DataRoomPage() {
 
     saveWorkspaceAnalysisContext(context)
     setWorkspaceContext(context)
+    setWorkspaceContextError(null)
+
+    try {
+      const backendContext = await activateDataRoomWorkspacePreviewContext({
+        companyId: preview.companyId,
+        companyName: preview.companyName,
+        currency: preview.currency,
+        reportingPeriod: preview.reportingPeriod,
+        snapshotPreview: preview.snapshotPreview,
+        integrityChecks: preview.integrityChecks,
+        ratios: preview.ratios,
+        warnings: preview.warnings,
+      })
+      const syncedContext: WorkspaceAnalysisContext = {
+        ...context,
+        activatedAt: backendContext.activatedAt,
+        disclaimer: backendContext.disclaimer,
+      }
+      saveWorkspaceAnalysisContext(syncedContext)
+      setWorkspaceContext(syncedContext)
+    } catch {
+      setWorkspaceContextError(
+        'Preview context saved locally. Backend preview context is unavailable and can be retried later.'
+      )
+    }
   }, [snapshotPreview.result])
 
   const handleResetWorkspaceContext = useCallback(() => {
     clearWorkspaceAnalysisContext()
     setWorkspaceContext(null)
+    setWorkspaceContextError(null)
+    void clearDataRoomWorkspacePreviewContext().catch(() => {
+      // Backend context is temporary; local reset should not fail if backend is unavailable.
+    })
   }, [])
 
   const records = readinessData?.records ?? []
@@ -798,6 +857,11 @@ export default function DataRoomPage() {
               <span><strong className="text-softform-navy-950">Company:</strong> {workspaceContext.companyName}</span>
               <span><strong className="text-softform-navy-950">Period:</strong> {workspaceContext.reportingPeriod}</span>
               <span><strong className="text-softform-navy-950">Ratios:</strong> {workspaceContext.snapshotPreviewSummary.ratioKeys.length}</span>
+            </div>
+          )}
+          {workspaceContextError && (
+            <div className="rounded-2xl border border-softform-amber-500/20 bg-softform-cream/30 px-4 py-3 text-[11px] font-semibold text-softform-amber-500">
+              {workspaceContextError}
             </div>
           )}
         </div>

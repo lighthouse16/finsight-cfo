@@ -10,6 +10,9 @@ from app.models.data_room import (
     DataRoomResponse,
     DataRoomSnapshotPreviewInput,
     DataRoomSnapshotPreviewResponse,
+    DataRoomWorkspacePreviewContextInput,
+    DataRoomWorkspacePreviewContextResponse,
+    DataRoomWorkspacePreviewContextStatus,
     DataRoomUploadedFile,
     DataRoomUploadResponse,
 )
@@ -21,6 +24,9 @@ from app.services.data_room.demo_data_room import (
 )
 
 router = APIRouter()
+
+DEMO_WORKSPACE_ID = "demo-workspace"
+_workspace_preview_context: DataRoomWorkspacePreviewContextResponse | None = None
 
 
 @router.get("/demo-readiness", response_model=DataRoomResponse)
@@ -188,3 +194,61 @@ async def post_demo_snapshot_preview(payload: DataRoomSnapshotPreviewInput):
     analysis pipeline.
     """
     return build_snapshot_preview(payload)
+
+
+@router.get(
+    "/demo-workspace-preview-context",
+    response_model=DataRoomWorkspacePreviewContextStatus,
+)
+async def get_demo_workspace_preview_context():
+    """Return the active in-memory preview context for the demo workspace, if any."""
+    return DataRoomWorkspacePreviewContextStatus(
+        workspaceId=DEMO_WORKSPACE_ID,
+        active=_workspace_preview_context is not None,
+        context=_workspace_preview_context,
+    )
+
+
+@router.post(
+    "/demo-workspace-preview-context",
+    response_model=DataRoomWorkspacePreviewContextResponse,
+)
+async def post_demo_workspace_preview_context(payload: DataRoomWorkspacePreviewContextInput):
+    """Activate a temporary in-memory workspace preview context.
+
+    This stores the snapshot preview only for the running backend process. It
+    does not persist data or replace the demo financial analysis endpoint.
+    """
+    global _workspace_preview_context
+
+    if not payload.snapshotPreview:
+        raise HTTPException(status_code=422, detail="snapshotPreview is required")
+
+    _workspace_preview_context = DataRoomWorkspacePreviewContextResponse(
+        workspaceId=DEMO_WORKSPACE_ID,
+        companyId=payload.companyId,
+        companyName=payload.companyName,
+        currency=payload.currency,
+        reportingPeriod=payload.reportingPeriod,
+        activatedAt=datetime.now(timezone.utc).isoformat(),
+        snapshotPreview=payload.snapshotPreview,
+        integrityChecks=payload.integrityChecks,
+        ratios=payload.ratios,
+        warnings=payload.warnings,
+    )
+    return _workspace_preview_context
+
+
+@router.delete(
+    "/demo-workspace-preview-context",
+    response_model=DataRoomWorkspacePreviewContextStatus,
+)
+async def delete_demo_workspace_preview_context():
+    """Clear the active in-memory workspace preview context."""
+    global _workspace_preview_context
+    _workspace_preview_context = None
+    return DataRoomWorkspacePreviewContextStatus(
+        workspaceId=DEMO_WORKSPACE_ID,
+        active=False,
+        context=None,
+    )
