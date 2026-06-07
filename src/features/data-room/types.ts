@@ -43,3 +43,34 @@ export interface DataRoomResponse {
   dependencies: DataRoomDependency[]
   summary: DataRoomReadinessSummary
 }
+
+// --- Upload metadata types ---
+
+export type DataRoomUploadedFileStatus =
+  | 'received'
+  | 'pending_review'
+  | 'accepted_metadata'
+  | 'unsupported_type'
+  | 'validation_warning'
+  | 'unavailable'
+
+export interface DataRoomUploadedFile {
+  fileId: string
+  recordKey: string
+  fileName: string
+  fileType: string
+  fileSizeBytes: number | null
+  status: DataRoomUploadedFileStatus
+  receivedAt: string
+  validationMessages: string[]
+  source: string
+  disclaimer: string
+}
+
+export interface DataRoomUploadResponse {
+  companyId: string
+  companyName: string
+  uploadedFile: DataRoomUploadedFile
+  warnings: string[]
+  disclaimer: string
+}

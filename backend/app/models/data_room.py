@@ -45,3 +45,50 @@ class DataRoomResponse(BaseModel):
     records: List[DataRoomRecord]
     dependencies: List[DataRoomDependency]
     summary: DataRoomReadinessSummary
+
+
+# --- Upload metadata stub types ---
+
+DataRoomUploadedFileStatus = Literal[
+    "received",
+    "pending_review",
+    "accepted_metadata",
+    "unsupported_type",
+    "validation_warning",
+    "unavailable",
+]
+
+ALLOWED_UPLOAD_EXTENSIONS = {"pdf", "csv", "xlsx", "xls", "docx"}
+ALLOWED_UPLOAD_MIME_PREFIXES = {
+    "application/pdf",
+    "text/csv",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+}
+
+
+class DataRoomUploadedFile(BaseModel):
+    fileId: str
+    recordKey: str
+    fileName: str
+    fileType: str
+    fileSizeBytes: Optional[int] = None
+    status: DataRoomUploadedFileStatus
+    receivedAt: str
+    validationMessages: List[str] = Field(default_factory=list)
+    source: str = "metadata_upload_stub"
+    disclaimer: str = (
+        "This is a metadata-only upload stub. "
+        "Company records require production ingestion before analysis updates."
+    )
+
+
+class DataRoomUploadResponse(BaseModel):
+    companyId: str = "demo-company"
+    companyName: str = "Harbour & Finch Trading Ltd."
+    uploadedFile: DataRoomUploadedFile
+    warnings: List[str] = Field(default_factory=list)
+    disclaimer: str = (
+        "Metadata received. Analysis will update after production ingestion is connected."
+    )

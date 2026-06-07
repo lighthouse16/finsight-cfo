@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
 import {
@@ -8,17 +8,28 @@ import {
   Compass,
   TrendingUp,
   CheckSquare,
+  Upload,
+  AlertCircle,
+  Loader2,
 } from 'lucide-react'
 import PageHeader from '../../components/platform/PageHeader'
 import StatusChip from '../../components/platform/StatusChip'
 import SourceInfoTooltip from '../market-watch/components/SourceInfoTooltip'
-import { fetchDataRoomReadiness } from './api/dataRoomApi'
-import type { DataRoomResponse } from './types'
+import { fetchDataRoomReadiness, uploadDataRoomMetadata } from './api/dataRoomApi'
+import type { DataRoomRecord, DataRoomResponse, DataRoomUploadResponse } from './types'
+
+type UploadState = {
+  uploading: boolean
+  result: DataRoomUploadResponse | null
+  error: string | null
+}
 
 export default function DataRoomPage() {
   const [activeNotification, setActiveNotification] = useState<string | null>(null)
   const [readinessData, setReadinessData] = useState<DataRoomResponse | null>(null)
   const [isLoadingReadiness, setIsLoadingReadiness] = useState(true)
+  const [uploadStates, setUploadStates] = useState<Record<string, UploadState>>({})
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
   useEffect(() => {
     let isMounted = true
@@ -43,6 +54,43 @@ export default function DataRoomPage() {
     }, 6000)
   }
 
+  const handleUploadClick = useCallback((recordId: string) => {
+    fileInputRefs.current[recordId]?.click()
+  }, [])
+
+  const handleFileSelected = useCallback(
+    async (record: DataRoomRecord, event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0]
+      if (!file) return
+
+      setUploadStates((prev) => ({
+        ...prev,
+        [record.id]: { uploading: true, result: null, error: null },
+      }))
+
+      try {
+        const result = await uploadDataRoomMetadata(record.id, file)
+        setUploadStates((prev) => ({
+          ...prev,
+          [record.id]: { uploading: false, result, error: null },
+        }))
+      } catch (err) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : 'Upload metadata service unavailable. Please try again later.'
+        setUploadStates((prev) => ({
+          ...prev,
+          [record.id]: { uploading: false, result: null, error: message },
+        }))
+      }
+
+      // Reset the file input so the same file can be re-selected
+      event.target.value = ''
+    },
+    []
+  )
+
   const records = readinessData?.records ?? []
   const dependencies = readinessData?.dependencies ?? []
   const totalRequired = readinessData?.summary.totalRequired ?? 0
@@ -50,7 +98,6 @@ export default function DataRoomPage() {
   const missingRequired = readinessData?.summary.missingRequired ?? 0
   const readinessPercentage = readinessData?.summary.readinessPercentage ?? 0
 
-  // Status mapping to calm colors/chips
   const getStatusChipVariant = (status: string) => {
     switch (status) {
       case 'demo_available':
@@ -178,71 +225,154 @@ export default function DataRoomPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-softform-navy-950/5">
-              {records.map((rec) => (
-                <tr key={rec.id} className="group hover:bg-white/20 transition-all duration-200">
-                  <td className="py-4 pl-3">
-                    {/* Checkbox indicator */}
-                    {(rec.status === 'connected' || rec.status === 'demo_available') ? (
-                      <div className="flex h-5 w-5 items-center justify-center rounded bg-softform-teal-deep/10 text-softform-teal-deep border border-softform-teal-deep/20 shadow-sm" title="Connected for Analysis">
-                        <CheckSquare size={11} strokeWidth={2.5} />
-                      </div>
-                    ) : rec.status === 'missing' ? (
-                      <div className="flex h-5 w-5 items-center justify-center rounded border border-softform-amber-500/30 text-softform-amber-500/80 bg-softform-cream/40 shadow-inner" title="Required Document Missing">
-                        <div className="h-1.5 w-1.5 rounded-full bg-softform-amber-500" />
-                      </div>
-                    ) : (
-                      <div className="flex h-5 w-5 items-center justify-center rounded border border-softform-text-muted/20 text-softform-text-muted/40 bg-white/20" title="Optional Document">
-                        <div className="h-1 w-1 rounded-full bg-softform-text-muted/40" />
-                      </div>
+              {records.map((rec) => {
+                const uploadState = uploadStates[rec.id]
+                return (
+                  <tr key={rec.id} className="group hover:bg-white/20 transition-all duration-200">
+                    {/* Hidden file input for Upload records */}
+                    {rec.actionLabel === 'Upload' && (
+                      <td colSpan={0} className="hidden">
+                        <input
+                          ref={(el) => {
+                            fileInputRefs.current[rec.id] = el
+                          }}
+                          type="file"
+                          id={`file-input-${rec.id}`}
+                          name={`file-input-${rec.id}`}
+                          accept=".pdf,.csv,.xlsx,.xls,.docx"
+                          aria-label={`Upload file for ${rec.name}`}
+                          className="sr-only"
+                          onChange={(e) => handleFileSelected(rec, e)}
+                        />
+                      </td>
                     )}
-                  </td>
-                  <td className="py-4 space-y-1">
-                    <div className="font-bold text-softform-navy-950 text-sm flex items-center gap-2">
-                      <FileText size={14} className="text-softform-text-muted/70 shrink-0" />
-                      {rec.name}
-                    </div>
-                    <p className="text-xs text-softform-text-secondary max-w-[320px] leading-relaxed">
-                      {rec.purpose}
-                    </p>
-                  </td>
-                  <td className="py-4 hidden md:table-cell">
-                    <span className="text-xs font-medium text-softform-text-secondary">{rec.category}</span>
-                  </td>
-                  <td className="py-4">
-                    <div className="flex flex-wrap gap-1">
-                      {rec.requiredFor.map((rf) => (
-                        <span
-                          key={rf}
-                          className="inline-block rounded bg-softform-mist-100/60 px-2 py-0.5 text-[10px] text-softform-teal-deep font-bold border border-softform-aqua-300/20 uppercase tracking-[0.08em]"
+                    <td className="py-4 pl-3">
+                      {(rec.status === 'connected' || rec.status === 'demo_available') ? (
+                        <div className="flex h-5 w-5 items-center justify-center rounded bg-softform-teal-deep/10 text-softform-teal-deep border border-softform-teal-deep/20 shadow-sm" title="Connected for Analysis">
+                          <CheckSquare size={11} strokeWidth={2.5} />
+                        </div>
+                      ) : rec.status === 'missing' ? (
+                        <div className="flex h-5 w-5 items-center justify-center rounded border border-softform-amber-500/30 text-softform-amber-500/80 bg-softform-cream/40 shadow-inner" title="Required Document Missing">
+                          <div className="h-1.5 w-1.5 rounded-full bg-softform-amber-500" />
+                        </div>
+                      ) : (
+                        <div className="flex h-5 w-5 items-center justify-center rounded border border-softform-text-muted/20 text-softform-text-muted/40 bg-white/20" title="Optional Document">
+                          <div className="h-1 w-1 rounded-full bg-softform-text-muted/40" />
+                        </div>
+                      )}
+                    </td>
+                    <td className="py-4 space-y-1">
+                      <div className="font-bold text-softform-navy-950 text-sm flex items-center gap-2">
+                        <FileText size={14} className="text-softform-text-muted/70 shrink-0" />
+                        {rec.name}
+                      </div>
+                      <p className="text-xs text-softform-text-secondary max-w-[320px] leading-relaxed">
+                        {rec.purpose}
+                      </p>
+                      {/* Upload result / error inline */}
+                      {uploadState && (
+                        <div className="mt-2 max-w-[400px]">
+                          {uploadState.uploading && (
+                            <div className="flex items-center gap-2 text-xs text-softform-text-secondary">
+                              <Loader2 size={12} className="animate-spin" />
+                              <span>Receiving metadata...</span>
+                            </div>
+                          )}
+                          {uploadState.result && (
+                            <div className="rounded-xl border border-softform-navy-950/5 bg-white/40 p-3 space-y-1.5">
+                              <div className="flex items-center gap-1.5">
+                                {uploadState.result.uploadedFile.status === 'unsupported_type' ? (
+                                  <AlertCircle size={12} className="text-softform-amber-500" />
+                                ) : (
+                                  <CheckSquare size={12} className="text-softform-teal-deep" />
+                                )}
+                                <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-softform-text-muted">
+                                  {uploadState.result.uploadedFile.status === 'unsupported_type'
+                                    ? 'Unsupported file'
+                                    : 'Metadata received'}
+                                </span>
+                              </div>
+                              <p className="text-xs text-softform-text-secondary leading-relaxed">
+                                {uploadState.result.uploadedFile.status === 'unsupported_type'
+                                  ? 'This file type is not supported. Analysis will not be updated.'
+                                  : 'File metadata received. Analysis will update after production ingestion is connected.'}
+                              </p>
+                              {uploadState.result.warnings.length > 0 && (
+                                <p className="text-xs text-softform-amber-500 font-medium">
+                                  {uploadState.result.warnings[0]}
+                                </p>
+                              )}
+                            </div>
+                          )}
+                          {uploadState.error && (
+                            <div className="rounded-xl border border-softform-amber-500/20 bg-softform-cream/30 p-3 space-y-1">
+                              <div className="flex items-center gap-1.5">
+                                <AlertCircle size={12} className="text-softform-amber-500" />
+                                <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-softform-text-muted">
+                                  Unavailable
+                                </span>
+                              </div>
+                              <p className="text-xs text-softform-amber-500 leading-relaxed">
+                                {uploadState.error}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                    <td className="py-4 hidden md:table-cell">
+                      <span className="text-xs font-medium text-softform-text-secondary">{rec.category}</span>
+                    </td>
+                    <td className="py-4">
+                      <div className="flex flex-wrap gap-1">
+                        {rec.requiredFor.map((rf) => (
+                          <span
+                            key={rf}
+                            className="inline-block rounded bg-softform-mist-100/60 px-2 py-0.5 text-[10px] text-softform-teal-deep font-bold border border-softform-aqua-300/20 uppercase tracking-[0.08em]"
+                          >
+                            {rf}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="py-4 text-center">
+                      <StatusChip variant={getStatusChipVariant(rec.status)}>
+                        {getStatusLabel(rec.status)}
+                      </StatusChip>
+                    </td>
+                    <td className="py-4 text-right pr-3">
+                      {rec.actionLabel === 'Upload' ? (
+                        <button
+                          type="button"
+                          onClick={() => handleUploadClick(rec.id)}
+                          disabled={uploadState?.uploading}
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-softform-navy-900 border-softform-navy-950/10 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-softform-navy-800 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 shadow-sm"
                         >
-                          {rf}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="py-4 text-center">
-                    <StatusChip variant={getStatusChipVariant(rec.status)}>
-                      {getStatusLabel(rec.status)}
-                    </StatusChip>
-                  </td>
-                  <td className="py-4 text-right pr-3">
-                    <button
-                      type="button"
-                      onClick={() => handleActionClick(rec.name, rec.actionLabel)}
-                      className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition border shadow-sm ${
-                        rec.actionLabel === 'Review'
-                          ? 'bg-white/80 border-white/60 text-softform-navy-950 hover:bg-white hover:-translate-y-0.5'
-                          : rec.actionLabel === 'Upload'
-                          ? 'bg-softform-navy-900 border-softform-navy-950/10 text-white hover:bg-softform-navy-800 hover:-translate-y-0.5'
-                          : 'bg-white/40 border-white/30 text-softform-text-muted cursor-not-allowed'
-                      }`}
-                      disabled={rec.actionLabel === 'Coming soon'}
-                    >
-                      {rec.actionLabel}
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                          {uploadState?.uploading ? (
+                            <Loader2 size={12} className="animate-spin" />
+                          ) : (
+                            <Upload size={12} />
+                          )}
+                          {uploadState?.uploading ? 'Uploading...' : 'Upload'}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleActionClick(rec.name, rec.actionLabel)}
+                          className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition border shadow-sm ${
+                            rec.actionLabel === 'Review'
+                              ? 'bg-white/80 border-white/60 text-softform-navy-950 hover:bg-white hover:-translate-y-0.5'
+                              : 'bg-white/40 border-white/30 text-softform-text-muted cursor-not-allowed'
+                          }`}
+                          disabled={rec.actionLabel === 'Coming soon'}
+                        >
+                          {rec.actionLabel}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
