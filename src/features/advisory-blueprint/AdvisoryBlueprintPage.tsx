@@ -25,6 +25,11 @@ import {
   StressTestingResponse,
   FacilityStructuringResponse,
 } from './types'
+import {
+  loadWorkspaceAnalysisContext,
+  WORKSPACE_ANALYSIS_CONTEXT_KEY,
+  type WorkspaceAnalysisContext,
+} from '../data-room/utils/workspaceAnalysisContext'
 
 export default function AdvisoryBlueprintPage() {
   const [blueprint, setBlueprint] = useState<AdvisoryBlueprintResponse | null>(null)
@@ -35,6 +40,7 @@ export default function AdvisoryBlueprintPage() {
   const [loading, setLoading] = useState<boolean>(true)
   const [loadingStep, setLoadingStep] = useState<string>('Preparing advisory blueprint...')
   const [error, setError] = useState<string | null>(null)
+  const [workspaceAnalysisContext, setWorkspaceAnalysisContext] = useState<WorkspaceAnalysisContext | null>(null)
 
   const loadAllData = async () => {
     setLoading(true)
@@ -75,6 +81,19 @@ export default function AdvisoryBlueprintPage() {
 
   useEffect(() => {
     loadAllData()
+  }, [])
+
+  useEffect(() => {
+    setWorkspaceAnalysisContext(loadWorkspaceAnalysisContext())
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === WORKSPACE_ANALYSIS_CONTEXT_KEY) {
+        setWorkspaceAnalysisContext(loadWorkspaceAnalysisContext())
+      }
+    }
+
+    window.addEventListener('storage', handleStorage)
+    return () => window.removeEventListener('storage', handleStorage)
   }, [])
 
   // Maps blueprint status to calm, readable labels
@@ -170,6 +189,22 @@ export default function AdvisoryBlueprintPage() {
           </StatusChip>
         }
       />
+
+      {workspaceAnalysisContext && (
+        <div className="rounded-[22px] border border-softform-aqua-300/25 bg-softform-mist-100/45 px-5 py-4 shadow-soft-inner">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-bold text-softform-navy-950">Using local Data Room preview context</p>
+              <p className="mt-1 text-xs leading-relaxed text-softform-text-secondary">
+                Preview provenance is active for {workspaceAnalysisContext.companyName} ({workspaceAnalysisContext.reportingPeriod}). Demo/provider data remains active; backend workspace persistence pending.
+              </p>
+            </div>
+            <span className="rounded-full border border-white/70 bg-white/60 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-softform-teal-deep">
+              Local preview context
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* 2. Executive Brief Panel */}
       <section className="softform-panel rounded-[32px] p-8 space-y-6 shadow-floating-panel relative overflow-hidden bg-gradient-to-br from-white/95 via-softform-mist-50/70 to-softform-ice-100/50 border border-white">

@@ -36,6 +36,13 @@ import {
   loadDataRoomPreviewState,
   saveDataRoomPreviewState,
 } from './utils/dataRoomPreviewStorage'
+import {
+  clearWorkspaceAnalysisContext,
+  loadWorkspaceAnalysisContext,
+  saveWorkspaceAnalysisContext,
+  WORKSPACE_ANALYSIS_CONTEXT_KEY,
+  type WorkspaceAnalysisContext,
+} from './utils/workspaceAnalysisContext'
 
 type UploadState = {
   uploading: boolean
@@ -86,6 +93,7 @@ export default function DataRoomPage() {
     error: null,
   })
   const [hasSavedPreviewState, setHasSavedPreviewState] = useState(false)
+  const [workspaceContext, setWorkspaceContext] = useState<WorkspaceAnalysisContext | null>(null)
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
   useEffect(() => {
@@ -110,6 +118,18 @@ export default function DataRoomPage() {
         Object.keys(savedPreviewState.uploadResultsByKey).length > 0 ||
         Object.keys(savedPreviewState.parseResultsByKey).length > 0
     )
+    setWorkspaceContext(loadWorkspaceAnalysisContext())
+  }, [])
+
+  useEffect(() => {
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === WORKSPACE_ANALYSIS_CONTEXT_KEY) {
+        setWorkspaceContext(loadWorkspaceAnalysisContext())
+      }
+    }
+
+    window.addEventListener('storage', handleStorage)
+    return () => window.removeEventListener('storage', handleStorage)
   }, [])
 
   useEffect(() => {
@@ -249,10 +269,43 @@ export default function DataRoomPage() {
 
   const handleClearPreviewSession = useCallback(() => {
     clearDataRoomPreviewState()
+    clearWorkspaceAnalysisContext()
     setParsedRecordSets({})
     setUploadStates({})
     setSnapshotPreview({ loading: false, result: null, error: null })
     setHasSavedPreviewState(false)
+    setWorkspaceContext(null)
+  }, [])
+
+  const handleActivateWorkspaceContext = useCallback(() => {
+    const preview = snapshotPreview.result
+    if (!preview?.snapshotPreview) return
+
+    const integrityPassedCount = preview.integrityChecks.filter((check) => check.passed).length
+    const integrityFailedCount = preview.integrityChecks.filter((check) => !check.passed).length
+    const context: WorkspaceAnalysisContext = {
+      source: 'data_room_preview',
+      activatedAt: new Date().toISOString(),
+      companyName: preview.companyName,
+      reportingPeriod: preview.reportingPeriod,
+      currency: preview.currency,
+      snapshotPreviewSummary: {
+        integrityPassedCount,
+        integrityWarningCount: preview.warnings.length,
+        integrityFailedCount,
+        ratioKeys: preview.ratios ? Object.keys(preview.ratios) : [],
+      },
+      disclaimer:
+        'Preview context does not update production analysis. Market Watch and Advisory Blueprint will show preview provenance only until backend workspace persistence is added.',
+    }
+
+    saveWorkspaceAnalysisContext(context)
+    setWorkspaceContext(context)
+  }, [snapshotPreview.result])
+
+  const handleResetWorkspaceContext = useCallback(() => {
+    clearWorkspaceAnalysisContext()
+    setWorkspaceContext(null)
   }, [])
 
   const records = readinessData?.records ?? []
@@ -706,6 +759,48 @@ export default function DataRoomPage() {
             </div>
           </div>
         )}
+
+        <div className="rounded-[22px] border border-softform-aqua-300/25 bg-softform-mist-100/35 p-4 space-y-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <p className="text-sm font-bold text-softform-navy-950">Temporary Workspace Context</p>
+              <p className="text-xs text-softform-text-secondary leading-relaxed">
+                Preview context does not update production analysis. Market Watch and Advisory Blueprint will show preview provenance only until backend workspace persistence is added.
+              </p>
+              {workspaceContext && (
+                <p className="text-[11px] font-semibold text-softform-teal-deep">
+                  Workspace context is active locally in this browser.
+                </p>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleActivateWorkspaceContext}
+                disabled={!snapshotPreview.result?.snapshotPreview}
+                className="rounded-xl bg-softform-navy-900 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-softform-navy-800 disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                Use preview for workspace context
+              </button>
+              {workspaceContext && (
+                <button
+                  type="button"
+                  onClick={handleResetWorkspaceContext}
+                  className="rounded-xl border border-white/70 bg-white/60 px-4 py-2 text-xs font-bold text-softform-text-secondary shadow-sm transition hover:bg-white hover:text-softform-navy-950 focus:outline-none focus:ring-2 focus:ring-softform-aqua-300/60"
+                >
+                  Reset workspace context
+                </button>
+              )}
+            </div>
+          </div>
+          {workspaceContext && (
+            <div className="grid gap-2 text-[11px] text-softform-text-secondary sm:grid-cols-3">
+              <span><strong className="text-softform-navy-950">Company:</strong> {workspaceContext.companyName}</span>
+              <span><strong className="text-softform-navy-950">Period:</strong> {workspaceContext.reportingPeriod}</span>
+              <span><strong className="text-softform-navy-950">Ratios:</strong> {workspaceContext.snapshotPreviewSummary.ratioKeys.length}</span>
+            </div>
+          )}
+        </div>
       </section>
 
       {/* 5. Analysis Dependency Map */}

@@ -17,6 +17,11 @@ import {
   getFinancialDemoAnalysis,
   getLocalFinancialDemoAnalysisFallback,
 } from './api/marketWatchApi'
+import {
+  loadWorkspaceAnalysisContext,
+  WORKSPACE_ANALYSIS_CONTEXT_KEY,
+  type WorkspaceAnalysisContext,
+} from '../data-room/utils/workspaceAnalysisContext'
 import CommoditiesTab from './components/CommoditiesTab'
 import FxGbaTab from './components/FxGbaTab'
 import MarketMetricCard from './components/MarketMetricCard'
@@ -119,6 +124,20 @@ export default function MarketWatchPage() {
   const [sources, setSources] = useState<SourceStatusItem[]>([])
   const [companyContext, setCompanyContext] = useState<CompanyContext | null>(null)
   const [financialSummary, setFinancialSummary] = useState<FinancialAnalysisSummary | null>(null)
+  const [workspaceAnalysisContext, setWorkspaceAnalysisContext] = useState<WorkspaceAnalysisContext | null>(null)
+
+  useEffect(() => {
+    setWorkspaceAnalysisContext(loadWorkspaceAnalysisContext())
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === WORKSPACE_ANALYSIS_CONTEXT_KEY) {
+        setWorkspaceAnalysisContext(loadWorkspaceAnalysisContext())
+      }
+    }
+
+    window.addEventListener('storage', handleStorage)
+    return () => window.removeEventListener('storage', handleStorage)
+  }, [])
 
   // Card-level loading state for executive signal cards
   const [cardLoadState, setCardLoadState] = useState<'initial' | 'updating' | 'idle'>('initial')
@@ -561,6 +580,22 @@ export default function MarketWatchPage() {
           </div>
         }
       />
+
+      {workspaceAnalysisContext && (
+        <div className="mb-6 rounded-[22px] border border-softform-aqua-300/25 bg-softform-mist-100/45 px-5 py-4 shadow-soft-inner">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-bold text-softform-navy-950">Using local Data Room preview context</p>
+              <p className="mt-1 text-xs leading-relaxed text-softform-text-secondary">
+                Preview provenance is active for {workspaceAnalysisContext.companyName} ({workspaceAnalysisContext.reportingPeriod}). Demo/provider data remains active; backend workspace persistence pending.
+              </p>
+            </div>
+            <span className="rounded-full border border-white/70 bg-white/60 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-softform-teal-deep">
+              Local preview context
+            </span>
+          </div>
+        </div>
+      )}
 
       {/*** Executive signal cards — always render grid, with loading/updating state ***/}
       <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
