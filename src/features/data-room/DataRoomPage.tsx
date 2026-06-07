@@ -31,6 +31,11 @@ import type {
   DataRoomSnapshotPreviewResponse,
   DataRoomUploadResponse,
 } from './types'
+import {
+  clearDataRoomPreviewState,
+  loadDataRoomPreviewState,
+  saveDataRoomPreviewState,
+} from './utils/dataRoomPreviewStorage'
 
 type UploadState = {
   uploading: boolean
@@ -80,7 +85,32 @@ export default function DataRoomPage() {
     result: null,
     error: null,
   })
+  const [hasSavedPreviewState, setHasSavedPreviewState] = useState(false)
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+
+  useEffect(() => {
+    const savedPreviewState = loadDataRoomPreviewState()
+    const hydratedUploadStates = Object.entries(savedPreviewState.uploadResultsByKey).reduce<Record<string, UploadState>>(
+      (states, [recordKey, result]) => {
+        states[recordKey] = {
+          uploading: false,
+          result,
+          parsePreview: savedPreviewState.parseResultsByKey[recordKey] ?? null,
+          error: null,
+        }
+        return states
+      },
+      {}
+    )
+
+    setParsedRecordSets(savedPreviewState.parsedRecordSetsByKey)
+    setUploadStates(hydratedUploadStates)
+    setHasSavedPreviewState(
+      Object.keys(savedPreviewState.parsedRecordSetsByKey).length > 0 ||
+        Object.keys(savedPreviewState.uploadResultsByKey).length > 0 ||
+        Object.keys(savedPreviewState.parseResultsByKey).length > 0
+    )
+  }, [])
 
   useEffect(() => {
     let isMounted = true
@@ -166,22 +196,40 @@ export default function DataRoomPage() {
       try {
         const result = await uploadDataRoomMetadata(record.id, file)
         let parsePreview: DataRoomParseResponse | null = null
+        let nextParsedRecordSets = parsedRecordSets
         if (result.uploadedFile.status !== 'unsupported_type') {
           const parsedResponse = await parseDataRoomPreview(record.id, file)
           parsePreview = parsedResponse
-          setParsedRecordSets((prev) => ({
-            ...prev,
+          nextParsedRecordSets = {
+            ...parsedRecordSets,
             [record.id]: {
               recordKey: record.id,
               parsedRecords: parsedResponse.preview.parsedRecords,
               warnings: [...parsedResponse.preview.warnings, ...parsedResponse.warnings],
             },
-          }))
+          }
+          setParsedRecordSets(nextParsedRecordSets)
         }
-        setUploadStates((prev) => ({
-          ...prev,
+
+        const nextUploadStates = {
+          ...uploadStates,
           [record.id]: { uploading: false, result, parsePreview, error: null },
-        }))
+        }
+        setUploadStates(nextUploadStates)
+        saveDataRoomPreviewState({
+          parsedRecordSetsByKey: nextParsedRecordSets,
+          uploadResultsByKey: Object.fromEntries(
+            Object.entries(nextUploadStates)
+              .filter(([, state]) => state.result)
+              .map(([recordKey, state]) => [recordKey, state.result as DataRoomUploadResponse])
+          ),
+          parseResultsByKey: Object.fromEntries(
+            Object.entries(nextUploadStates)
+              .filter(([, state]) => state.parsePreview)
+              .map(([recordKey, state]) => [recordKey, state.parsePreview as DataRoomParseResponse])
+          ),
+        })
+        setHasSavedPreviewState(true)
       } catch (err) {
         const message =
           err instanceof Error
@@ -196,8 +244,16 @@ export default function DataRoomPage() {
       // Reset the file input so the same file can be re-selected
       event.target.value = ''
     },
-    []
+    [parsedRecordSets, uploadStates]
   )
+
+  const handleClearPreviewSession = useCallback(() => {
+    clearDataRoomPreviewState()
+    setParsedRecordSets({})
+    setUploadStates({})
+    setSnapshotPreview({ loading: false, result: null, error: null })
+    setHasSavedPreviewState(false)
+  }, [])
 
   const records = readinessData?.records ?? []
   const dependencies = readinessData?.dependencies ?? []
@@ -522,10 +578,24 @@ export default function DataRoomPage() {
             <p className="text-xs text-softform-text-muted leading-relaxed">
               Preview-only ingestion from structured files. The main financial and advisory analysis remains unchanged.
             </p>
+            <p className="text-[11px] text-softform-text-muted leading-relaxed">
+              Preview session stored locally in this browser. Production analysis is not updated.
+            </p>
           </div>
-          <StatusChip variant={snapshotPreview.error ? 'caution' : snapshotPreview.result?.snapshotPreview ? 'signal' : 'neutral'}>
-            {previewStatus}
-          </StatusChip>
+          <div className="flex flex-col items-start gap-2 sm:items-end">
+            <StatusChip variant={snapshotPreview.error ? 'caution' : snapshotPreview.result?.snapshotPreview ? 'signal' : 'neutral'}>
+              {previewStatus}
+            </StatusChip>
+            {hasSavedPreviewState && (
+              <button
+                type="button"
+                onClick={handleClearPreviewSession}
+                className="rounded-xl border border-white/70 bg-white/50 px-3 py-1.5 text-xs font-bold text-softform-text-secondary shadow-sm transition hover:bg-white hover:text-softform-navy-950 focus:outline-none focus:ring-2 focus:ring-softform-aqua-300/60"
+              >
+                Clear preview session
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-4">
