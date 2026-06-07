@@ -281,3 +281,191 @@ def test_demo_parse_preview_avoids_forbidden_wording():
     ]
     for phrase in forbidden:
         assert phrase not in body
+
+
+def _record(field_key: str, value: float):
+    return {
+        "fieldKey": field_key,
+        "label": field_key.replace("_", " ").title(),
+        "rawValue": str(value),
+        "normalizedValue": value,
+        "confidence": "high",
+        "warnings": [],
+    }
+
+
+def _snapshot_preview_payload(include_aging: bool = True, total_assets: float = 1500):
+    record_sets = [
+        {
+            "recordKey": "pl-statement",
+            "warnings": [],
+            "parsedRecords": [
+                _record("revenue", 2000),
+                _record("cogs", 900),
+                _record("operating_expenses", 500),
+                _record("ebit", 420),
+                _record("depreciation_amortization", 80),
+                _record("ebitda", 500),
+                _record("interest_expense", 60),
+                _record("ebt", 360),
+                _record("taxes", 70),
+                _record("net_income", 300),
+            ],
+        },
+        {
+            "recordKey": "balance-sheet",
+            "warnings": [],
+            "parsedRecords": [
+                _record("cash", 200),
+                _record("accounts_receivable", 300),
+                _record("inventory", 250),
+                _record("prepaid", 50),
+                _record("current_assets", 800),
+                _record("ppe_net", 700),
+                _record("total_assets", total_assets),
+                _record("accounts_payable", 180),
+                _record("accrued", 70),
+                _record("short_term_debt", 100),
+                _record("current_portion_long_term_debt", 80),
+                _record("long_term_debt", 420),
+                _record("lease_liabilities", 40),
+                _record("current_liabilities", 450),
+                _record("total_liabilities", 800),
+                _record("equity", 700),
+            ],
+        },
+        {
+            "recordKey": "cash-flow",
+            "warnings": [],
+            "parsedRecords": [
+                _record("cfo", 360),
+                _record("capex", 120),
+                _record("debt_issued", 90),
+                _record("debt_repaid", 80),
+                _record("dividends", 40),
+                _record("net_change_cash", 210),
+            ],
+        },
+        {
+            "recordKey": "debt-schedule",
+            "warnings": [],
+            "parsedRecords": [
+                _record("scheduled_interest", 60),
+                _record("scheduled_principal", 90),
+            ],
+        },
+    ]
+    if include_aging:
+        record_sets.append(
+            {
+                "recordKey": "receivables-aging",
+                "warnings": [],
+                "parsedRecords": [
+                    _record("current_0_30", 180),
+                    _record("days_31_60", 70),
+                    _record("days_61_90", 30),
+                    _record("days_90_plus", 20),
+                ],
+            }
+        )
+    return {
+        "companyId": "preview-company",
+        "companyName": "Preview Company Ltd.",
+        "currency": "HKD",
+        "reportingPeriod": "FY2025",
+        "recordSets": record_sets,
+    }
+
+
+def test_demo_snapshot_preview_full_payload_builds_snapshot_integrity_and_ratios():
+    response = client.post(
+        "/api/data-room/demo-snapshot-preview",
+        json=_snapshot_preview_payload(),
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["snapshotPreview"] is not None
+    assert data["snapshotPreview"]["metadata"]["preview_only"] is True
+    assert data["missingRequiredStatements"] == []
+    assert data["integrityChecks"]
+    assert any(check["checkName"] == "Balance Sheet Identity" for check in data["integrityChecks"])
+    ratios = data["ratios"]
+    assert ratios["currentRatio"]["value"] is not None
+    assert ratios["quickRatio"]["value"] is not None
+    assert ratios["interestCoverage"]["value"] is not None
+    assert ratios["dscr"]["value"] is not None
+
+
+def test_demo_snapshot_preview_missing_required_statement_warns_without_crash():
+    payload = _snapshot_preview_payload()
+    payload["recordSets"] = [item for item in payload["recordSets"] if item["recordKey"] != "cash-flow"]
+
+    response = client.post("/api/data-room/demo-snapshot-preview", json=payload)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["snapshotPreview"] is None
+    assert data["ratios"] is None
+    assert data["missingRequiredStatements"] == ["cash-flow"]
+    assert "required statements are missing" in " ".join(data["warnings"])
+    assert any(check["passed"] is False for check in data["integrityChecks"])
+
+
+def test_demo_snapshot_preview_receivables_aging_is_optional():
+    response = client.post(
+        "/api/data-room/demo-snapshot-preview",
+        json=_snapshot_preview_payload(include_aging=False),
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["snapshotPreview"] is not None
+    assert data["snapshotPreview"]["receivablesAging"] is None
+    assert data["ratios"]["expectedCreditLossAr"]["value"] is None
+    assert "Receivables aging was not provided" in " ".join(data["warnings"])
+
+
+def test_demo_snapshot_preview_balance_sheet_identity_failure_returns_check():
+    response = client.post(
+        "/api/data-room/demo-snapshot-preview",
+        json=_snapshot_preview_payload(total_assets=1600),
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    bs_check = next(
+        check for check in data["integrityChecks"] if check["checkName"] == "Balance Sheet Identity"
+    )
+    assert bs_check["passed"] is False
+    assert data["snapshotPreview"] is not None
+
+
+def test_demo_snapshot_preview_no_persistence_claim_no_nan_and_no_unsafe_wording():
+    response = client.post(
+        "/api/data-room/demo-snapshot-preview",
+        json=_snapshot_preview_payload(),
+    )
+
+    assert response.status_code == 200
+    body = response.text
+    lower_body = body.lower()
+    assert ':nan' not in lower_body
+    assert ':infinity' not in lower_body
+    assert ':-infinity' not in lower_body
+    assert "analysis was not updated" in lower_body
+    assert "no file or snapshot was stored" in lower_body
+    forbidden = [
+        "approved",
+        "rejected",
+        "lender approved",
+        "final offer",
+        "guaranteed",
+        "formal underwriting",
+        "automated credit decision",
+        "approval probability",
+        "predicted default",
+        "bank verified",
+    ]
+    for phrase in forbidden:
+        assert phrase not in lower_body

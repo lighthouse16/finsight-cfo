@@ -8,10 +8,13 @@ from app.models.data_room import (
     ALLOWED_UPLOAD_MIME_PREFIXES,
     DataRoomParseResponse,
     DataRoomResponse,
+    DataRoomSnapshotPreviewInput,
+    DataRoomSnapshotPreviewResponse,
     DataRoomUploadedFile,
     DataRoomUploadResponse,
 )
 from app.services.data_room.structured_parser import PARSEABLE_RECORD_KEYS, parse_structured_financial_file
+from app.services.data_room.snapshot_preview import build_snapshot_preview
 from app.services.data_room.demo_data_room import (
     DEMO_RECORDS,
     get_demo_data_room_readiness,
@@ -172,3 +175,16 @@ async def post_demo_parse_preview(
         preview=preview,
         warnings=warnings,
     )
+
+
+@router.post(
+    "/demo-snapshot-preview",
+    response_model=DataRoomSnapshotPreviewResponse,
+)
+async def post_demo_snapshot_preview(payload: DataRoomSnapshotPreviewInput):
+    """Build a temporary financial snapshot preview from parsed records.
+
+    This endpoint does not persist data and does not update the demo financial
+    analysis pipeline.
+    """
+    return build_snapshot_preview(payload)

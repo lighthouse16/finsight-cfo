@@ -127,3 +127,35 @@ class DataRoomParseResponse(BaseModel):
         "Structured parsing preview only. Analysis was not updated and file was not stored."
     )
     warnings: List[str] = Field(default_factory=list)
+
+
+# --- Financial snapshot preview types ---
+
+
+class DataRoomParsedRecordSet(BaseModel):
+    recordKey: str
+    parsedRecords: List[ParsedFinancialRecord] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
+
+
+class DataRoomSnapshotPreviewInput(BaseModel):
+    companyId: Optional[str] = "demo-company"
+    companyName: Optional[str] = "Harbour & Finch Trading Ltd."
+    currency: str = "HKD"
+    reportingPeriod: Optional[str] = "FY2025"
+    recordSets: List[DataRoomParsedRecordSet] = Field(default_factory=list)
+
+
+class DataRoomSnapshotPreviewResponse(BaseModel):
+    companyId: str
+    companyName: str
+    currency: str
+    reportingPeriod: str
+    snapshotPreview: Optional[dict] = None
+    integrityChecks: List[dict] = Field(default_factory=list)
+    ratios: Optional[dict] = None
+    missingRequiredStatements: List[str] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
+    disclaimer: str = (
+        "Financial snapshot preview only. Analysis was not updated and no file or snapshot was stored."
+    )
