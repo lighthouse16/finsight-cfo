@@ -1,11 +1,12 @@
 import { AlertCircle, ArrowUpRight, ShieldAlert, Zap } from 'lucide-react'
-import { MarketSignal, SourceStatusItem, CompanyProfile } from '../types'
+import { MarketSignal, SourceStatusItem, CompanyProfile, TimingSignalResponse } from '../types'
 import { MarketWatchInsightSet } from '../insights/types'
 import LoadingState from './LoadingState'
 import SourceInfoTooltip from './SourceInfoTooltip'
 
 import MotionStagger from './MotionStagger'
 import MotionReveal from './MotionReveal'
+import TimingSignalCard from './TimingSignalCard'
 
 type MarketPulseTabProps = {
   signals: MarketSignal[]
@@ -13,6 +14,7 @@ type MarketPulseTabProps = {
   profile?: CompanyProfile | null
   insights?: MarketWatchInsightSet
   loading?: boolean
+  timingSignal?: TimingSignalResponse | null
 }
 
 export default function MarketPulseTab({
@@ -20,6 +22,7 @@ export default function MarketPulseTab({
   profile,
   insights,
   loading,
+  timingSignal,
 }: MarketPulseTabProps) {
   // if loading, show contextual loading placeholders
   if (loading) {
@@ -72,6 +75,10 @@ export default function MarketPulseTab({
 
   return (
     <MotionStagger className="space-y-6">
+      <MotionReveal>
+        <TimingSignalCard signal={timingSignal ?? null} />
+      </MotionReveal>
+
       {/* What Needs Attention Now Section */}
       <MotionReveal>
         <div className="softform-panel rounded-[28px] p-6 sm:p-8">

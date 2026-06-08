@@ -14,6 +14,40 @@ export type SourceStatus =
   | 'unavailable'
   | 'stale'
 
+
+export type TimingBand = 'favorable' | 'neutral' | 'cautious'
+export type TimingTrendSignal = 'easing' | 'stable' | 'tightening' | 'unavailable'
+export type LiquidityTimingSignal = 'favorable' | 'neutral' | 'cautious' | 'unavailable'
+export type CalendarRedFlag = 'none' | 'month_end' | 'half_year_end' | 'year_end'
+
+export interface TimingSignalComponent {
+  band: string
+  label: string
+  value?: string | null
+  explanation: string
+}
+
+export interface TimingSignalProvenance {
+  source: string
+  provider: string
+  asOf?: string | null
+  freshness: FreshnessStatus
+}
+
+export interface TimingSignalResponse {
+  mode: 'context_only'
+  hiborLevelBand: TimingBand
+  hiborTrendSignal: TimingTrendSignal
+  liquidityTimingSignal: LiquidityTimingSignal
+  calendarRedFlag: CalendarRedFlag
+  goldenTimingBand: TimingBand
+  explanation: string
+  components: TimingSignalComponent[]
+  provenance: TimingSignalProvenance
+  warnings: string[]
+  disclaimer: string
+}
+
 export type MarketMetric = {
   id: string
   label: string

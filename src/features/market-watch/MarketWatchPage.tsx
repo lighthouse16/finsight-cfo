@@ -11,6 +11,7 @@ import {
   getMarketOverview,
   getMarketSourceStatus,
   getRatesLiquidity,
+  getTimingSignal,
   getSectorBenchmarks,
   getStressSignals,
   refreshData,
@@ -53,6 +54,7 @@ import {
   CompanyExposure,
   FinancialAnalysisSummary,
   FinancialAnalysisResponse,
+  TimingSignalResponse,
 } from './types'
 
 export type RatesSourceInfo = {
@@ -138,6 +140,7 @@ export default function MarketWatchPage() {
   const [financialSummary, setFinancialSummary] = useState<FinancialAnalysisSummary | null>(null)
   const [workspaceAnalysisContext, setWorkspaceAnalysisContext] = useState<WorkspaceAnalysisContext | null>(null)
   const [financialPreviewAnalysis, setFinancialPreviewAnalysis] = useState<FinancialAnalysisResponse | null>(null)
+  const [timingSignal, setTimingSignal] = useState<TimingSignalResponse | null>(null)
 
   useEffect(() => {
     setWorkspaceAnalysisContext(loadWorkspaceAnalysisContext())
@@ -187,6 +190,7 @@ export default function MarketWatchPage() {
           comms,
           stress,
           sourceStatus,
+          timingSignalRes,
         ] = await Promise.all([
           getFinancialDemoAnalysis(),
           getMarketOverview(),
@@ -196,6 +200,7 @@ export default function MarketWatchPage() {
           getCommodities('electronics-import', 'HK'),
           getStressSignals('Harbour & Finch Trading Ltd.', 'electronics-import'),
           getMarketSourceStatus(),
+          getTimingSignal(),
         ])
 
         const isFallback = !financialsRes
@@ -358,6 +363,7 @@ export default function MarketWatchPage() {
           return s
         })
         setSources(updatedSources)
+        setTimingSignal(timingSignalRes)
         setLastRefreshed(new Date())
 
         const activeWorkspaceContext = loadWorkspaceAnalysisContext()
@@ -717,6 +723,7 @@ export default function MarketWatchPage() {
                     profile={companyContext?.profile}
                     insights={insights || undefined}
                     loading={cardLoadState !== 'idle'}
+                    timingSignal={timingSignal}
                   />
                 )}
                 {activeTab === 'rates' && (

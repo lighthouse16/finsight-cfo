@@ -13,6 +13,10 @@ SourceStatus = Literal[
 SignalSeverity = Literal["Neutral", "Caution", "High", "Positive"]
 Trend = Literal["up", "down", "flat", "unknown"]
 Unit = Literal["percent", "bps", "index"]
+TimingBand = Literal["favorable", "neutral", "cautious"]
+TimingTrendSignal = Literal["easing", "stable", "tightening", "unavailable"]
+LiquidityTimingSignal = Literal["favorable", "neutral", "cautious", "unavailable"]
+CalendarRedFlag = Literal["none", "month_end", "half_year_end", "year_end"]
 
 class SourceStatusItem(BaseModel):
     id: str
@@ -58,6 +62,34 @@ class RatesLiquidityResponse(BaseModel):
     rates: List[RateSnapshot]
     liquidityEvents: List[LiquidityEvent]
     sourceStatus: List[SourceStatusItem]
+
+
+class TimingSignalComponent(BaseModel):
+    band: str
+    label: str
+    value: Optional[str] = None
+    explanation: str
+
+
+class TimingSignalProvenance(BaseModel):
+    source: str
+    provider: str
+    asOf: Optional[str] = None
+    freshness: FreshnessStatus
+
+
+class TimingSignalResponse(BaseModel):
+    mode: Literal["context_only"] = "context_only"
+    hiborLevelBand: TimingBand
+    hiborTrendSignal: TimingTrendSignal
+    liquidityTimingSignal: LiquidityTimingSignal
+    calendarRedFlag: CalendarRedFlag
+    goldenTimingBand: TimingBand
+    explanation: str
+    components: List[TimingSignalComponent]
+    provenance: TimingSignalProvenance
+    warnings: List[str] = Field(default_factory=list)
+    disclaimer: str
 
 class MarketWatchError(BaseModel):
     code: str

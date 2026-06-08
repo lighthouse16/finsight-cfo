@@ -574,3 +574,148 @@ def test_rates_liquidity_mixed_availability(monkeypatch):
 
 
 
+
+
+
+def _make_rates_response(rate_value=2.0, change_bps=None, liquidity_value=60000, as_of="2026-06-03"):
+    from app.models.market_watch import (
+        LiquidityEvent,
+        RateSnapshot,
+        RatesLiquidityResponse,
+        ResponseMetadata,
+        SourceInfo,
+        SourceStatusItem,
+    )
+
+    liquidity_events = [] if liquidity_value is None else [
+        LiquidityEvent(
+            id="hkma-closing-balance",
+            date=as_of,
+            event=f"Closing Aggregate Balance: HKD {liquidity_value:,}M",
+            impact="Contextual liquidity level",
+            severity="Neutral",
+        )
+    ]
+    return RatesLiquidityResponse(
+        metadata=ResponseMetadata(
+            asOf=as_of,
+            fetchedAt="2026-06-03T00:00:00Z",
+            freshness="Daily",
+            isStale=False,
+            source=SourceInfo(provider="HKAB / HKMA", name="HKAB and HKMA Public Data"),
+            warnings=[],
+        ),
+        rates=[
+            RateSnapshot(
+                id="hibor-1m",
+                label="HIBOR 1 Month",
+                tenor="1M",
+                value=rate_value,
+                unit="percent",
+                displayValue=f"{rate_value}%",
+                changeBasisPoints=change_bps,
+                trend="unknown",
+                context="HKAB HIBOR fixing",
+                sourceTimestamp=as_of,
+            )
+        ] if rate_value is not None else [],
+        liquidityEvents=liquidity_events,
+        sourceStatus=[SourceStatusItem(id="hkab-hibor", label="HKAB HIBOR", status="connected", provider="HKAB")],
+    )
+
+
+def test_timing_signal_endpoint_favorable(monkeypatch):
+    from app.services.market_watch import timing_signal_service
+
+    async def mock_rates():
+        return _make_rates_response(rate_value=2.0, change_bps=-12, liquidity_value=65000)
+
+    monkeypatch.setattr(timing_signal_service, "get_rates_liquidity", mock_rates)
+    monkeypatch.setattr(timing_signal_service, "_calendar_red_flag", lambda: ("none", "No flag."))
+
+    response = client.get("/api/market-watch/timing-signal")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["mode"] == "context_only"
+    assert data["hiborLevelBand"] == "favorable"
+    assert data["hiborTrendSignal"] == "easing"
+    assert data["liquidityTimingSignal"] == "favorable"
+    assert data["goldenTimingBand"] == "favorable"
+    assert data["provenance"]["source"] == "market_watch_rates_liquidity"
+    assert data["disclaimer"] == "Timing context only. Not a financing instruction."
+
+
+def test_timing_signal_endpoint_neutral(monkeypatch):
+    from app.services.market_watch import timing_signal_service
+
+    async def mock_rates():
+        return _make_rates_response(rate_value=2.75, change_bps=0, liquidity_value=45000)
+
+    monkeypatch.setattr(timing_signal_service, "get_rates_liquidity", mock_rates)
+    monkeypatch.setattr(timing_signal_service, "_calendar_red_flag", lambda: ("none", "No flag."))
+
+    data = client.get("/api/market-watch/timing-signal").json()
+    assert data["hiborLevelBand"] == "neutral"
+    assert data["hiborTrendSignal"] == "stable"
+    assert data["liquidityTimingSignal"] == "neutral"
+    assert data["goldenTimingBand"] == "neutral"
+
+
+def test_timing_signal_endpoint_cautious(monkeypatch):
+    from app.services.market_watch import timing_signal_service
+
+    async def mock_rates():
+        return _make_rates_response(rate_value=3.8, change_bps=15, liquidity_value=25000)
+
+    monkeypatch.setattr(timing_signal_service, "get_rates_liquidity", mock_rates)
+    monkeypatch.setattr(timing_signal_service, "_calendar_red_flag", lambda: ("none", "No flag."))
+
+    data = client.get("/api/market-watch/timing-signal").json()
+    assert data["hiborLevelBand"] == "cautious"
+    assert data["hiborTrendSignal"] == "tightening"
+    assert data["liquidityTimingSignal"] == "cautious"
+    assert data["goldenTimingBand"] == "cautious"
+
+
+def test_timing_signal_endpoint_unavailable_data(monkeypatch):
+    from app.services.market_watch import timing_signal_service
+
+    async def mock_rates():
+        return _make_rates_response(rate_value=None, change_bps=None, liquidity_value=None)
+
+    monkeypatch.setattr(timing_signal_service, "get_rates_liquidity", mock_rates)
+    monkeypatch.setattr(timing_signal_service, "_calendar_red_flag", lambda: ("none", "No flag."))
+
+    data = client.get("/api/market-watch/timing-signal").json()
+    assert data["hiborTrendSignal"] == "unavailable"
+    assert data["liquidityTimingSignal"] == "unavailable"
+    assert len(data["warnings"]) >= 2
+
+
+def test_timing_signal_endpoint_calendar_red_flag(monkeypatch):
+    from app.services.market_watch import timing_signal_service
+
+    async def mock_rates():
+        return _make_rates_response(rate_value=2.1, change_bps=-12, liquidity_value=65000)
+
+    monkeypatch.setattr(timing_signal_service, "get_rates_liquidity", mock_rates)
+    monkeypatch.setattr(timing_signal_service, "_calendar_red_flag", lambda: ("year_end", "Year-end calendar window."))
+
+    data = client.get("/api/market-watch/timing-signal").json()
+    assert data["calendarRedFlag"] == "year_end"
+    assert data["goldenTimingBand"] == "neutral"
+
+
+def test_timing_signal_safe_wording(monkeypatch):
+    from app.services.market_watch import timing_signal_service
+
+    async def mock_rates():
+        return _make_rates_response(rate_value=2.75, change_bps=0, liquidity_value=45000)
+
+    monkeypatch.setattr(timing_signal_service, "get_rates_liquidity", mock_rates)
+    monkeypatch.setattr(timing_signal_service, "_calendar_red_flag", lambda: ("none", "No flag."))
+
+    response_text = client.get("/api/market-watch/timing-signal").text.lower()
+    assert "financing instruction" in response_text
+    assert "timing context only" in response_text
+    assert "rule-based" in response_text

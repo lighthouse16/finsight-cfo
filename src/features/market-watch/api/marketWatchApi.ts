@@ -29,6 +29,7 @@ import {
   CompanyExposure,
   FinancialAnalysisResponse,
   FinancialAnalysisSummary,
+  TimingSignalResponse,
 } from '../types'
 
 const API_BASE_URL =
@@ -359,6 +360,69 @@ export async function getRatesLiquidity(): Promise<{
           'Backend unavailable. Showing workspace benchmarks.',
         ],
       },
+    }
+  }
+}
+
+
+export async function getTimingSignal(): Promise<TimingSignalResponse> {
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/api/market-watch/timing-signal`,
+      { signal: AbortSignal.timeout(5000) },
+    )
+
+    if (!res.ok) {
+      throw new Error(`Backend returned ${res.status}`)
+    }
+
+    const body = await res.json()
+    if (body.provenance) {
+      return body as TimingSignalResponse
+    }
+
+    return {
+      mode: body.mode ?? 'context_only',
+      hiborLevelBand: body.hiborLevelBand,
+      hiborTrendSignal: body.hiborTrendSignal,
+      liquidityTimingSignal: body.liquidityTimingSignal,
+      calendarRedFlag: body.calendarRedFlag,
+      goldenTimingBand: body.goldenTimingBand,
+      explanation: body.explanation,
+      components: body.components ?? [],
+      provenance: {
+        source: body.source?.id ?? 'market_watch_timing_signal_v1',
+        provider: body.source?.provider ?? body.source?.name ?? 'Market Watch sources',
+        asOf: body.source?.asOf ?? null,
+        freshness: 'Daily',
+      },
+      warnings: body.warnings ?? [],
+      disclaimer: body.disclaimer ?? 'Timing context only. Not a financing instruction.',
+    } as TimingSignalResponse
+  } catch {
+    await delay(200)
+    return {
+      mode: 'context_only',
+      hiborLevelBand: 'neutral',
+      hiborTrendSignal: 'unavailable',
+      liquidityTimingSignal: 'unavailable',
+      calendarRedFlag: 'none',
+      goldenTimingBand: 'neutral',
+      explanation: 'Golden Timing Index v1 is neutral because backend timing context is unavailable.',
+      components: [
+        { band: 'neutral', label: 'HIBOR level', value: null, explanation: 'Backend timing endpoint unavailable; using neutral local context.' },
+        { band: 'unavailable', label: 'HIBOR trend', value: null, explanation: 'Recent basis-point movement is unavailable.' },
+        { band: 'unavailable', label: 'Liquidity context', value: null, explanation: 'Aggregate balance context is unavailable.' },
+        { band: 'none', label: 'Calendar flag', value: 'none', explanation: 'No calendar flag is active in fallback context.' },
+      ],
+      provenance: {
+        source: 'local_fallback',
+        provider: 'Local fallback',
+        asOf: null,
+        freshness: 'Workspace',
+      },
+      warnings: ['Backend timing endpoint unavailable. Showing local neutral context.'],
+      disclaimer: 'Timing context only. Not a financing instruction.',
     }
   }
 }
