@@ -9,7 +9,8 @@ from app.models.market_watch import (
     ConsolidatedSourceStatusResponse,
     RefreshRequest,
     RefreshResponse,
-    TimingSignalResponse
+    TimingSignalResponse,
+    IndustryHealthResponse
 )
 from app.services.market_watch.rates_liquidity_service import get_rates_liquidity
 from app.services.market_watch.fx_gba_service import get_fx_gba
@@ -18,6 +19,7 @@ from app.services.market_watch.commodities_service import get_commodities
 from app.services.market_watch.stress_signals_service import get_stress_signals
 from app.services.market_watch.source_status import get_consolidated_source_status
 from app.services.market_watch.timing_signal_service import get_timing_signal
+from app.services.market_watch.industry_health_service import get_industry_health
 from app.services.market_watch.cache import cache
 
 router = APIRouter()
@@ -54,6 +56,13 @@ async def get_stress_signals_endpoint(
 @router.get("/timing-signal", response_model=TimingSignalResponse)
 async def get_timing_signal_endpoint():
     return await get_timing_signal()
+
+@router.get("/industry-health", response_model=IndustryHealthResponse)
+async def get_industry_health_endpoint(
+    sector: Optional[str] = None,
+    geography: Optional[str] = None
+):
+    return await get_industry_health(sector=sector, geography=geography)
 
 @router.get("/source-status", response_model=ConsolidatedSourceStatusResponse)
 async def get_source_status_endpoint():

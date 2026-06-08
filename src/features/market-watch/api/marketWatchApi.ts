@@ -30,6 +30,7 @@ import {
   FinancialAnalysisResponse,
   FinancialAnalysisSummary,
   TimingSignalResponse,
+  IndustryHealthResponse,
 } from '../types'
 
 const API_BASE_URL =
@@ -423,6 +424,47 @@ export async function getTimingSignal(): Promise<TimingSignalResponse> {
       },
       warnings: ['Backend timing endpoint unavailable. Showing local neutral context.'],
       disclaimer: 'Timing context only. Not a financing instruction.',
+    }
+  }
+}
+
+export async function getIndustryHealth(): Promise<IndustryHealthResponse> {
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/api/market-watch/industry-health?sector=electronics-import&geography=HK`,
+      { signal: AbortSignal.timeout(5000) },
+    )
+
+    if (!res.ok) {
+      throw new Error(`Backend returned ${res.status}`)
+    }
+
+    const body = await res.json()
+    return {
+      ...body,
+      provenance: body.provenance ?? body.source,
+      warnings: body.warnings ?? [],
+    } as IndustryHealthResponse
+  } catch {
+    await delay(200)
+    return {
+      mode: 'context_only',
+      sectorName: 'Workspace sector',
+      industryHealthBand: 'unavailable',
+      demandSignal: 'unavailable',
+      marginSignal: 'unavailable',
+      workingCapitalSignal: 'unavailable',
+      benchmarkSignal: 'unavailable',
+      explanation: 'Industry Health Context v1 is unavailable because the backend endpoint could not be reached.',
+      components: [],
+      provenance: {
+        source: 'local_fallback',
+        provider: 'Local fallback',
+        asOf: null,
+        freshness: 'Workspace',
+      },
+      warnings: ['Backend industry health endpoint unavailable.'],
+      disclaimer: 'Industry health context is for planning support only. Not a financing instruction.',
     }
   }
 }

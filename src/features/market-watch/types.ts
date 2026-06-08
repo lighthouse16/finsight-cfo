@@ -48,6 +48,43 @@ export interface TimingSignalResponse {
   disclaimer: string
 }
 
+export type IndustryHealthBand = 'resilient' | 'stable' | 'watch' | 'stressed' | 'unavailable'
+export type DemandSignal = 'expanding' | 'stable' | 'softening' | 'unavailable'
+export type MarginSignal = 'expanding' | 'stable' | 'compressing' | 'unavailable'
+export type WorkingCapitalSignal = 'healthy' | 'watch' | 'stressed' | 'unavailable'
+export type BenchmarkSignal = 'favorable' | 'neutral' | 'cautious' | 'unavailable'
+
+export interface IndustryHealthComponent {
+  signal: string
+  label: string
+  band: string
+  value?: string | null
+  explanation: string
+}
+
+export interface IndustryHealthProvenance {
+  source: string
+  provider: string
+  asOf?: string | null
+  freshness: FreshnessStatus
+}
+
+export interface IndustryHealthResponse {
+  mode: 'context_only'
+  sectorName: string
+  industryHealthBand: IndustryHealthBand
+  demandSignal: DemandSignal
+  marginSignal: MarginSignal
+  workingCapitalSignal: WorkingCapitalSignal
+  benchmarkSignal: BenchmarkSignal
+  explanation: string
+  components: IndustryHealthComponent[]
+  provenance: IndustryHealthProvenance
+  source?: IndustryHealthProvenance
+  warnings: string[]
+  disclaimer: string
+}
+
 export type MarketMetric = {
   id: string
   label: string

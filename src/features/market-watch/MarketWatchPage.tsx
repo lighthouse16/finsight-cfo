@@ -12,6 +12,7 @@ import {
   getMarketSourceStatus,
   getRatesLiquidity,
   getTimingSignal,
+  getIndustryHealth,
   getSectorBenchmarks,
   getStressSignals,
   refreshData,
@@ -55,6 +56,7 @@ import {
   FinancialAnalysisSummary,
   FinancialAnalysisResponse,
   TimingSignalResponse,
+  IndustryHealthResponse,
 } from './types'
 
 export type RatesSourceInfo = {
@@ -141,6 +143,7 @@ export default function MarketWatchPage() {
   const [workspaceAnalysisContext, setWorkspaceAnalysisContext] = useState<WorkspaceAnalysisContext | null>(null)
   const [financialPreviewAnalysis, setFinancialPreviewAnalysis] = useState<FinancialAnalysisResponse | null>(null)
   const [timingSignal, setTimingSignal] = useState<TimingSignalResponse | null>(null)
+  const [industryHealth, setIndustryHealth] = useState<IndustryHealthResponse | null>(null)
 
   useEffect(() => {
     setWorkspaceAnalysisContext(loadWorkspaceAnalysisContext())
@@ -191,6 +194,7 @@ export default function MarketWatchPage() {
           stress,
           sourceStatus,
           timingSignalRes,
+          industryHealthRes,
         ] = await Promise.all([
           getFinancialDemoAnalysis(),
           getMarketOverview(),
@@ -201,6 +205,7 @@ export default function MarketWatchPage() {
           getStressSignals('Harbour & Finch Trading Ltd.', 'electronics-import'),
           getMarketSourceStatus(),
           getTimingSignal(),
+          getIndustryHealth(),
         ])
 
         const isFallback = !financialsRes
@@ -364,6 +369,7 @@ export default function MarketWatchPage() {
         })
         setSources(updatedSources)
         setTimingSignal(timingSignalRes)
+        setIndustryHealth(industryHealthRes)
         setLastRefreshed(new Date())
 
         const activeWorkspaceContext = loadWorkspaceAnalysisContext()
@@ -751,6 +757,7 @@ export default function MarketWatchPage() {
                   <SectorBenchmarksTab
                     benchmarks={benchmarks}
                     sectorSource={sectorSource}
+                    industryHealth={industryHealth}
                     profile={companyContext?.profile}
                     insights={insights || undefined}
                     loading={cardLoadState !== 'idle'}

@@ -1,15 +1,17 @@
 import clsx from 'clsx'
-import { SectorBenchmarkItem, SectorSourceInfo, CompanyProfile } from '../types'
+import { SectorBenchmarkItem, SectorSourceInfo, CompanyProfile, IndustryHealthResponse } from '../types'
 import SoftBarChart from './SoftBarChart'
 import { MarketWatchInsightSet } from '../insights/types'
 import LoadingState from './LoadingState'
 import SourceInfoTooltip from './SourceInfoTooltip'
 import MotionStagger from './MotionStagger'
 import MotionReveal from './MotionReveal'
+import IndustryHealthCard from './IndustryHealthCard'
 
 type SectorBenchmarksTabProps = {
   benchmarks: SectorBenchmarkItem[]
   sectorSource: SectorSourceInfo | null
+  industryHealth?: IndustryHealthResponse | null
   profile?: CompanyProfile | null
   insights?: MarketWatchInsightSet
   loading?: boolean
@@ -18,6 +20,7 @@ type SectorBenchmarksTabProps = {
 export default function SectorBenchmarksTab({
   benchmarks,
   sectorSource,
+  industryHealth,
   profile,
   insights,
   loading,
@@ -59,6 +62,10 @@ export default function SectorBenchmarksTab({
 
   return (
     <MotionStagger className="space-y-8">
+      <MotionReveal>
+        <IndustryHealthCard industryHealth={industryHealth ?? null} />
+      </MotionReveal>
+
       {/* Main panel */}
       <MotionReveal>
         <div className="softform-panel rounded-[28px] p-6 sm:p-8">

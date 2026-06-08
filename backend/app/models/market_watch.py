@@ -91,6 +91,44 @@ class TimingSignalResponse(BaseModel):
     warnings: List[str] = Field(default_factory=list)
     disclaimer: str
 
+
+IndustryHealthBand = Literal["resilient", "stable", "watch", "stressed", "unavailable"]
+DemandSignal = Literal["expanding", "stable", "softening", "unavailable"]
+MarginSignal = Literal["expanding", "stable", "compressing", "unavailable"]
+WorkingCapitalSignal = Literal["healthy", "watch", "stressed", "unavailable"]
+BenchmarkSignal = Literal["favorable", "neutral", "cautious", "unavailable"]
+
+
+class IndustryHealthComponent(BaseModel):
+    signal: str
+    label: str
+    band: str
+    value: Optional[str] = None
+    explanation: str
+
+
+class IndustryHealthProvenance(BaseModel):
+    source: str
+    provider: str
+    asOf: Optional[str] = None
+    freshness: FreshnessStatus
+
+
+class IndustryHealthResponse(BaseModel):
+    mode: Literal["context_only"] = "context_only"
+    sectorName: str
+    industryHealthBand: IndustryHealthBand
+    demandSignal: DemandSignal
+    marginSignal: MarginSignal
+    workingCapitalSignal: WorkingCapitalSignal
+    benchmarkSignal: BenchmarkSignal
+    explanation: str
+    components: List[IndustryHealthComponent]
+    provenance: IndustryHealthProvenance
+    source: IndustryHealthProvenance
+    warnings: List[str] = Field(default_factory=list)
+    disclaimer: str
+
 class MarketWatchError(BaseModel):
     code: str
     message: str
