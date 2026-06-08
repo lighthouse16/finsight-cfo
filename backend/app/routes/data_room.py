@@ -29,6 +29,11 @@ DEMO_WORKSPACE_ID = "demo-workspace"
 _workspace_preview_context: DataRoomWorkspacePreviewContextResponse | None = None
 
 
+def get_active_workspace_preview_context() -> DataRoomWorkspacePreviewContextResponse | None:
+    """Return the active in-memory workspace preview context without mutating it."""
+    return _workspace_preview_context
+
+
 @router.get("/demo-readiness", response_model=DataRoomResponse)
 async def get_demo_readiness_endpoint():
     return get_demo_data_room_readiness()

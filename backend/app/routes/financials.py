@@ -1,5 +1,11 @@
-from fastapi import APIRouter
-from app.models.financials import FinancialAnalysisResponse, FinancialRiskDiagnostics
+from fastapi import APIRouter, HTTPException
+from pydantic import ValidationError
+from app.models.financials import (
+    CompanyFinancialSnapshot,
+    FinancialAnalysisResponse,
+    FinancialRiskDiagnostics,
+)
+from app.routes.data_room import get_active_workspace_preview_context
 from app.services.financials.demo_company import get_demo_financial_snapshot
 from app.services.financials.ratio_engine import calculate_ratios
 from app.services.financials.integrity_checks import run_integrity_checks
@@ -16,23 +22,24 @@ from app.services.financials.summary_engine import build_financial_analysis_summ
 
 router = APIRouter()
 
-@router.get("/demo-analysis", response_model=FinancialAnalysisResponse)
-def get_demo_analysis():
+
+def _build_financial_analysis_response(
+    snapshot: CompanyFinancialSnapshot,
+    extra_warnings: list[str] | None = None,
+) -> FinancialAnalysisResponse:
     """
-    Returns the financial snapshot, integrity check validation results,
-    calculated financial ratios, risk diagnostics, projections, valuations,
-    financial analysis summary, and any analysis warnings.
+    Build a full financial analysis response from the supplied snapshot.
+
+    The caller controls the snapshot source; this helper does not persist or
+    mutate any workspace, demo, or production state.
     """
-    # 1. Fetch demo snapshot
-    snapshot = get_demo_financial_snapshot()
-    
-    # 2. Run integrity checks
+    # 1. Run integrity checks
     checks = run_integrity_checks(snapshot)
     
-    # 3. Calculate ratios
+    # 2. Calculate ratios
     ratios = calculate_ratios(snapshot)
     
-    # 4. Calculate risk diagnostics
+    # 3. Calculate risk diagnostics
     altman_z = calculate_altman_z_service(snapshot)
     receivables_risk = calculate_receivables_risk(snapshot)
     
@@ -41,14 +48,14 @@ def get_demo_analysis():
         receivablesRisk=receivables_risk
     )
     
-    # 5. Calculate projections
+    # 4. Calculate projections
     projection_assumptions = build_default_projection_assumptions(snapshot)
     projections = calculate_projection(snapshot, projection_assumptions)
     
-    # 6. Calculate valuation analysis
+    # 5. Calculate valuation analysis
     valuation = build_valuation_analysis(snapshot, ratios, projections)
     
-    # 7. Build Financial Analysis Summary
+    # 6. Build Financial Analysis Summary
     summary = build_financial_analysis_summary(
         snapshot=snapshot,
         ratios=ratios,
@@ -57,8 +64,8 @@ def get_demo_analysis():
         valuation=valuation,
     )
 
-    # 8. Consolidate warnings
-    warnings = []
+    # 7. Consolidate warnings
+    warnings = list(extra_warnings or [])
 
     # Add warnings from failed integrity checks
     for check in checks:
@@ -124,4 +131,62 @@ def get_demo_analysis():
         summary=summary,
         warnings=warnings
     )
+
+
+@router.get("/demo-analysis", response_model=FinancialAnalysisResponse)
+def get_demo_analysis():
+    """
+    Returns the financial snapshot, integrity check validation results,
+    calculated financial ratios, risk diagnostics, projections, valuations,
+    financial analysis summary, and any analysis warnings.
+    """
+    return _build_financial_analysis_response(get_demo_financial_snapshot())
+
+
+@router.get("/preview-analysis", response_model=FinancialAnalysisResponse)
+def get_preview_analysis():
+    """
+    Return financial analysis derived from the active Data Room preview snapshot.
+
+    This preview mode is separate from /api/financials/demo-analysis. It reads
+    the temporary in-memory workspace preview context only and does not persist
+    data or mutate the demo analysis snapshot.
+    """
+    context = get_active_workspace_preview_context()
+    if context is None:
+        raise HTTPException(
+            status_code=404,
+            detail="No active workspace preview context is available.",
+        )
+
+    try:
+        snapshot = CompanyFinancialSnapshot.model_validate(context.snapshotPreview)
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": "Active workspace preview context is incomplete or malformed.",
+                "source": "data_room_workspace_preview",
+                "previewOnly": True,
+                "errors": exc.errors(),
+            },
+        ) from exc
+
+    metadata = dict(snapshot.metadata or {})
+    metadata.update(
+        {
+            "mode": "preview",
+            "source": "data_room_workspace_preview",
+            "preview_only": True,
+            "activated_at": context.activatedAt,
+        }
+    )
+    snapshot.metadata = metadata
+
+    preview_warnings = [
+        "Preview analysis mode is using temporary in-memory Data Room workspace context. Production analysis was not updated.",
+        *context.warnings,
+    ]
+    return _build_financial_analysis_response(snapshot, preview_warnings)
+
 
