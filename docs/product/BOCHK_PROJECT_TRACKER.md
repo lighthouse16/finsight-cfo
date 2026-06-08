@@ -2,7 +2,7 @@
 
 > **Source of truth**: `BOCHK Challenge 2026.docx` (team document)
 > **Repo**: `D:\projects\finsight-cfo`
-> **Last updated**: 2026-06-07
+> **Last updated**: 2026-06-08
 
 ---
 
@@ -12,8 +12,8 @@ The team document defines the following core architecture:
 
 | Principle | Definition | Repo status |
 |---|---|---|
-| **Unidirectional Data Pipeline** | All data flows in one direction: ingestion → standardization → metrics → prediction → advisory → output. No circular dependencies. | **Partial** — Market Watch frontend implements a unidirectional data pattern: `API → adapters → state → insights (rules) → UI`. Demo pipeline now flows: Data Room readiness → Financial analysis summary → Market Watch context → Advisory precheck → Unified risk score → Stress tests → Facility structures → Advisory blueprint UI. Data Room preview flow now adds: readiness API → upload metadata stub → structured parse preview → snapshot preview → local preview session → local workspace context provenance → downstream banners. Production analysis is not updated and backend persistence is pending. |
-| **JSON Contracts Between Phases** | Each phase communicates via well-defined JSON schemas. | **Partial** — Backend has typed JSON response contracts: `MarketWatchSummary`, `FinancialAnalysisSummary`, `AdvisoryPrecheckResponse`, `AdvisoryRiskScoreResponse`, `AdvisoryStressTestResponse`, `AdvisoryFacilityStructureResponse`, `AdvisoryBlueprintResponse`, `DataRoomResponse`, upload metadata responses, parse preview responses, and snapshot preview responses. Contracts are demo/preview-only; no persisted company records flow through production analysis. |
+| **Unidirectional Data Pipeline** | All data flows in one direction: ingestion → standardization → metrics → prediction → advisory → output. No circular dependencies. | **Partial** — Market Watch frontend implements a unidirectional data pattern: `API → adapters → state → insights (rules) → UI`. Demo pipeline now flows: Data Room readiness → Financial analysis summary → Market Watch context → Advisory precheck → Unified risk score → Stress tests → Facility structures → Advisory blueprint UI. Data Room preview flow now adds: upload/parse → snapshot preview → backend preview context → `/api/financials/preview-analysis` → Market Watch / Advisory Blueprint preview panels. Production analysis is not updated and database persistence is pending. |
+| **JSON Contracts Between Phases** | Each phase communicates via well-defined JSON schemas. | **Partial** — Backend has typed JSON response contracts: `MarketWatchSummary`, `FinancialAnalysisSummary`, `AdvisoryPrecheckResponse`, `AdvisoryRiskScoreResponse`, `AdvisoryStressTestResponse`, `AdvisoryFacilityStructureResponse`, `AdvisoryBlueprintResponse`, `DataRoomResponse`, upload metadata responses, parse preview responses, snapshot preview responses, backend workspace preview context responses, and preview financial analysis responses. Contracts are demo/preview-only; no persisted company records flow through production analysis. |
 | **Unified Risk Engine** | Single risk engine replaces duplicate credit scores. All risk/PD calculations route through one system. | **Partial** — [advisory/precheck_engine.py](file:///D:/projects/finsight-cfo/backend/app/services/advisory/precheck_engine.py) hard-gate precheck, [unified_risk_score_engine.py](file:///D:/projects/finsight-cfo/backend/app/services/advisory/unified_risk_score_engine.py) risk scoring (0-100 scale), [stress_testing_engine.py](file:///D:/projects/finsight-cfo/backend/app/services/advisory/stress_testing_engine.py) deterministic stress testing, and [facility_structuring_engine.py](file:///D:/projects/finsight-cfo/backend/app/services/advisory/facility_structuring_engine.py) candidate structuring are all foundation-level. Not calibrated with historical default data. |
 
 ---
@@ -33,10 +33,12 @@ Snapshot preview (/api/data-room/demo-snapshot-preview)
   ↓ temporary CompanyFinancialSnapshot preview, integrity checks, core ratios
 Local preview session (browser localStorage)
   ↓ refresh-safe parsed record sets and snapshot preview state
-Local workspace context provenance (browser localStorage)
-  ↓ explicit preview activation; backend persistence pending
-Market Watch / Advisory Blueprint banners
-  ↓ downstream pages disclose local preview context while demo/provider data remains active
+Backend workspace preview context (/api/data-room/demo-workspace-preview-context)
+  ↓ explicit preview activation; in-memory only, no database persistence
+Preview financial analysis (/api/financials/preview-analysis)
+  ↓ preview-only financial response derived from the active Data Room snapshot
+Market Watch / Advisory Blueprint preview panels
+  ↓ downstream pages disclose preview context while demo/provider data remains active where preview data is unavailable
 ```
 
 ### Current backend analysis pipeline
@@ -60,7 +62,7 @@ Advisory blueprint UI (/platform/advisory-blueprint)
   ↓ advisor-ready JSON brief, consolidated view
 ```
 
-**Important**: Data Room ingestion is preview-only. Production analysis is not updated, no files are permanently stored, and Market Watch / Advisory Blueprint still use backend demo analysis with local preview provenance banners only.
+**Important**: Data Room ingestion remains preview-only. Production analysis is not replaced, no files are permanently stored, no preview state is written to a database, and demo/provider data remains active where preview data is unavailable. OCR/PDF parsing is not implemented yet.
 
 ---
 
@@ -84,7 +86,7 @@ Advisory blueprint UI (/platform/advisory-blueprint)
 
 | ID | Task | Repo Status | Evidence |
 |---|---|---|---|
-| 1.1 | Nhập liệu & Bóc tách BCTC | **Partial** | Structured CSV/XLSX parse preview exists via Data Room preview ingestion. `POST /api/data-room/demo-parse-preview` normalizes simple structured records into preview record sets, and `POST /api/data-room/demo-snapshot-preview` builds a temporary snapshot preview for integrity checks and core ratios. This remains preview-only: no OCR/PDF parsing, no permanent storage, no backend workspace persistence, and production analysis is not updated. |
+| 1.1 | Nhập liệu & Bóc tách BCTC | **Partial** | Structured CSV/XLSX parse preview exists via Data Room preview ingestion. `POST /api/data-room/demo-parse-preview` normalizes simple structured records into preview record sets, `POST /api/data-room/demo-snapshot-preview` builds a temporary snapshot preview, and `GET /api/financials/preview-analysis` can return preview-only financial analysis from the active backend preview context. This remains preview-only: no OCR/PDF parsing, no permanent storage, no database persistence, and production analysis is not replaced. |
 | 1.2 | Integrity Check (Cân bằng) | **Partial** | Pydantic models for `BalanceSheetPeriod` etc. and `run_integrity_checks` service in [integrity_checks.py](file:///D:/projects/finsight-cfo/backend/app/services/financials/integrity_checks.py) validates `TotalAssets = TotalLiabilities + Equity` with 1.0 tolerance. Data Room snapshot preview can run these checks on preview records. No DB persistence yet. |
 | 1.3 | Trích xuất Chỉ số (Ratios) | **Partial** | Stateless [ratio_engine.py](file:///D:/projects/finsight-cfo/backend/app/services/financials/ratio_engine.py) calculates Current Ratio, Quick Ratio, Interest Coverage, DSCR, Debt Ratio, Net Debt/EBITDA, DSO, Working Capital Gap, and ECL AR from normalized CompanyFinancialSnapshot. Snapshot preview can show core ratios from structured preview records. No historical metrics database or production dashboard binding yet. |
 | 1.4 | Động cơ Tính rủi ro (Z-Score) | **Partial** | Altman Z'' Score and Receivables Risk diagnostics implemented in [risk_diagnostics.py](file:///D:/projects/finsight-cfo/backend/app/services/financials/risk_diagnostics.py) and integrated into the `GET /api/financials/demo-analysis` endpoint. Validated in [test_financials.py](file:///D:/projects/finsight-cfo/backend/tests/test_financials.py). Full PD model integration remains. |
@@ -128,17 +130,17 @@ Advisory blueprint UI (/platform/advisory-blueprint)
 
 | ID | Task | Repo Status | Evidence |
 |---|---|---|---|
-| 4.1 | Interactive Dashboard | **Partial** | Market Watch UI tabs (Market Pulse, Rates & Liquidity, FX & GBA, Sector Benchmarks, Commodities, Stress Signals) are polished and interactive. Motion system ([MotionReveal.tsx](file:///D:/projects/finsight-cfo/src/features/market-watch/components/MotionReveal.tsx), [MotionStagger.tsx](file:///D:/projects/finsight-cfo/src/features/market-watch/components/MotionStagger.tsx), [motion.ts](file:///D:/projects/finsight-cfo/src/features/market-watch/utils/motion.ts)) is production-quality. Market Watch also shows local workspace context provenance when activated from Data Room. However, **Phase 1 sliders** (HIBOR shock, commodity stress) and **AI CFO chat interface** do not exist. |
-| 4.2 | Advisory Blueprint UI | **Done** | [AdvisoryBlueprintPage.tsx](file:///D:/projects/finsight-cfo/src/features/advisory-blueprint/AdvisoryBlueprintPage.tsx) at `/platform/advisory-blueprint` consumes `demo-blueprint`, `demo-precheck`, `demo-risk-score`, `demo-stress-tests`, and `demo-facility-structures` backend endpoints. It displays a local workspace context provenance banner when Data Room preview context is active. Context-only financing readiness brief. Lazy-loaded. |
+| 4.1 | Interactive Dashboard | **Partial** | Market Watch UI tabs (Market Pulse, Rates & Liquidity, FX & GBA, Sector Benchmarks, Commodities, Stress Signals) are polished and interactive. Motion system ([MotionReveal.tsx](file:///D:/projects/finsight-cfo/src/features/market-watch/components/MotionReveal.tsx), [MotionStagger.tsx](file:///D:/projects/finsight-cfo/src/features/market-watch/components/MotionStagger.tsx), [motion.ts](file:///D:/projects/finsight-cfo/src/features/market-watch/utils/motion.ts)) is production-quality. Market Watch now shows Data Room preview context panels when backend preview-analysis is active, while provider market data remains unchanged. However, **Phase 1 sliders** (HIBOR shock, commodity stress) and **AI CFO chat interface** do not exist. |
+| 4.2 | Advisory Blueprint UI | **Done** | [AdvisoryBlueprintPage.tsx](file:///D:/projects/finsight-cfo/src/features/advisory-blueprint/AdvisoryBlueprintPage.tsx) at `/platform/advisory-blueprint` consumes `demo-blueprint`, `demo-precheck`, `demo-risk-score`, `demo-stress-tests`, and `demo-facility-structures` backend endpoints. It also displays a Data Room preview financial context block when `/api/financials/preview-analysis` is available. The core advisory response remains unchanged and demo-context. Context-only financing readiness brief. Lazy-loaded. |
 | 4.3 | Data Room UI Foundation | **Done** | [DataRoomPage.tsx](file:///D:/projects/finsight-cfo/src/features/data-room/DataRoomPage.tsx) at `/platform/data-room` displays financial record readiness with backend integration via [dataRoomApi.ts](file:///D:/projects/finsight-cfo/src/features/data-room/api/dataRoomApi.ts). It supports upload metadata, structured CSV/XLSX parse preview, financial snapshot preview UI, local preview session persistence, and explicit local workspace context activation/reset. Falls back to local seed data when backend unavailable. No OCR/PDF parsing or permanent file storage. Lazy-loaded. |
 | 4.4 | Data Room Backend API Integration | **Done** | [data_room.py](file:///D:/projects/finsight-cfo/backend/app/routes/data_room.py) serves `GET /api/data-room/demo-readiness`, `POST /api/data-room/demo-upload-metadata`, `POST /api/data-room/demo-parse-preview`, and `POST /api/data-room/demo-snapshot-preview`. [demo_data_room.py](file:///D:/projects/finsight-cfo/backend/app/services/data_room/demo_data_room.py) provides deterministic demo data. [test_data_room.py](file:///D:/projects/finsight-cfo/backend/tests/test_data_room.py) validates contracts. |
 | 4.5 | Platform Workflow Navigation | **Done** | [SidebarNav.tsx](file:///D:/projects/finsight-cfo/src/components/platform/SidebarNav.tsx) connects Data Room → Market Watch → Advisory Blueprint workflow. Cross-page CTAs link between modules. Workflow section groups these routes logically. |
 | 4.6 | Route Lazy Loading & Bundle Optimization | **Done** | [AppRouter.tsx](file:///D:/projects/finsight-cfo/src/routes/AppRouter.tsx) uses `React.lazy` + `Suspense` for Market Watch, Advisory Blueprint, Data Room, and auth routes. [RouteLoadingFallback.tsx](file:///D:/projects/finsight-cfo/src/components/platform/RouteLoadingFallback.tsx) provides polished loading state. |
 | 4.7 | Accessibility Label Fix | **Done** | Fixed disabled search input in [TopCommandBar.tsx](file:///D:/projects/finsight-cfo/src/components/platform/TopCommandBar.tsx) — added `id`, `name`, `aria-label`. Audit confirmed all form controls have proper labels, icon-only buttons have accessible names, and status chips include text labels. |
-| 4.8 | Nối luồng Backend E2E | **Partial** | Demo pipeline connects Data Room → Financial Analysis → Market Watch → Advisory (precheck → risk score → stress tests → facility structures → blueprint). Data Room preview ingestion can parse structured CSV/XLSX and preview a snapshot locally. However, Market Watch and Advisory Blueprint still use backend demo analysis; local workspace context only adds provenance banners and does not feed backend analysis. |
+| 4.8 | Nối luồng Backend E2E | **Partial** | Current preview E2E flow is connected: Data Room upload/parse → snapshot preview → backend preview context → `/api/financials/preview-analysis` → Market Watch / Advisory Blueprint preview panels. This is still preview-only: no DB persistence, no production analysis replacement, demo/provider data remains active where preview data is unavailable, and OCR/PDF parsing is not implemented yet. |
 | 4.9 | E2E & Edge Case Testing | **Partial** | Backend has 110 passing tests across `test_financials.py`, `test_market_watch.py`, `test_advisory.py`, `test_advisory_blueprint.py`, `test_health.py`, `test_data_room.py`. Frontend has no test infrastructure. Division-by-zero handling exists in ratio engine. |
 
-**Phase 4 verdict**: 🟡 **4.1 Partial, 4.2-4.7 Done, 4.8 Partial, 4.9 Partial.** Platform UI foundation is strong — Market Watch, Advisory Blueprint, Data Room pages exist with workflow navigation, lazy loading, accessibility fixes, Data Room preview ingestion, snapshot preview UI, local preview session persistence, and local workspace context provenance. Still lacks OCR/PDF parsing, permanent storage, backend workspace persistence, production analysis replacement, AI CFO chat, Phase 1 sliders, and frontend test infrastructure.
+**Phase 4 verdict**: 🟡 **4.1 Partial, 4.2-4.7 Done, 4.8 Partial, 4.9 Partial.** Platform UI foundation is strong — Market Watch, Advisory Blueprint, Data Room pages exist with workflow navigation, lazy loading, accessibility fixes, Data Room preview ingestion, snapshot preview UI, local preview session persistence, backend preview context, `/api/financials/preview-analysis`, and downstream preview panels. Still lacks OCR/PDF parsing, permanent storage, production analysis replacement, AI CFO chat, Phase 1 sliders, and frontend test infrastructure.
 
 ---
 
@@ -189,9 +191,9 @@ The following gaps must be addressed before the platform can move from demo cont
 - No OCR/PDF parsing
 - No permanent file storage
 - No database persistence for uploaded files, parsed records, or preview snapshots
-- No backend workspace persistence yet
+- Backend workspace preview context is in-memory only
 - No production financial snapshot replacement; company records required for production
-- Market Watch and Advisory Blueprint still use backend demo analysis, with only local preview provenance banners
+- Market Watch and Advisory Blueprint can display preview-analysis panels, but core demo/provider data remains active where preview data is unavailable
 - No accounting connector ingestion (Xero, QuickBooks API integration)
 - No bank/account connector ingestion (Open Banking API)
 - Persistent PostgreSQL / TimescaleDB database
@@ -224,42 +226,35 @@ The following gaps must be addressed before the platform can move from demo cont
 
 > These priorities follow the current implementation state and build on the demo pipeline foundation.
 
-### Priority 1: Backend Workspace Persistence Stub for Preview Analysis Context
-Add a server-side persistence stub that can store preview analysis context safely:
-- Persist preview context metadata and snapshot references in-memory first
-- Keep production analysis not updated
-- Return explicit `preview-only` and `backend persistence pending` provenance fields
-- Maintain demo/provider data remains active unless preview mode is explicitly requested
+### Priority 1: Persisted Workspace Preview Context Design
+Design the safe path from in-memory preview context to persisted preview workspace records:
+- Define metadata and snapshot reference schema for preview contexts
+- Keep production analysis not replaced until an explicit migration path exists
+- Preserve explicit `preview-only` and non-persistent provenance fields during the transition
+- Maintain demo/provider data as the default path unless preview mode is explicitly requested
 
-### Priority 2: Server-Side Preview Analysis Context Endpoint
-Create an endpoint that can feed Market Watch and Advisory Blueprint in preview mode:
-- Accept a preview context ID or active workspace context selector
-- Return preview financial summary inputs separately from demo analysis
-- Keep demo analysis as the default path
-- Make downstream pages display whether they are using preview-only or demo/provider context
-
-### Priority 3: Structured Parser Hardening with Template Validation
+### Priority 2: Structured Parser Hardening with Template Validation
 Strengthen the CSV/XLSX parser prototype:
 - Validate required statement templates before normalization
 - Add clearer errors for missing periods, missing required fields, and unsupported columns
 - Keep parser limited to structured files; no OCR/PDF parsing
 - Expand backend test coverage for malformed template edge cases
 
-### Priority 4: CSV/XLSX Sample Templates and Downloadable Examples
+### Priority 3: CSV/XLSX Sample Templates and Downloadable Examples
 Provide user-facing structured upload examples:
 - P&L sample template
 - Balance Sheet sample template
 - Cash Flow sample template
 - Guidance copy that says company records required for production
 
-### Priority 5: Document Upload Storage Design, Still Without OCR
+### Priority 4: Document Upload Storage Design, Still Without OCR
 Design the storage architecture before implementing permanent file storage:
 - Metadata schema and retention rules
 - File storage boundaries and security constraints
 - Database persistence model
 - Explicitly defer OCR/PDF parsing until the structured ingestion path is stable
 
-### Priority 6: Market Watch Provenance Audit
+### Priority 5: Market Watch Provenance Audit
 Audit remaining fixture/workspace-derived content:
 - Sector benchmarks: identify which can connect to real provider data
 - Commodities: evaluate FRED / World Bank integration feasibility
@@ -277,10 +272,9 @@ Market Watch currently has a **polished prototype frontend** (6 tabs, motion sys
 **Risk**: The team may be tempted to continue UI polish (more animations, card redesigns, layout tweaks) while real data ingestion remains unimplemented. This would produce a beautiful shell with no substance for the judges.
 
 **Rule**: No further Market Watch UI polish passes should be done until:
-1. Backend workspace persistence exists for preview analysis context (Priority 1)
-2. A server-side preview analysis context endpoint can feed downstream pages in preview mode (Priority 2)
-3. Structured parser hardening and templates reduce ingestion ambiguity (Priorities 3-4)
-4. Production analysis replacement is designed and implemented safely
+1. Persisted workspace preview context design is complete (Priority 1)
+2. Structured parser hardening and templates reduce ingestion ambiguity (Priorities 2-3)
+3. Production analysis replacement is designed and implemented safely
 
 Market Watch UI should remain at its current polish level — clean and professional — but no new visual features until the data pipeline catches up.
 
@@ -306,6 +300,8 @@ Market Watch UI should remain at its current polish level — clean and professi
 | Data Room Snapshot Preview | ✅ Preview | Preview-only | [data_room.py](file:///D:/projects/finsight-cfo/backend/app/routes/data_room.py) | Data Room |
 | Local Preview Session | ✅ Local | Browser localStorage | [dataRoomPreviewStorage.ts](file:///D:/projects/finsight-cfo/src/features/data-room/utils/dataRoomPreviewStorage.ts) | Data Room |
 | Local Workspace Context Provenance | ✅ Local | Browser localStorage | [workspaceAnalysisContext.ts](file:///D:/projects/finsight-cfo/src/features/data-room/utils/workspaceAnalysisContext.ts) | Data Room, Market Watch, Advisory Blueprint |
+| Backend Workspace Preview Context | ✅ Preview | In-memory backend stub | [data_room.py](file:///D:/projects/finsight-cfo/backend/app/routes/data_room.py) | Data Room activation |
+| Preview Financial Analysis | ✅ Preview | Preview-only analysis endpoint | [financials.py](file:///D:/projects/finsight-cfo/backend/app/routes/financials.py) | Market Watch, Advisory Blueprint |
 | Sector Benchmarks | ⚠️ Partial | Workspace-derived fixtures | [sector_provider.py](file:///D:/projects/finsight-cfo/backend/app/services/market_watch/sector_provider.py) | Sector Benchmarks |
 | Commodities | ⚠️ Partial | Workspace-derived fixtures | [commodity_provider.py](file:///D:/projects/finsight-cfo/backend/app/services/market_watch/commodity_provider.py) | Commodities |
 | Stress Signals (Market) | ⚠️ Partial | Workspace-derived with demo analysis inputs | [stress_engine.py](file:///D:/projects/finsight-cfo/backend/app/services/market_watch/stress_engine.py) | Stress Signals |
