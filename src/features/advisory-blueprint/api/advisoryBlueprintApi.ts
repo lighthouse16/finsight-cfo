@@ -5,6 +5,7 @@ import {
   StressTestingResponse,
   FacilityStructuringResponse,
 } from '../types'
+import type { FinancialAnalysisResponse } from '../../market-watch/types'
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000'
@@ -57,4 +58,22 @@ export async function getAdvisoryFacilityStructures(): Promise<FacilityStructuri
     throw new Error(`Facility Structures API returned status ${res.status}`)
   }
   return res.json()
+}
+
+export async function getFinancialPreviewAnalysis(): Promise<FinancialAnalysisResponse | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/financials/preview-analysis`, {
+      signal: AbortSignal.timeout(5000),
+    })
+    if (res.status === 404) {
+      return null
+    }
+    if (!res.ok) {
+      throw new Error(`Preview analysis API returned status ${res.status}`)
+    }
+    return res.json()
+  } catch (error) {
+    console.warn('Financial preview analysis fetch failed; keeping advisory blueprint context', error)
+    return null
+  }
 }

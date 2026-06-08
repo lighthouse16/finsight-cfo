@@ -18,6 +18,7 @@ import {
   getAdvisoryRiskScore,
   getAdvisoryStressTests,
   getAdvisoryFacilityStructures,
+  getFinancialPreviewAnalysis,
 } from './api/advisoryBlueprintApi'
 import {
   AdvisoryBlueprintResponse,
@@ -30,6 +31,7 @@ import {
   WORKSPACE_ANALYSIS_CONTEXT_KEY,
   type WorkspaceAnalysisContext,
 } from '../data-room/utils/workspaceAnalysisContext'
+import type { FinancialAnalysisResponse } from '../market-watch/types'
 
 export default function AdvisoryBlueprintPage() {
   const [blueprint, setBlueprint] = useState<AdvisoryBlueprintResponse | null>(null)
@@ -41,6 +43,7 @@ export default function AdvisoryBlueprintPage() {
   const [loadingStep, setLoadingStep] = useState<string>('Preparing advisory blueprint...')
   const [error, setError] = useState<string | null>(null)
   const [workspaceAnalysisContext, setWorkspaceAnalysisContext] = useState<WorkspaceAnalysisContext | null>(null)
+  const [financialPreviewAnalysis, setFinancialPreviewAnalysis] = useState<FinancialAnalysisResponse | null>(null)
 
   const loadAllData = async () => {
     setLoading(true)
@@ -70,6 +73,13 @@ export default function AdvisoryBlueprintPage() {
       ])
       setStressTests(st)
       setFacilityStructures(fs)
+
+      const activeWorkspaceContext = loadWorkspaceAnalysisContext()
+      if (activeWorkspaceContext) {
+        setFinancialPreviewAnalysis(await getFinancialPreviewAnalysis())
+      } else {
+        setFinancialPreviewAnalysis(null)
+      }
 
       setLoading(false)
     } catch (e) {
@@ -118,6 +128,16 @@ export default function AdvisoryBlueprintPage() {
       return `HKD ${(val / 1_000_000).toFixed(2)}M`
     }
     return `HKD ${val.toLocaleString()}`
+  }
+
+  const formatPreviewRatio = (value?: number | null) => {
+    if (value === undefined || value === null || Number.isNaN(value)) return 'N/A'
+    return value.toFixed(2)
+  }
+
+  const formatPreviewBand = (value?: string | null) => {
+    if (!value) return 'Preview context'
+    return value.replace(/_/g, ' ')
   }
 
   // Source provenance data
@@ -226,6 +246,40 @@ export default function AdvisoryBlueprintPage() {
           <p className="text-base md:text-lg text-softform-text-secondary font-medium leading-relaxed max-w-4xl">
             {executiveBrief}
           </p>
+
+          {workspaceAnalysisContext && financialPreviewAnalysis && (
+            <div className="rounded-[24px] border border-softform-teal-500/15 bg-white/70 p-5 shadow-soft-inner">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="max-w-2xl">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-softform-teal-deep">
+                    Data Room preview financial context
+                  </p>
+                  <h3 className="mt-1 text-base font-black text-softform-navy-950">
+                    {financialPreviewAnalysis.snapshot.companyName} · {financialPreviewAnalysis.snapshot.reportingPeriod}
+                  </h3>
+                  <p className="mt-1 text-xs leading-relaxed text-softform-text-secondary">
+                    Preview-only financial context is available for review. The advisory blueprint response remains based on the existing demo advisory pipeline.
+                  </p>
+                </div>
+                <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+                  {[
+                    ['Integrity', financialPreviewAnalysis.integrityChecks?.length ? `${financialPreviewAnalysis.integrityChecks.length} checks` : 'N/A'],
+                    ['Current', financialPreviewAnalysis.ratios.currentRatio?.value],
+                    ['Quick', financialPreviewAnalysis.ratios.quickRatio?.value],
+                    ['DSCR', financialPreviewAnalysis.ratios.dscr?.value],
+                    ['Band', formatPreviewBand(financialPreviewAnalysis.summary?.overallBand)],
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-2xl border border-softform-navy-950/5 bg-softform-mist-50/80 px-3 py-2">
+                      <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">{label}</p>
+                      <p className="mt-1 text-sm font-black text-softform-navy-950">
+                        {typeof value === 'number' ? formatPreviewRatio(value) : value}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 

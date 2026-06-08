@@ -15,6 +15,7 @@ import {
   getStressSignals,
   refreshData,
   getFinancialDemoAnalysis,
+  getFinancialPreviewAnalysis,
   getLocalFinancialDemoAnalysisFallback,
 } from './api/marketWatchApi'
 import {
@@ -51,6 +52,7 @@ import {
   CompanyProfile,
   CompanyExposure,
   FinancialAnalysisSummary,
+  FinancialAnalysisResponse,
 } from './types'
 
 export type RatesSourceInfo = {
@@ -89,6 +91,16 @@ function tabFromParam(param: string | null): TabId {
   return 'pulse'
 }
 
+function formatPreviewRatio(value?: number | null): string {
+  if (value === undefined || value === null || Number.isNaN(value)) return 'N/A'
+  return value.toFixed(2)
+}
+
+function formatPreviewBand(value?: string | null): string {
+  if (!value) return 'Preview context'
+  return value.replace(/_/g, ' ')
+}
+
 export default function MarketWatchPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const activeTab = tabFromParam(searchParams.get('tab'))
@@ -125,6 +137,7 @@ export default function MarketWatchPage() {
   const [companyContext, setCompanyContext] = useState<CompanyContext | null>(null)
   const [financialSummary, setFinancialSummary] = useState<FinancialAnalysisSummary | null>(null)
   const [workspaceAnalysisContext, setWorkspaceAnalysisContext] = useState<WorkspaceAnalysisContext | null>(null)
+  const [financialPreviewAnalysis, setFinancialPreviewAnalysis] = useState<FinancialAnalysisResponse | null>(null)
 
   useEffect(() => {
     setWorkspaceAnalysisContext(loadWorkspaceAnalysisContext())
@@ -346,6 +359,13 @@ export default function MarketWatchPage() {
         })
         setSources(updatedSources)
         setLastRefreshed(new Date())
+
+        const activeWorkspaceContext = loadWorkspaceAnalysisContext()
+        if (activeWorkspaceContext) {
+          setFinancialPreviewAnalysis(await getFinancialPreviewAnalysis())
+        } else {
+          setFinancialPreviewAnalysis(null)
+        }
       })
     } catch (error) {
       console.error('Failed to load market watch data', error)
@@ -595,6 +615,40 @@ export default function MarketWatchPage() {
             </span>
           </div>
         </div>
+      )}
+
+      {workspaceAnalysisContext && financialPreviewAnalysis && (
+        <section className="mb-6 rounded-[26px] border border-softform-teal-500/15 bg-white/72 p-5 shadow-floating-panel">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="max-w-2xl">
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-softform-teal-deep">
+                Preview financial context
+              </p>
+              <h2 className="mt-1 text-lg font-black tracking-tight text-softform-navy-950">
+                {financialPreviewAnalysis.snapshot.companyName} · {financialPreviewAnalysis.snapshot.reportingPeriod}
+              </h2>
+              <p className="mt-1 text-xs leading-relaxed text-softform-text-secondary">
+                Read-only preview analysis from Data Room workspace preview. Market/provider feeds and demo analysis remain unchanged.
+              </p>
+            </div>
+            <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+              {[
+                ['Current', financialPreviewAnalysis.ratios.currentRatio?.value],
+                ['Quick', financialPreviewAnalysis.ratios.quickRatio?.value],
+                ['Interest', financialPreviewAnalysis.ratios.interestCoverage?.value],
+                ['DSCR', financialPreviewAnalysis.ratios.dscr?.value],
+                ['Band', formatPreviewBand(financialPreviewAnalysis.summary?.overallBand)],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-2xl border border-softform-navy-950/5 bg-softform-mist-50/70 px-3 py-2">
+                  <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">{label}</p>
+                  <p className="mt-1 text-sm font-black text-softform-navy-950">
+                    {typeof value === 'number' ? formatPreviewRatio(value) : value}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
       )}
 
       {/*** Executive signal cards — always render grid, with loading/updating state ***/}

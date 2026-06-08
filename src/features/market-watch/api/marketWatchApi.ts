@@ -1198,4 +1198,23 @@ export async function getFinancialDemoAnalysis(): Promise<FinancialAnalysisRespo
   }
 }
 
+export async function getFinancialPreviewAnalysis(): Promise<FinancialAnalysisResponse | null> {
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/api/financials/preview-analysis`,
+      { signal: AbortSignal.timeout(5000) }
+    )
+    if (res.status === 404) {
+      return null
+    }
+    if (!res.ok) {
+      throw new Error(`Backend returned ${res.status}`)
+    }
+    return await res.json()
+  } catch (error) {
+    console.warn('Financial preview analysis fetch failed; keeping current page context', error)
+    return null
+  }
+}
+
 
