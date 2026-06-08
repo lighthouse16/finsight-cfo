@@ -129,6 +129,65 @@ class IndustryHealthResponse(BaseModel):
     warnings: List[str] = Field(default_factory=list)
     disclaimer: str
 
+
+FundingChannelKey = Literal["working_capital_line", "receivables_financing", "trade_finance_lc", "term_loan", "fx_hedging_context"]
+FundingFitBand = Literal["strong_fit", "moderate_fit", "watch_fit"]
+FundingRankingBand = Literal["working_capital_priority", "trade_cycle_priority", "balance_sheet_review", "risk_context_priority"]
+
+
+class FundingChannelComponent(BaseModel):
+    signal: str
+    label: str
+    band: str
+    explanation: str
+
+
+class FundingChannelItem(BaseModel):
+    key: FundingChannelKey
+    label: str
+    rank: int
+    fitBand: FundingFitBand
+    score: int
+    useCase: str
+    rationale: str
+    supportingSignals: List[str] = Field(default_factory=list)
+    source: str
+    constraints: List[str] = Field(default_factory=list)
+
+
+class FundingChannelProvenance(BaseModel):
+    source: str
+    provider: str
+    asOf: Optional[str] = None
+    freshness: FreshnessStatus
+
+
+class FundingCompanyContext(BaseModel):
+    companyName: str
+    sector: str
+    geography: str
+    dataMode: str
+    dscr: Optional[float] = None
+    floatingRateExposure: Optional[str] = None
+    workingCapitalGap: Optional[str] = None
+    dsoWatch: bool = False
+    fxExposure: bool = False
+    importCostStress: bool = False
+
+
+class FundingChannelRankingResponse(BaseModel):
+    mode: Literal["context_only"] = "context_only"
+    companyContext: FundingCompanyContext
+    rankingBand: FundingRankingBand
+    channels: List[FundingChannelItem]
+    topChannelKey: FundingChannelKey
+    explanation: str
+    components: List[FundingChannelComponent]
+    provenance: FundingChannelProvenance
+    source: FundingChannelProvenance
+    warnings: List[str] = Field(default_factory=list)
+    disclaimer: str
+
 class MarketWatchError(BaseModel):
     code: str
     message: str

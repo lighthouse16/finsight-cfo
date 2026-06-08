@@ -13,6 +13,7 @@ import {
   getRatesLiquidity,
   getTimingSignal,
   getIndustryHealth,
+  getFundingChannelRanking,
   getSectorBenchmarks,
   getStressSignals,
   refreshData,
@@ -57,6 +58,7 @@ import {
   FinancialAnalysisResponse,
   TimingSignalResponse,
   IndustryHealthResponse,
+  FundingChannelRankingResponse,
 } from './types'
 
 export type RatesSourceInfo = {
@@ -144,6 +146,7 @@ export default function MarketWatchPage() {
   const [financialPreviewAnalysis, setFinancialPreviewAnalysis] = useState<FinancialAnalysisResponse | null>(null)
   const [timingSignal, setTimingSignal] = useState<TimingSignalResponse | null>(null)
   const [industryHealth, setIndustryHealth] = useState<IndustryHealthResponse | null>(null)
+  const [fundingChannelRanking, setFundingChannelRanking] = useState<FundingChannelRankingResponse | null>(null)
 
   useEffect(() => {
     setWorkspaceAnalysisContext(loadWorkspaceAnalysisContext())
@@ -195,6 +198,7 @@ export default function MarketWatchPage() {
           sourceStatus,
           timingSignalRes,
           industryHealthRes,
+          fundingChannelRankingRes,
         ] = await Promise.all([
           getFinancialDemoAnalysis(),
           getMarketOverview(),
@@ -206,6 +210,7 @@ export default function MarketWatchPage() {
           getMarketSourceStatus(),
           getTimingSignal(),
           getIndustryHealth(),
+          getFundingChannelRanking(),
         ])
 
         const isFallback = !financialsRes
@@ -370,6 +375,7 @@ export default function MarketWatchPage() {
         setSources(updatedSources)
         setTimingSignal(timingSignalRes)
         setIndustryHealth(industryHealthRes)
+        setFundingChannelRanking(fundingChannelRankingRes)
         setLastRefreshed(new Date())
 
         const activeWorkspaceContext = loadWorkspaceAnalysisContext()
@@ -730,6 +736,7 @@ export default function MarketWatchPage() {
                     insights={insights || undefined}
                     loading={cardLoadState !== 'idle'}
                     timingSignal={timingSignal}
+                    fundingChannelRanking={fundingChannelRanking}
                   />
                 )}
                 {activeTab === 'rates' && (

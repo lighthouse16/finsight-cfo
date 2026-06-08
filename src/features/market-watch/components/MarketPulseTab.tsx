@@ -1,5 +1,5 @@
 import { AlertCircle, ArrowUpRight, ShieldAlert, Zap } from 'lucide-react'
-import { MarketSignal, SourceStatusItem, CompanyProfile, TimingSignalResponse } from '../types'
+import { MarketSignal, SourceStatusItem, CompanyProfile, TimingSignalResponse, FundingChannelRankingResponse } from '../types'
 import { MarketWatchInsightSet } from '../insights/types'
 import LoadingState from './LoadingState'
 import SourceInfoTooltip from './SourceInfoTooltip'
@@ -7,6 +7,7 @@ import SourceInfoTooltip from './SourceInfoTooltip'
 import MotionStagger from './MotionStagger'
 import MotionReveal from './MotionReveal'
 import TimingSignalCard from './TimingSignalCard'
+import FundingChannelRankingCard from './FundingChannelRankingCard'
 
 type MarketPulseTabProps = {
   signals: MarketSignal[]
@@ -15,6 +16,7 @@ type MarketPulseTabProps = {
   insights?: MarketWatchInsightSet
   loading?: boolean
   timingSignal?: TimingSignalResponse | null
+  fundingChannelRanking?: FundingChannelRankingResponse | null
 }
 
 export default function MarketPulseTab({
@@ -23,6 +25,7 @@ export default function MarketPulseTab({
   insights,
   loading,
   timingSignal,
+  fundingChannelRanking,
 }: MarketPulseTabProps) {
   // if loading, show contextual loading placeholders
   if (loading) {
@@ -77,6 +80,10 @@ export default function MarketPulseTab({
     <MotionStagger className="space-y-6">
       <MotionReveal>
         <TimingSignalCard signal={timingSignal ?? null} />
+      </MotionReveal>
+
+      <MotionReveal>
+        <FundingChannelRankingCard ranking={fundingChannelRanking ?? null} />
       </MotionReveal>
 
       {/* What Needs Attention Now Section */}

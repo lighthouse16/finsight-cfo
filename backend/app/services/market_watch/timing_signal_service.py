@@ -1,6 +1,5 @@
 import re
-from datetime import datetime
-from zoneinfo import ZoneInfo
+from datetime import datetime, timezone
 
 from app.models.market_watch import (
     LiquidityEvent,
@@ -73,7 +72,7 @@ def _liquidity_signal(events: list[LiquidityEvent]) -> tuple[str, str, str | Non
 
 
 def _calendar_red_flag(now: datetime | None = None) -> tuple[str, str]:
-    current = now or datetime.now(ZoneInfo("Asia/Hong_Kong"))
+    current = now or datetime.now(timezone.utc)
     if current.day < 25:
         return "none", "No month-end calendar flag is active."
     if current.month == 12:

@@ -31,6 +31,7 @@ import {
   FinancialAnalysisSummary,
   TimingSignalResponse,
   IndustryHealthResponse,
+  FundingChannelRankingResponse,
 } from '../types'
 
 const API_BASE_URL =
@@ -465,6 +466,62 @@ export async function getIndustryHealth(): Promise<IndustryHealthResponse> {
       },
       warnings: ['Backend industry health endpoint unavailable.'],
       disclaimer: 'Industry health context is for planning support only. Not a financing instruction.',
+    }
+  }
+}
+
+export async function getFundingChannelRanking(): Promise<FundingChannelRankingResponse> {
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/api/market-watch/funding-channel-ranking`,
+      { signal: AbortSignal.timeout(5000) },
+    )
+
+    if (!res.ok) {
+      throw new Error(`Backend returned ${res.status}`)
+    }
+
+    const body = await res.json()
+    return {
+      ...body,
+      provenance: body.provenance ?? body.source,
+      warnings: body.warnings ?? [],
+    } as FundingChannelRankingResponse
+  } catch {
+    await delay(200)
+    return {
+      mode: 'context_only',
+      companyContext: {
+        companyName: 'Workspace context',
+        sector: 'Workspace sector',
+        geography: 'HK',
+        dataMode: 'local_fallback',
+        dscr: null,
+        floatingRateExposure: null,
+        workingCapitalGap: null,
+        dsoWatch: false,
+        fxExposure: false,
+        importCostStress: false,
+      },
+      rankingBand: 'risk_context_priority',
+      channels: [],
+      topChannelKey: 'fx_hedging_context',
+      explanation: 'Funding Channel Ranking v1 is unavailable because the backend endpoint could not be reached.',
+      components: [],
+      provenance: {
+        source: 'local_fallback',
+        provider: 'Local fallback',
+        asOf: null,
+        freshness: 'Workspace',
+      },
+      source: {
+        source: 'local_fallback',
+        provider: 'Local fallback',
+        asOf: null,
+        freshness: 'Workspace',
+      },
+      warnings: ['Backend funding channel ranking endpoint unavailable.'],
+      disclaimer: 'Channel ranking is context-only for planning support. Not a financing instruction.',
     }
   }
 }

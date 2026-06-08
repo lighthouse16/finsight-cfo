@@ -473,6 +473,79 @@ export interface ReceivablesAging {
   days90Plus: number
 }
 
+// ------------------------------------------------------------------
+// Funding Channel Ranking v1 types
+// ------------------------------------------------------------------
+
+export type FundingChannelKey =
+  | 'working_capital_line'
+  | 'receivables_financing'
+  | 'trade_finance_lc'
+  | 'term_loan'
+  | 'fx_hedging_context'
+
+export type FundingFitBand = 'strong_fit' | 'moderate_fit' | 'watch_fit'
+
+export type FundingRankingBand =
+  | 'working_capital_priority'
+  | 'trade_cycle_priority'
+  | 'balance_sheet_review'
+  | 'risk_context_priority'
+
+export interface FundingChannelComponent {
+  signal: string
+  label: string
+  band: string
+  explanation: string
+}
+
+export interface FundingChannelProvenance {
+  source: string
+  provider: string
+  asOf?: string | null
+  freshness: FreshnessStatus
+}
+
+export interface FundingCompanyContext {
+  companyName: string
+  sector: string
+  geography: string
+  dataMode: string
+  dscr?: number | null
+  floatingRateExposure?: string | null
+  workingCapitalGap?: string | null
+  dsoWatch: boolean
+  fxExposure: boolean
+  importCostStress: boolean
+}
+
+export interface FundingChannelItem {
+  key: FundingChannelKey
+  label: string
+  rank: number
+  fitBand: FundingFitBand
+  score: number
+  useCase: string
+  rationale: string
+  supportingSignals: string[]
+  source: string
+  constraints: string[]
+}
+
+export interface FundingChannelRankingResponse {
+  mode: 'context_only'
+  companyContext: FundingCompanyContext
+  rankingBand: FundingRankingBand
+  channels: FundingChannelItem[]
+  topChannelKey: FundingChannelKey
+  explanation: string
+  components: FundingChannelComponent[]
+  provenance: FundingChannelProvenance
+  source: FundingChannelProvenance
+  warnings: string[]
+  disclaimer: string
+}
+
 export interface CompanyFinancialSnapshot {
   companyId: string
   companyName: string

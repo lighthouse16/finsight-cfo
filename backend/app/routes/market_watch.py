@@ -10,7 +10,8 @@ from app.models.market_watch import (
     RefreshRequest,
     RefreshResponse,
     TimingSignalResponse,
-    IndustryHealthResponse
+    IndustryHealthResponse,
+    FundingChannelRankingResponse
 )
 from app.services.market_watch.rates_liquidity_service import get_rates_liquidity
 from app.services.market_watch.fx_gba_service import get_fx_gba
@@ -20,6 +21,7 @@ from app.services.market_watch.stress_signals_service import get_stress_signals
 from app.services.market_watch.source_status import get_consolidated_source_status
 from app.services.market_watch.timing_signal_service import get_timing_signal
 from app.services.market_watch.industry_health_service import get_industry_health
+from app.services.market_watch.funding_channel_ranking_service import get_funding_channel_ranking
 from app.services.market_watch.cache import cache
 
 router = APIRouter()
@@ -63,6 +65,10 @@ async def get_industry_health_endpoint(
     geography: Optional[str] = None
 ):
     return await get_industry_health(sector=sector, geography=geography)
+
+@router.get("/funding-channel-ranking", response_model=FundingChannelRankingResponse)
+async def get_funding_channel_ranking_endpoint():
+    return await get_funding_channel_ranking()
 
 @router.get("/source-status", response_model=ConsolidatedSourceStatusResponse)
 async def get_source_status_endpoint():
