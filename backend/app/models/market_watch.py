@@ -76,6 +76,8 @@ class TimingSignalProvenance(BaseModel):
     provider: str
     asOf: Optional[str] = None
     freshness: FreshnessStatus
+    providerAdapter: Optional[str] = None
+    providerIntegration: Optional[str] = None
 
 
 class TimingSignalResponse(BaseModel):
@@ -112,6 +114,8 @@ class IndustryHealthProvenance(BaseModel):
     provider: str
     asOf: Optional[str] = None
     freshness: FreshnessStatus
+    providerAdapter: Optional[str] = None
+    providerIntegration: Optional[str] = None
 
 
 class IndustryHealthResponse(BaseModel):
@@ -160,6 +164,8 @@ class FundingChannelProvenance(BaseModel):
     provider: str
     asOf: Optional[str] = None
     freshness: FreshnessStatus
+    providerAdapter: Optional[str] = None
+    providerIntegration: Optional[str] = None
 
 
 class FundingCompanyContext(BaseModel):
@@ -215,6 +221,8 @@ class CrossBorderFundingProvenance(BaseModel):
     provider: str
     asOf: Optional[str] = None
     freshness: FreshnessStatus
+    providerAdapter: Optional[str] = None
+    providerIntegration: Optional[str] = None
 
 
 class CrossBorderFundingContextResponse(BaseModel):
@@ -247,6 +255,8 @@ class RedFlagProvenance(BaseModel):
     provider: str
     asOf: Optional[str] = None
     freshness: FreshnessStatus
+    providerAdapter: Optional[str] = None
+    providerIntegration: Optional[str] = None
 
 
 class RedFlagMitigant(BaseModel):

@@ -61,9 +61,14 @@ def build_provenance(
 ) -> dict[str, Optional[str]]:
     """Build a standard provenance dict matching response-model shapes.
 
-    Returns keys: ``source``, ``provider``, ``asOf``, ``freshness``.
+    Returns keys: ``source``, ``provider``, ``asOf``, ``freshness``,
+    ``providerAdapter``, ``providerIntegration``.
     All values are ``str | None`` so the caller can unpack with ``**``
-    into any provenance model (TimingSignalProvenance, IndustryHealthProvenance, …).
+    into any provenance model.
+
+    ``providerAdapter`` is the recommended adapter class name from
+    :func:`get_adapter`.  ``providerIntegration`` is the recommended
+    provider name from :func:`get_adapter_provider_name`.
 
     Override parameters let callers pass dynamic values from upstream
     responses while falling back to registry defaults.
@@ -75,12 +80,16 @@ def build_provenance(
             "provider": provider_override or "Unknown",
             "asOf": as_of,
             "freshness": freshness_override or "Workspace",
+            "providerAdapter": "MissingProviderAdapter",
+            "providerIntegration": "Provider integration pending",
         }
     return {
         "source": entry["sourceKey"],
         "provider": provider_override or entry.get("provider") or "FinSight CFO Market Watch",
         "asOf": as_of or entry.get("asOf"),
         "freshness": freshness_override or entry["freshness"],
+        "providerAdapter": get_adapter(source_key),
+        "providerIntegration": get_adapter_provider_name(source_key),
     }
 
 
@@ -250,4 +259,42 @@ def get_disclaimer_base(source_key: str) -> str:
         f"{label} is context-only for planning support. "
         "Not a financing instruction."
     )
+
+
+def get_adapter(source_key: str) -> str:
+    """Return the recommended provider adapter class name for a source key.
+
+    Returns one of:
+    - ``FixtureMarketDataAdapter`` — fixture-backed sources
+    - ``WorkspaceDerivedAdapter`` — workspace-derived sources
+    - ``MissingProviderAdapter`` — unavailable sources
+    - ``provider-backed`` — sources with a live provider connection
+
+    This lets services self-describe their provider integration status
+    without importing adapter classes directly.
+    """
+    entry = _REGISTRY.get(source_key)
+    if entry is None:
+        return "MissingProviderAdapter"
+    mode = entry["mode"]
+    if mode == "provider-backed":
+        return "provider-backed"
+    if mode == "fixture-backed":
+        return "FixtureMarketDataAdapter"
+    return "WorkspaceDerivedAdapter"
+
+
+def get_adapter_provider_name(source_key: str) -> str:
+    """Return the recommended provider name for a source key.
+
+    Returns the provider field from the registry, or a fallback string
+    describing the integration mode.
+    """
+    entry = _REGISTRY.get(source_key)
+    if entry is None:
+        return "Provider integration pending"
+    provider = entry.get("provider")
+    if provider:
+        return provider
+    return "Provider integration pending"
 
