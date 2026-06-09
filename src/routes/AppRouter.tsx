@@ -29,6 +29,9 @@ const MarketWatchPage = lazy(
 const AdvisoryBlueprintPage = lazy(
   () => import('../features/advisory-blueprint/AdvisoryBlueprintWithCreditPage'),
 )
+const FinancialHealthPage = lazy(
+  () => import('../features/financial-health/FinancialHealthPage'),
+)
 const CreditReadinessPage = lazy(
   () => import('../features/credit-readiness/CreditReadinessPage'),
 )
@@ -80,7 +83,7 @@ const platformRoutes: PlatformRoute[] = [
       'Understand liquidity, leverage, coverage, receivables, and cashflow quality.',
     icon: HeartPulse,
     modulePurpose:
-      'Financial Health will present liquidity, leverage, coverage, and cashflow quality indicators derived from your uploaded records.',
+      'Financial Health presents liquidity, leverage, coverage, receivables, projection, and valuation diagnostics from the active financial snapshot.',
   },
   {
     path: 'credit-readiness',
@@ -176,6 +179,13 @@ function renderPlatformRoute(route: PlatformRoute) {
     return withShellFallback(
       <MarketWatchPage />,
       'Loading market intelligence...',
+    )
+  }
+
+  if (route.path === 'financial-health') {
+    return withShellFallback(
+      <FinancialHealthPage />,
+      'Loading financial health...',
     )
   }
 
