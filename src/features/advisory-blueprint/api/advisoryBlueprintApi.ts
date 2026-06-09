@@ -2,6 +2,7 @@ import {
   AdvisoryBlueprintResponse,
   HardGatePrecheckResult,
   UnifiedRiskScoreResult,
+  CreditScoringResult,
   StressTestingResponse,
   FacilityStructuringResponse,
 } from '../types'
@@ -36,6 +37,16 @@ export async function getAdvisoryRiskScore(): Promise<UnifiedRiskScoreResult> {
   })
   if (!res.ok) {
     throw new Error(`Risk Score API returned status ${res.status}`)
+  }
+  return res.json()
+}
+
+export async function getCreditScore(): Promise<CreditScoringResult> {
+  const res = await fetch(`${API_BASE_URL}/api/advisory/credit-score`, {
+    signal: AbortSignal.timeout(8000),
+  })
+  if (!res.ok) {
+    throw new Error(`Credit Score API returned status ${res.status}`)
   }
   return res.json()
 }
