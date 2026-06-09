@@ -5,78 +5,7 @@ import PageHeader from '../../components/platform/PageHeader'
 import StatusChip from '../../components/platform/StatusChip'
 import DemoFlowRail from '../../components/platform/DemoFlowRail'
 import { getFinancialHealthAnalysis } from '../financial-health/financialHealthApi'
-import type { FinancialAnalysisResponse } from '../market-watch/types'
-
-type ValuationYear = {
-  year: number
-  fcff: number
-  discountFactor: number
-  pvFcff: number
-}
-
-type SensitivityPoint = {
-  wacc: number
-  terminalGrowthRate: number
-  enterpriseValue?: number | null
-  equityValue?: number | null
-}
-
-type SanityCheck = {
-  name: string
-  status: string
-  message: string
-  value?: number | null
-}
-
-type ValuationShape = {
-  assumptions?: {
-    riskFreeRate?: number
-    observedBeta?: number
-    targetDebtWeight?: number
-    targetEquityWeight?: number
-    equityRiskPremium?: number
-    sizePremium?: number
-    industryRiskPremium?: number
-    companySpecificPremium?: number
-    preTaxCostOfDebt?: number
-    taxRate?: number
-    terminalGrowthRate?: number
-    exitMultiple?: number | null
-    currency?: string
-  }
-  wacc?: {
-    costOfEquity?: number
-    preTaxCostOfDebt?: number
-    afterTaxCostOfDebt?: number
-    debtWeight?: number
-    equityWeight?: number
-    wacc?: number
-    unleveredBeta?: number
-    releveredBeta?: number
-    warnings?: string[]
-  }
-  dcf?: {
-    valuationYears?: ValuationYear[]
-    pvExplicitFcff?: number
-    terminalValueGordonGrowth?: number | null
-    pvTerminalValue?: number | null
-    enterpriseValue?: number | null
-    totalDebt?: number
-    cash?: number
-    netDebt?: number
-    equityValue?: number | null
-    impliedEvEbitda?: number | null
-    terminalGrowthRate?: number
-    wacc?: number
-    terminalValueShareOfEnterpriseValue?: number | null
-    exitMultipleTerminalValue?: number | null
-    impliedExitMultiple?: number | null
-    warnings?: string[]
-  }
-  sensitivity?: SensitivityPoint[]
-  sanityChecks?: SanityCheck[]
-  warnings?: string[]
-}
+import type { FinancialAnalysisResponse, ValuationOutput } from '../market-watch/types'
 
 function formatHKD(value?: number | null) {
   if (value === undefined || value === null || Number.isNaN(value)) return 'N/A'
@@ -98,6 +27,11 @@ function statusVariant(status?: string | null): 'signal' | 'caution' | 'neutral'
   if (status === 'pass') return 'signal'
   if (status === 'warning' || status === 'fail') return 'caution'
   return 'neutral'
+}
+
+function assumptionNumber(valuation: ValuationOutput, key: string) {
+  const value = valuation.assumptions?.[key]
+  return typeof value === 'number' ? value : null
 }
 
 export default function ValuationPage() {
@@ -158,14 +92,18 @@ export default function ValuationPage() {
     )
   }
 
-  const valuation = ((analysis as unknown as { valuation?: ValuationShape }).valuation ?? {}) as ValuationShape
+  const valuation = analysis.valuation ?? {}
   const snapshot = analysis.snapshot
   const dcf = valuation.dcf
   const wacc = valuation.wacc
-  const assumptions = valuation.assumptions
   const valuationYears = dcf?.valuationYears ?? []
   const sensitivity = valuation.sensitivity ?? []
   const sanityChecks = valuation.sanityChecks ?? []
+  const modelWarnings = [
+    ...(valuation.warnings ?? []),
+    ...(dcf?.warnings ?? []),
+    ...(wacc?.warnings ?? []),
+  ]
   const isPreview = Boolean(snapshot.metadata?.preview_only || snapshot.metadata?.previewOnly || snapshot.metadata?.source === 'data_room_workspace_preview')
 
   return (
@@ -252,8 +190,8 @@ export default function ValuationPage() {
               ['After-tax debt cost', formatPercent(wacc?.afterTaxCostOfDebt)],
               ['Debt weight', formatPercent(wacc?.debtWeight)],
               ['Equity weight', formatPercent(wacc?.equityWeight)],
-              ['Risk-free rate', formatPercent(assumptions?.riskFreeRate)],
-              ['Terminal growth', formatPercent(assumptions?.terminalGrowthRate)],
+              ['Risk-free rate', formatPercent(assumptionNumber(valuation, 'riskFreeRate'))],
+              ['Terminal growth', formatPercent(assumptionNumber(valuation, 'terminalGrowthRate'))],
             ].map(([label, value]) => (
               <div key={label} className="rounded-xl border border-white/60 bg-white/45 px-4 py-3">
                 <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">{label}</p>
@@ -318,7 +256,7 @@ export default function ValuationPage() {
             </div>
             <div className="space-y-3">
               {sensitivity.slice(0, 5).map((point, idx) => (
-                <div key={idx} className="grid grid-cols-3 gap-2 rounded-xl border border-white/60 bg-white/45 px-4 py-3 text-xs">
+                <div key={`${point.wacc}-${point.terminalGrowthRate}-${idx}`} className="grid grid-cols-3 gap-2 rounded-xl border border-white/60 bg-white/45 px-4 py-3 text-xs">
                   <span className="font-semibold text-softform-navy-950/80">{formatPercent(point.wacc)}</span>
                   <span className="font-semibold text-softform-navy-950/80">g {formatPercent(point.terminalGrowthRate)}</span>
                   <span className="text-right font-black text-softform-navy-950 tabular-finance">{formatHKD(point.enterpriseValue)}</span>
@@ -351,13 +289,13 @@ export default function ValuationPage() {
         )}
       </section>
 
-      {(valuation.warnings?.length || dcf?.warnings?.length || wacc?.warnings?.length) && (
+      {modelWarnings.length > 0 && (
         <section className="rounded-[24px] border border-softform-amber-300/25 bg-softform-cream/35 p-5 shadow-soft-inner">
           <div className="flex items-start gap-3">
             <AlertTriangle size={18} className="mt-0.5 shrink-0 text-softform-amber-500" />
             <div className="space-y-2">
               <p className="text-sm font-bold text-softform-navy-950">Model Warnings</p>
-              {[...(valuation.warnings ?? []), ...(dcf?.warnings ?? []), ...(wacc?.warnings ?? [])].slice(0, 5).map((warning, idx) => (
+              {modelWarnings.slice(0, 5).map((warning, idx) => (
                 <p key={idx} className="text-xs leading-relaxed text-softform-text-secondary">{warning}</p>
               ))}
             </div>
