@@ -473,6 +473,56 @@ export interface ReceivablesAging {
   days90Plus: number
 }
 
+
+// ------------------------------------------------------------------
+// Cross-border Funding Context v1 types
+// ------------------------------------------------------------------
+
+export type CrossBorderSpreadBand = 'hkd_advantage' | 'rmb_advantage' | 'balanced' | 'unavailable'
+export type CrossBorderFxRiskBand = 'low' | 'moderate' | 'elevated' | 'unavailable'
+export type CrossBorderReviewBand = 'worth_reviewing' | 'monitor' | 'not_priority' | 'unavailable'
+
+export interface CrossBorderFundingReference {
+  label: string
+  currency: 'HKD' | 'RMB'
+  value?: number | null
+  unit: 'basis_points' | 'days' | 'percent' | 'price' | 'ratio' | 'text' | 'index'
+  displayValue: string
+  source: string
+}
+
+export interface CrossBorderFundingComponent {
+  label: string
+  value?: string | null
+  signal: string
+  explanation: string
+}
+
+export interface CrossBorderFundingProvenance {
+  source: string
+  provider: string
+  asOf?: string | null
+  freshness: FreshnessStatus
+}
+
+export interface CrossBorderFundingContextResponse {
+  mode: 'context_only'
+  baseCurrency: 'HKD'
+  comparisonCurrency: 'RMB'
+  hkdFundingReference: CrossBorderFundingReference
+  rmbFundingReference: CrossBorderFundingReference
+  spreadBps?: number | null
+  spreadBand: CrossBorderSpreadBand
+  fxRiskBand: CrossBorderFxRiskBand
+  crossBorderReviewBand: CrossBorderReviewBand
+  explanation: string
+  components: CrossBorderFundingComponent[]
+  provenance: CrossBorderFundingProvenance
+  source: CrossBorderFundingProvenance
+  warnings: string[]
+  disclaimer: string
+}
+
 // ------------------------------------------------------------------
 // Funding Channel Ranking v1 types
 // ------------------------------------------------------------------

@@ -14,6 +14,7 @@ import {
   getTimingSignal,
   getIndustryHealth,
   getFundingChannelRanking,
+  getCrossBorderFundingContext,
   getSectorBenchmarks,
   getStressSignals,
   refreshData,
@@ -59,6 +60,7 @@ import {
   TimingSignalResponse,
   IndustryHealthResponse,
   FundingChannelRankingResponse,
+  CrossBorderFundingContextResponse,
 } from './types'
 
 export type RatesSourceInfo = {
@@ -147,6 +149,7 @@ export default function MarketWatchPage() {
   const [timingSignal, setTimingSignal] = useState<TimingSignalResponse | null>(null)
   const [industryHealth, setIndustryHealth] = useState<IndustryHealthResponse | null>(null)
   const [fundingChannelRanking, setFundingChannelRanking] = useState<FundingChannelRankingResponse | null>(null)
+  const [crossBorderFundingContext, setCrossBorderFundingContext] = useState<CrossBorderFundingContextResponse | null>(null)
 
   useEffect(() => {
     setWorkspaceAnalysisContext(loadWorkspaceAnalysisContext())
@@ -199,6 +202,7 @@ export default function MarketWatchPage() {
           timingSignalRes,
           industryHealthRes,
           fundingChannelRankingRes,
+          crossBorderFundingContextRes,
         ] = await Promise.all([
           getFinancialDemoAnalysis(),
           getMarketOverview(),
@@ -211,6 +215,7 @@ export default function MarketWatchPage() {
           getTimingSignal(),
           getIndustryHealth(),
           getFundingChannelRanking(),
+          getCrossBorderFundingContext(),
         ])
 
         const isFallback = !financialsRes
@@ -376,6 +381,7 @@ export default function MarketWatchPage() {
         setTimingSignal(timingSignalRes)
         setIndustryHealth(industryHealthRes)
         setFundingChannelRanking(fundingChannelRankingRes)
+        setCrossBorderFundingContext(crossBorderFundingContextRes)
         setLastRefreshed(new Date())
 
         const activeWorkspaceContext = loadWorkspaceAnalysisContext()
@@ -758,6 +764,7 @@ export default function MarketWatchPage() {
                     profile={companyContext?.profile}
                     insights={insights || undefined}
                     loading={cardLoadState !== 'idle'}
+                    crossBorderFundingContext={crossBorderFundingContext}
                   />
                 )}
                 {activeTab === 'sectors' && (

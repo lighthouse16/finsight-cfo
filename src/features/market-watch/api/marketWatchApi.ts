@@ -32,6 +32,7 @@ import {
   TimingSignalResponse,
   IndustryHealthResponse,
   FundingChannelRankingResponse,
+  CrossBorderFundingContextResponse,
 } from '../types'
 
 const API_BASE_URL =
@@ -522,6 +523,65 @@ export async function getFundingChannelRanking(): Promise<FundingChannelRankingR
       },
       warnings: ['Backend funding channel ranking endpoint unavailable.'],
       disclaimer: 'Channel ranking is context-only for planning support. Not a financing instruction.',
+    }
+  }
+}
+
+export async function getCrossBorderFundingContext(): Promise<CrossBorderFundingContextResponse> {
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/api/market-watch/cross-border-funding-context`,
+      { signal: AbortSignal.timeout(5000) },
+    )
+
+    if (!res.ok) {
+      throw new Error(`Backend returned ${res.status}`)
+    }
+
+    const body = await res.json()
+    return {
+      ...body,
+      provenance: body.provenance ?? body.source,
+      warnings: body.warnings ?? [],
+    } as CrossBorderFundingContextResponse
+  } catch {
+    await delay(200)
+    const provenance = {
+      source: 'local_fallback',
+      provider: 'Local fallback',
+      asOf: null,
+      freshness: 'Workspace' as const,
+    }
+    return {
+      mode: 'context_only',
+      baseCurrency: 'HKD',
+      comparisonCurrency: 'RMB',
+      hkdFundingReference: {
+        label: 'HIBOR reference unavailable',
+        currency: 'HKD',
+        value: null,
+        unit: 'percent',
+        displayValue: 'Unavailable',
+        source: 'Local fallback',
+      },
+      rmbFundingReference: {
+        label: 'LPR-style RMB fixture reference',
+        currency: 'RMB',
+        value: null,
+        unit: 'percent',
+        displayValue: 'Unavailable',
+        source: 'Workspace fixture pending provider integration',
+      },
+      spreadBps: null,
+      spreadBand: 'unavailable',
+      fxRiskBand: 'unavailable',
+      crossBorderReviewBand: 'unavailable',
+      explanation: 'Cross-border funding context is unavailable because the backend endpoint could not be reached.',
+      components: [],
+      provenance,
+      source: provenance,
+      warnings: ['Backend cross-border funding context endpoint unavailable.'],
+      disclaimer: 'Cross-border funding context is for planning support only. Not a financing recommendation, arbitrage instruction, or lending decision.',
     }
   }
 }

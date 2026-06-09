@@ -188,6 +188,53 @@ class FundingChannelRankingResponse(BaseModel):
     warnings: List[str] = Field(default_factory=list)
     disclaimer: str
 
+
+CrossBorderSpreadBand = Literal["hkd_advantage", "rmb_advantage", "balanced", "unavailable"]
+CrossBorderFxRiskBand = Literal["low", "moderate", "elevated", "unavailable"]
+CrossBorderReviewBand = Literal["worth_reviewing", "monitor", "not_priority", "unavailable"]
+
+
+class CrossBorderFundingReference(BaseModel):
+    label: str
+    currency: str
+    value: Optional[float] = None
+    unit: Unit
+    displayValue: str
+    source: str
+
+
+class CrossBorderFundingComponent(BaseModel):
+    label: str
+    value: Optional[str] = None
+    signal: str
+    explanation: str
+
+
+class CrossBorderFundingProvenance(BaseModel):
+    source: str
+    provider: str
+    asOf: Optional[str] = None
+    freshness: FreshnessStatus
+
+
+class CrossBorderFundingContextResponse(BaseModel):
+    mode: Literal["context_only"] = "context_only"
+    baseCurrency: Literal["HKD"] = "HKD"
+    comparisonCurrency: Literal["RMB"] = "RMB"
+    hkdFundingReference: CrossBorderFundingReference
+    rmbFundingReference: CrossBorderFundingReference
+    spreadBps: Optional[float] = None
+    spreadBand: CrossBorderSpreadBand
+    fxRiskBand: CrossBorderFxRiskBand
+    crossBorderReviewBand: CrossBorderReviewBand
+    explanation: str
+    components: List[CrossBorderFundingComponent]
+    provenance: CrossBorderFundingProvenance
+    source: CrossBorderFundingProvenance
+    warnings: List[str] = Field(default_factory=list)
+    disclaimer: str
+
+
 class MarketWatchError(BaseModel):
     code: str
     message: str

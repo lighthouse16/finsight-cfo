@@ -26,7 +26,11 @@ from app.models.market_watch import (
     StressScenario,
     RequiredDataItem,
     StressWatchSignal,
-    StressSignalsResponse
+    StressSignalsResponse,
+    CrossBorderFundingContextResponse,
+    CrossBorderFundingReference,
+    CrossBorderFundingComponent,
+    CrossBorderFundingProvenance,
 )
 
 def get_rates_liquidity_fixture() -> RatesLiquidityResponse:
@@ -866,6 +870,101 @@ def get_stress_signals_fixture(company_id: Optional[str] = None, sector: Optiona
         requiredData=required_data,
         watchSignals=watch_signals,
         sourceStatus=source_status
+    )
+
+
+def get_cross_border_funding_context_fixture() -> CrossBorderFundingContextResponse:
+    now = datetime.utcnow().isoformat() + "Z"
+
+    hkd_reference = CrossBorderFundingReference(
+        label="HIBOR 1M (fixture)",
+        currency="HKD",
+        value=4.20,
+        unit="percent",
+        displayValue="4.20%",
+        source="Fixtures — real provider pending",
+    )
+
+    rmb_reference = CrossBorderFundingReference(
+        label="LPR 1Y (fixture proxy)",
+        currency="RMB",
+        value=3.45,
+        unit="percent",
+        displayValue="3.45%",
+        source="Fixture placeholder — LPR provider pending",
+    )
+
+    spread_bps = round((4.20 - 3.45) * 100, 1)  # +75.0 bps
+
+    provenance = CrossBorderFundingProvenance(
+        source="market_watch_cross_border_funding_context_v1",
+        provider="FinSight CFO Market Watch",
+        asOf=None,
+        freshness="Workspace",
+    )
+
+    return CrossBorderFundingContextResponse(
+        mode="context_only",
+        baseCurrency="HKD",
+        comparisonCurrency="RMB",
+        hkdFundingReference=hkd_reference,
+        rmbFundingReference=rmb_reference,
+        spreadBps=spread_bps,
+        spreadBand="hkd_advantage",
+        fxRiskBand="elevated",
+        crossBorderReviewBand="worth_reviewing",
+        explanation=(
+            "Harbour & Finch Trading Ltd.'s cross-border funding context review: "
+            "HIBOR 1M (fixture) at 4.20% vs LPR 1Y (fixture proxy) at 3.45% "
+            "spread of +75.0 bps indicates HKD-funding is materially more expensive "
+            "on a rate basis. Combined with elevated FX exposure and import-cost context, "
+            "cross-border funding review may be worth considering. "
+            "Production company records and lender consultation are required "
+            "before any financing decision."
+        ),
+        components=[
+            CrossBorderFundingComponent(
+                signal="hkdFundingRate",
+                label="HKD funding reference",
+                value="4.20%",
+                explanation="HIBOR 1M (fixture) as HKD reference rate. Source: Fixtures — real provider pending.",
+            ),
+            CrossBorderFundingComponent(
+                signal="rmbFundingRate",
+                label="RMB funding reference",
+                value="3.45%",
+                explanation="LPR 1Y proxy (fixture placeholder) at 3.45% as RMB reference. Source: Fixture placeholder — LPR provider pending.",
+            ),
+            CrossBorderFundingComponent(
+                signal="rateSpread",
+                label="Rate spread",
+                value="+75.0 bps",
+                explanation="Spread band: hkd advantage. Positive spread = HKD more expensive; negative = RMB more expensive.",
+            ),
+            CrossBorderFundingComponent(
+                signal="fxRiskBand",
+                label="FX risk context",
+                value="elevated",
+                explanation="USD import costs at 72% of COGS, CNY payables at 38% of payables (workspace-derived).",
+            ),
+            CrossBorderFundingComponent(
+                signal="reviewSignal",
+                label="Cross-border review signal",
+                value="worth reviewing",
+                explanation="Cross-border funding review may be worth considering if rate spread and FX exposure both signal opportunity.",
+            ),
+        ],
+        provenance=provenance,
+        source=provenance,
+        warnings=[
+            "Cross-border Funding Context v1 is fixture/workspace-derived. "
+            "LPR reference is a fixture placeholder pending provider connection.",
+            "LPR reference is a fixture placeholder. Production LPR provider integration required for actual rates.",
+        ],
+        disclaimer=(
+            "Cross-border funding context is for planning support only. "
+            "Not a financing recommendation, arbitrage instruction, or lending decision."
+        ),
     )
 
 

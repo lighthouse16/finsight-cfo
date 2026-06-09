@@ -1,5 +1,5 @@
 import { ArrowDownRight, ArrowRight, ArrowUpRight } from 'lucide-react'
-import { ExposureNote, FxPair, GbaFundingSignal, CompanyProfile } from '../types'
+import { ExposureNote, FxPair, GbaFundingSignal, CompanyProfile, CrossBorderFundingContextResponse } from '../types'
 import { FxSourceInfo } from '../MarketWatchPage'
 import clsx from 'clsx'
 import { MarketWatchInsightSet } from '../insights/types'
@@ -7,6 +7,7 @@ import LoadingState from './LoadingState'
 import SourceInfoTooltip from './SourceInfoTooltip'
 import MotionStagger from './MotionStagger'
 import MotionReveal from './MotionReveal'
+import CrossBorderFundingContextCard from './CrossBorderFundingContextCard'
 
 type FxGbaTabProps = {
   fxPairs: FxPair[]
@@ -16,6 +17,7 @@ type FxGbaTabProps = {
   profile?: CompanyProfile | null
   insights?: MarketWatchInsightSet
   loading?: boolean
+  crossBorderFundingContext?: CrossBorderFundingContextResponse | null
 }
 
 export default function FxGbaTab({
@@ -25,6 +27,7 @@ export default function FxGbaTab({
   profile,
   insights,
   loading,
+  crossBorderFundingContext,
 }: FxGbaTabProps) {
 
   if (loading) {
@@ -58,6 +61,10 @@ export default function FxGbaTab({
 
   return (
     <MotionStagger className="space-y-8">
+      <MotionReveal>
+        <CrossBorderFundingContextCard context={crossBorderFundingContext ?? null} />
+      </MotionReveal>
+
       {/* 1. FX Reference Rates */}
       <MotionReveal>
         <div className="space-y-4">
