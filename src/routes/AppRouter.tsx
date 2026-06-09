@@ -42,6 +42,7 @@ const FundingStrategyPage = lazy(
 const ValuationPage = lazy(
   () => import('../features/valuation/ValuationPage'),
 )
+const ReportsPage = lazy(() => import('../features/reports/ReportsPage'))
 const DataRoomPage = lazy(() => import('../features/data-room/DataRoomPage'))
 
 type PlatformRoute = {
@@ -141,7 +142,7 @@ const platformRoutes: PlatformRoute[] = [
       'Generate CFO snapshots, funding-readiness summaries, and lender-facing reports.',
     icon: FileText,
     modulePurpose:
-      'Reports will generate CFO snapshots, funding-readiness summaries, and lender-facing documents from your workspace data.',
+      'Reports generate CFO snapshots, funding-readiness summaries, and lender-facing documents from your workspace data.',
   },
   {
     path: 'settings',
@@ -216,6 +217,10 @@ function renderPlatformRoute(route: PlatformRoute) {
       <ValuationPage />,
       'Loading valuation model...',
     )
+  }
+
+  if (route.path === 'reports') {
+    return withShellFallback(<ReportsPage />, 'Preparing CFO report...')
   }
 
   if (route.path === 'advisory-blueprint') {
