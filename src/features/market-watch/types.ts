@@ -691,13 +691,110 @@ export interface FinancialAnalysisSummary {
   disclaimer?: string
 }
 
+export interface ReceivablesRiskDiagnostic {
+  zone?: string | null
+  eclRatio?: number | null
+  warning?: string | null
+}
+
+export interface AltmanZScoreDiagnostic {
+  value?: number | null
+  band?: string | null
+  methodologyLabel?: string | null
+  warning?: string | null
+}
+
+export interface RiskDiagnostics {
+  altmanZScore?: AltmanZScoreDiagnostic | null
+  receivablesRisk?: ReceivablesRiskDiagnostic | null
+  warnings?: string[]
+}
+
+export interface ProjectedValuationYear {
+  year: number
+  revenue?: number | null
+  ebit?: number | null
+  nopat?: number | null
+  capex?: number | null
+  depreciationAmortization?: number | null
+  changeInNwc?: number | null
+  fcffPrimary?: number | null
+  fcfePrimary?: number | null
+}
+
+export interface ProjectionOutput {
+  projectedYears: ProjectedValuationYear[]
+  warnings?: string[]
+}
+
+export interface WaccOutput {
+  costOfEquity?: number | null
+  preTaxCostOfDebt?: number | null
+  afterTaxCostOfDebt?: number | null
+  debtWeight?: number | null
+  equityWeight?: number | null
+  wacc?: number | null
+  unleveredBeta?: number | null
+  releveredBeta?: number | null
+  warnings?: string[]
+}
+
+export interface DcfValuationYear {
+  year: number
+  fcff: number
+  discountFactor: number
+  pvFcff: number
+}
+
+export interface DcfOutput {
+  valuationYears?: DcfValuationYear[]
+  pvExplicitFcff?: number | null
+  terminalValueGordonGrowth?: number | null
+  pvTerminalValue?: number | null
+  enterpriseValue?: number | null
+  totalDebt?: number | null
+  cash?: number | null
+  netDebt?: number | null
+  equityValue?: number | null
+  impliedEvEbitda?: number | null
+  terminalGrowthRate?: number | null
+  wacc?: number | null
+  terminalValueShareOfEnterpriseValue?: number | null
+  exitMultipleTerminalValue?: number | null
+  impliedExitMultiple?: number | null
+  warnings?: string[]
+}
+
+export interface ValuationSensitivityPoint {
+  wacc: number
+  terminalGrowthRate: number
+  enterpriseValue?: number | null
+  equityValue?: number | null
+}
+
+export interface ValuationSanityCheck {
+  name: string
+  status: string
+  message: string
+  value?: number | null
+}
+
+export interface ValuationOutput {
+  assumptions?: Record<string, number | string | null>
+  wacc?: WaccOutput | null
+  dcf?: DcfOutput | null
+  sensitivity?: ValuationSensitivityPoint[]
+  sanityChecks?: ValuationSanityCheck[]
+  warnings?: string[]
+}
+
 export interface FinancialAnalysisResponse {
   snapshot: CompanyFinancialSnapshot
   integrityChecks: IntegrityCheckResult[]
   ratios: FinancialRatios
   summary?: FinancialAnalysisSummary | null
+  riskDiagnostics?: RiskDiagnostics | null
+  projections?: ProjectionOutput | null
+  valuation?: ValuationOutput | null
   warnings: string[]
 }
-
-
-
