@@ -29,6 +29,9 @@ const MarketWatchPage = lazy(
 const AdvisoryBlueprintPage = lazy(
   () => import('../features/advisory-blueprint/AdvisoryBlueprintPage'),
 )
+const CreditReadinessPage = lazy(
+  () => import('../features/credit-readiness/CreditReadinessPage'),
+)
 const DataRoomPage = lazy(() => import('../features/data-room/DataRoomPage'))
 
 type PlatformRoute = {
@@ -83,7 +86,7 @@ const platformRoutes: PlatformRoute[] = [
       'See how your financial profile may appear before lender conversations.',
     icon: ShieldCheck,
     modulePurpose:
-      'Credit Readiness will help you understand how your financial profile may be perceived in lender conversations, based on available records.',
+      'Credit Readiness helps you understand how your financial profile may be perceived in lender conversations, using the explainable PD proxy scorecard.',
   },
   {
     path: 'funding-strategy',
@@ -170,6 +173,13 @@ function renderPlatformRoute(route: PlatformRoute) {
     return withShellFallback(
       <MarketWatchPage />,
       'Loading market intelligence...',
+    )
+  }
+
+  if (route.path === 'credit-readiness') {
+    return withShellFallback(
+      <CreditReadinessPage />,
+      'Loading credit readiness...',
     )
   }
 
