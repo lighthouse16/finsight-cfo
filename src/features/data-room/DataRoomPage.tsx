@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import PageHeader from '../../components/platform/PageHeader'
 import StatusChip from '../../components/platform/StatusChip'
+import DemoFlowRail from '../../components/platform/DemoFlowRail'
 import SourceInfoTooltip from '../market-watch/components/SourceInfoTooltip'
 import {
   activateDataRoomWorkspacePreviewContext,
@@ -463,7 +464,10 @@ export default function DataRoomPage() {
         )}
       </AnimatePresence>
 
-      {/* 2. Data Readiness Overview */}
+      {/* 2. Demo Flow Rail */}
+      <DemoFlowRail />
+
+      {/* 3. Data Readiness Overview */}
       <section className="grid gap-4 sm:grid-cols-4">
         <div className="softform-card rounded-[22px] p-5 space-y-2 hover-lift">
           <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted/90">
@@ -928,7 +932,7 @@ export default function DataRoomPage() {
         <div className="space-y-1.5 text-center sm:text-left max-w-2xl">
           <h3 className="font-bold text-softform-navy-950 text-base">Explore Workspace Modules</h3>
           <p className="text-xs leading-relaxed text-softform-text-secondary">
-            The Data Room is the primary source of company records. Connect records to transition from demo context to production-ready analysis in other modules.
+            After previewing records here, review context-only market signals and the advisory readiness brief.
           </p>
         </div>
         <div className="flex gap-3.5 shrink-0 w-full sm:w-auto justify-center sm:justify-end">

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import clsx from 'clsx'
 import { useSearchParams, Link } from 'react-router-dom'
 import PageHeader from '../../components/platform/PageHeader'
+import DemoFlowRail from '../../components/platform/DemoFlowRail'
 import InfoTooltip from '../../components/ui/InfoTooltip'
 import {
   getCommodities,
@@ -631,6 +632,9 @@ export default function MarketWatchPage() {
         }
       />
 
+      {/* Demo Flow Rail */}
+      <DemoFlowRail />
+
       {workspaceAnalysisContext && (
         <div className="mb-6 rounded-[22px] border border-softform-aqua-300/25 bg-softform-mist-100/45 px-5 py-4 shadow-soft-inner">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -809,7 +813,7 @@ export default function MarketWatchPage() {
           {/* Subtle CTA to Data Room */}
           <div className="mt-8 pt-6 border-t border-softform-navy-950/5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
             <span className="text-softform-text-muted leading-relaxed">
-              Company records improve the precision of financial context. Connect records to transition from demo context to production-ready analysis.
+              Market Watch signals use provider-backed, workspace-derived, and fixture-backed context. Company records improve precision for transition to production-ready analysis.
             </span>
             <Link
               to="/platform/data-room"

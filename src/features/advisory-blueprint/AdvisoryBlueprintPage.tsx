@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import PageHeader from '../../components/platform/PageHeader'
 import StatusChip from '../../components/platform/StatusChip'
+import DemoFlowRail from '../../components/platform/DemoFlowRail'
 import SourceInfoTooltip from '../market-watch/components/SourceInfoTooltip'
 import {
   getAdvisoryBlueprint,
@@ -209,6 +210,9 @@ export default function AdvisoryBlueprintPage() {
           </StatusChip>
         }
       />
+
+      {/* Demo Flow Rail */}
+      <DemoFlowRail />
 
       {workspaceAnalysisContext && (
         <div className="rounded-[22px] border border-softform-aqua-300/25 bg-softform-mist-100/45 px-5 py-4 shadow-soft-inner">
@@ -758,7 +762,7 @@ export default function AdvisoryBlueprintPage() {
         <div className="space-y-1.5 text-center sm:text-left max-w-2xl">
           <p className="font-bold text-softform-navy-950 text-base">Advisory Planning Context</p>
           <p className="text-xs leading-relaxed text-softform-text-secondary">
-            Blueprint uses demo analysis until production records are connected in the Data Room.
+            Blueprint uses context-only demo analysis and Data Room preview context when available. Production records are required for a record-backed advisory.
           </p>
         </div>
         <div className="flex gap-3.5 shrink-0 w-full sm:w-auto justify-center sm:justify-end">
