@@ -32,6 +32,9 @@ const AdvisoryBlueprintPage = lazy(
 const CreditReadinessPage = lazy(
   () => import('../features/credit-readiness/CreditReadinessPage'),
 )
+const FundingStrategyPage = lazy(
+  () => import('../features/funding-strategy/FundingStrategyPage'),
+)
 const DataRoomPage = lazy(() => import('../features/data-room/DataRoomPage'))
 
 type PlatformRoute = {
@@ -95,7 +98,7 @@ const platformRoutes: PlatformRoute[] = [
       'Compare timing, channels, approval fit, loan structure, and stress scenarios.',
     icon: Landmark,
     modulePurpose:
-      'Funding Strategy will help compare timing, channels, structure options, and stress scenarios to support funding decisions.',
+      'Funding Strategy compares channel ranking, candidate facility structures, readiness context, and cross-border funding signals.',
   },
   {
     path: 'advisory-blueprint',
@@ -180,6 +183,13 @@ function renderPlatformRoute(route: PlatformRoute) {
     return withShellFallback(
       <CreditReadinessPage />,
       'Loading credit readiness...',
+    )
+  }
+
+  if (route.path === 'funding-strategy') {
+    return withShellFallback(
+      <FundingStrategyPage />,
+      'Loading funding strategy...',
     )
   }
 
