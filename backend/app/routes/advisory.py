@@ -3,6 +3,7 @@ from pydantic import ValidationError
 from app.models.advisory import (
     HardGatePrecheckResult,
     UnifiedRiskScoreResult,
+    CreditScoringResult,
     StressTestingResponse,
     FacilityStructuringResponse,
     AdvisoryBlueprintResponse
@@ -12,6 +13,7 @@ from app.routes.data_room import get_active_workspace_preview_context
 from app.routes.financials import get_demo_analysis, _build_financial_analysis_response
 from app.services.advisory.hard_gate_engine import build_hard_gate_precheck
 from app.services.advisory.risk_score_engine import build_unified_risk_score
+from app.services.advisory.credit_scoring_engine import build_credit_scoring_result
 from app.services.advisory.stress_testing_engine import build_demo_stress_tests
 from app.services.advisory.facility_structuring_engine import build_facility_structuring
 from app.services.advisory.blueprint_engine import build_advisory_blueprint
@@ -83,6 +85,28 @@ def get_demo_risk_score():
     analysis = _get_active_or_demo_analysis()
     precheck = build_hard_gate_precheck(analysis)
     return build_unified_risk_score(analysis, precheck)
+
+
+@router.get("/credit-score", response_model=CreditScoringResult)
+def get_credit_score():
+    """
+    Produces a finance-first, explainable PD / credit scoring foundation using
+    ratios, receivables diagnostics, FCFF/valuation context, and stress overlay.
+
+    This endpoint uses the active Data Room preview context when available and
+    falls back to demo financials when no preview has been activated.
+    """
+    analysis = _get_active_or_demo_analysis()
+    return build_credit_scoring_result(analysis)
+
+
+@router.get("/demo-credit-score", response_model=CreditScoringResult)
+def get_demo_credit_score():
+    """
+    Backward-compatible demo alias for /credit-score.
+    """
+    analysis = _get_active_or_demo_analysis()
+    return build_credit_scoring_result(analysis)
 
 
 @router.get("/demo-stress-tests", response_model=StressTestingResponse)
