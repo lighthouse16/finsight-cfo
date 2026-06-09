@@ -33,16 +33,13 @@ def _score_by_thresholds(
     if value is None:
         return 35, "unavailable", unavailable_message
 
-    ordered = thresholds if higher_is_better else list(reversed(thresholds))
-    for threshold, score, band, message in ordered:
+    for threshold, score, band, message in thresholds:
         if higher_is_better and value >= threshold:
             return score, band, message
         if not higher_is_better and value <= threshold:
             return score, band, message
 
-    if higher_is_better:
-        return thresholds[-1][1], thresholds[-1][2], thresholds[-1][3]
-    return thresholds[0][1], thresholds[0][2], thresholds[0][3]
+    return thresholds[-1][1], thresholds[-1][2], thresholds[-1][3]
 
 
 def _band_from_score(score: int) -> PdRiskTier:
@@ -228,6 +225,8 @@ def build_credit_scoring_result(analysis: FinancialAnalysisResponse) -> CreditSc
     )
     if dscr is not None and dscr < 1.0:
         hard_constraints.append("DSCR below 1.0x indicates repayment capacity stress under current assumptions.")
+    elif dscr is not None and dscr < 1.1:
+        hard_constraints.append("DSCR below 1.1x is a bank-review watch threshold and should be supported by refreshed cash-flow evidence.")
     factors.append(
         _make_factor(
             key="coverage",
@@ -292,7 +291,7 @@ def build_credit_scoring_result(analysis: FinancialAnalysisResponse) -> CreditSc
             cashflow_message = "Projected FCFF is mixed but generally serviceable under assumptions."
         elif ratio_positive >= 0.4:
             cashflow_score = 50
-            cashflow_message = "Projected FCFF is volatile and should be monitored." 
+            cashflow_message = "Projected FCFF is volatile and should be monitored."
         else:
             cashflow_score = 30
             cashflow_message = "Projected FCFF is weak or negative across most forecast years."
