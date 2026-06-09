@@ -15,6 +15,7 @@ import {
   getIndustryHealth,
   getFundingChannelRanking,
   getCrossBorderFundingContext,
+  getRedFlagsMacroSummary,
   getSectorBenchmarks,
   getStressSignals,
   refreshData,
@@ -61,6 +62,7 @@ import {
   IndustryHealthResponse,
   FundingChannelRankingResponse,
   CrossBorderFundingContextResponse,
+  RedFlagsMacroSummaryResponse,
 } from './types'
 
 export type RatesSourceInfo = {
@@ -150,6 +152,7 @@ export default function MarketWatchPage() {
   const [industryHealth, setIndustryHealth] = useState<IndustryHealthResponse | null>(null)
   const [fundingChannelRanking, setFundingChannelRanking] = useState<FundingChannelRankingResponse | null>(null)
   const [crossBorderFundingContext, setCrossBorderFundingContext] = useState<CrossBorderFundingContextResponse | null>(null)
+  const [redFlagsMacroSummary, setRedFlagsMacroSummary] = useState<RedFlagsMacroSummaryResponse | null>(null)
 
   useEffect(() => {
     setWorkspaceAnalysisContext(loadWorkspaceAnalysisContext())
@@ -203,6 +206,7 @@ export default function MarketWatchPage() {
           industryHealthRes,
           fundingChannelRankingRes,
           crossBorderFundingContextRes,
+          redFlagsMacroSummaryRes,
         ] = await Promise.all([
           getFinancialDemoAnalysis(),
           getMarketOverview(),
@@ -216,6 +220,7 @@ export default function MarketWatchPage() {
           getIndustryHealth(),
           getFundingChannelRanking(),
           getCrossBorderFundingContext(),
+          getRedFlagsMacroSummary(),
         ])
 
         const isFallback = !financialsRes
@@ -382,6 +387,7 @@ export default function MarketWatchPage() {
         setIndustryHealth(industryHealthRes)
         setFundingChannelRanking(fundingChannelRankingRes)
         setCrossBorderFundingContext(crossBorderFundingContextRes)
+        setRedFlagsMacroSummary(redFlagsMacroSummaryRes)
         setLastRefreshed(new Date())
 
         const activeWorkspaceContext = loadWorkspaceAnalysisContext()
@@ -743,6 +749,7 @@ export default function MarketWatchPage() {
                     loading={cardLoadState !== 'idle'}
                     timingSignal={timingSignal}
                     fundingChannelRanking={fundingChannelRanking}
+                    redFlagsMacroSummary={redFlagsMacroSummary}
                   />
                 )}
                 {activeTab === 'rates' && (

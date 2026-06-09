@@ -12,7 +12,8 @@ from app.models.market_watch import (
     TimingSignalResponse,
     IndustryHealthResponse,
     FundingChannelRankingResponse,
-    CrossBorderFundingContextResponse
+    CrossBorderFundingContextResponse,
+    RedFlagsMacroSummaryResponse,
 )
 from app.services.market_watch.rates_liquidity_service import get_rates_liquidity
 from app.services.market_watch.fx_gba_service import get_fx_gba
@@ -24,6 +25,7 @@ from app.services.market_watch.timing_signal_service import get_timing_signal
 from app.services.market_watch.industry_health_service import get_industry_health
 from app.services.market_watch.funding_channel_ranking_service import get_funding_channel_ranking
 from app.services.market_watch.cross_border_funding_context_service import get_cross_border_funding_context
+from app.services.market_watch.red_flags_macro_summary_service import get_red_flags_macro_summary
 from app.services.market_watch.cache import cache
 
 router = APIRouter()
@@ -75,6 +77,10 @@ async def get_funding_channel_ranking_endpoint():
 @router.get("/cross-border-funding-context", response_model=CrossBorderFundingContextResponse)
 async def get_cross_border_funding_context_endpoint():
     return await get_cross_border_funding_context()
+
+@router.get("/red-flags-macro-summary", response_model=RedFlagsMacroSummaryResponse)
+async def get_red_flags_macro_summary_endpoint():
+    return await get_red_flags_macro_summary()
 
 @router.get("/source-status", response_model=ConsolidatedSourceStatusResponse)
 async def get_source_status_endpoint():

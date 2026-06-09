@@ -507,18 +507,67 @@ export interface CrossBorderFundingProvenance {
 
 export interface CrossBorderFundingContextResponse {
   mode: 'context_only'
-  baseCurrency: 'HKD'
-  comparisonCurrency: 'RMB'
+  baseCurrency: string
+  comparisonCurrency: string
   hkdFundingReference: CrossBorderFundingReference
   rmbFundingReference: CrossBorderFundingReference
-  spreadBps?: number | null
-  spreadBand: CrossBorderSpreadBand
-  fxRiskBand: CrossBorderFxRiskBand
-  crossBorderReviewBand: CrossBorderReviewBand
+  spreadBps: number | null
+  spreadBand: string
+  fxRiskBand: string
+  crossBorderReviewBand: string
   explanation: string
   components: CrossBorderFundingComponent[]
   provenance: CrossBorderFundingProvenance
   source: CrossBorderFundingProvenance
+  warnings: string[]
+  disclaimer: string
+}
+
+export type RedFlagSeverity = 'low' | 'moderate' | 'elevated' | 'stressed' | 'unavailable'
+export type RedFlagCategory = 'rates' | 'fx' | 'sector' | 'funding' | 'cross_border' | 'timing' | 'liquidity'
+export type SummaryBand = 'clear' | 'watch' | 'elevated' | 'stressed' | 'unavailable'
+
+export interface RedFlagProvenance {
+  source: string
+  provider: string
+  asOf?: string | null
+  freshness: FreshnessStatus
+}
+
+export interface RedFlagMitigant {
+  label: string
+  rationale: string
+  source: string
+}
+
+export interface RedFlagItem {
+  flagKey: string
+  label: string
+  severity: RedFlagSeverity
+  category: RedFlagCategory
+  signal: string
+  rationale: string
+  suggestedReviewAction: string
+  supportingSignals: string[]
+  source: string
+}
+
+export interface RedFlagsSummaryComponent {
+  label: string
+  value?: string | null
+  signal: string
+  explanation: string
+}
+
+export interface RedFlagsMacroSummaryResponse {
+  mode: 'context_only'
+  summaryBand: SummaryBand
+  headline: string
+  redFlags: RedFlagItem[]
+  mitigants: RedFlagMitigant[]
+  components: RedFlagsSummaryComponent[]
+  provenance: RedFlagProvenance
+  source: RedFlagProvenance
   warnings: string[]
   disclaimer: string
 }

@@ -1,5 +1,5 @@
 import { AlertCircle, ArrowUpRight, ShieldAlert, Zap } from 'lucide-react'
-import { MarketSignal, SourceStatusItem, CompanyProfile, TimingSignalResponse, FundingChannelRankingResponse } from '../types'
+import { MarketSignal, SourceStatusItem, CompanyProfile, TimingSignalResponse, FundingChannelRankingResponse, RedFlagsMacroSummaryResponse } from '../types'
 import { MarketWatchInsightSet } from '../insights/types'
 import LoadingState from './LoadingState'
 import SourceInfoTooltip from './SourceInfoTooltip'
@@ -8,6 +8,7 @@ import MotionStagger from './MotionStagger'
 import MotionReveal from './MotionReveal'
 import TimingSignalCard from './TimingSignalCard'
 import FundingChannelRankingCard from './FundingChannelRankingCard'
+import RedFlagsMacroSummaryCard from './RedFlagsMacroSummaryCard'
 
 type MarketPulseTabProps = {
   signals: MarketSignal[]
@@ -17,6 +18,7 @@ type MarketPulseTabProps = {
   loading?: boolean
   timingSignal?: TimingSignalResponse | null
   fundingChannelRanking?: FundingChannelRankingResponse | null
+  redFlagsMacroSummary?: RedFlagsMacroSummaryResponse | null
 }
 
 export default function MarketPulseTab({
@@ -26,6 +28,7 @@ export default function MarketPulseTab({
   loading,
   timingSignal,
   fundingChannelRanking,
+  redFlagsMacroSummary,
 }: MarketPulseTabProps) {
   // if loading, show contextual loading placeholders
   if (loading) {
@@ -80,6 +83,10 @@ export default function MarketPulseTab({
     <MotionStagger className="space-y-6">
       <MotionReveal>
         <TimingSignalCard signal={timingSignal ?? null} />
+      </MotionReveal>
+
+      <MotionReveal>
+        <RedFlagsMacroSummaryCard summary={redFlagsMacroSummary ?? null} />
       </MotionReveal>
 
       <MotionReveal>

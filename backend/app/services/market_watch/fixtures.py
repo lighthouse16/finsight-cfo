@@ -31,6 +31,11 @@ from app.models.market_watch import (
     CrossBorderFundingReference,
     CrossBorderFundingComponent,
     CrossBorderFundingProvenance,
+    RedFlagItem,
+    RedFlagMitigant,
+    RedFlagProvenance,
+    RedFlagsMacroSummaryResponse,
+    RedFlagsSummaryComponent,
 )
 
 def get_rates_liquidity_fixture() -> RatesLiquidityResponse:
@@ -968,4 +973,223 @@ def get_cross_border_funding_context_fixture() -> CrossBorderFundingContextRespo
     )
 
 
+def get_red_flags_macro_summary_fixture() -> RedFlagsMacroSummaryResponse:
+    """Return fixture-based Red Flags & Macro Risk Summary for demo/testing."""
+    flags = [
+        RedFlagItem(
+            flagKey="rates_red_flag",
+            label="Rates & Liquidity Context",
+            severity="moderate",
+            category="rates",
+            signal="Rates & liquidity context: moderate (HIBOR 1M at 4.25%)",
+            rationale=(
+                "HIBOR 1M at 4.25% is above the low threshold. "
+                "Monitor rate sensitivity on floating-rate facilities."
+            ),
+            suggestedReviewAction=(
+                "Review floating-rate exposure and debt-service coverage "
+                "under a moderate rate-shock scenario."
+            ),
+            supportingSignals=["HIBOR 1M: 4.25%", "HIBOR trend: flat"],
+            source="rates_liquidity_v1",
+        ),
+        RedFlagItem(
+            flagKey="fx_red_flag",
+            label="FX & Currency Context",
+            severity="moderate",
+            category="fx",
+            signal="FX context: moderate volatility detected",
+            rationale=(
+                "USD/HKD movement and GBA funding signals indicate "
+                "moderate FX context. Company has 72% USD import cost exposure."
+            ),
+            suggestedReviewAction=(
+                "Review FX exposure and consider hedging instruments "
+                "if elevated signals align with company import/payable profile."
+            ),
+            supportingSignals=["CNY supplier payables: 38%", "USD import cost: 72%"],
+            source="fx_gba_v1",
+        ),
+        RedFlagItem(
+            flagKey="sector_red_flag",
+            label="Sector Industry Health",
+            severity="moderate",
+            category="sector",
+            signal="Industry health: watch",
+            rationale=(
+                "Manufacturing (Export) sector health is rated watch. "
+                "Demand signal: stable. Margin signal: compressing."
+            ),
+            suggestedReviewAction=(
+                "Review sector-specific risks and consider how industry trends "
+                "may affect company revenue and margin."
+            ),
+            supportingSignals=["Sector: Manufacturing (Export)", "Demand: stable", "Margin: compressing"],
+            source="industry_health_v1",
+        ),
+        RedFlagItem(
+            flagKey="funding_red_flag",
+            label="Funding Channel Fit",
+            severity="low",
+            category="funding",
+            signal="Funding channels: profile shows 0 watch-fit and 2 moderate-fit channels",
+            rationale=(
+                "Top channel: working capital line. "
+                "Ranking band: trade cycle priority. "
+                "Channel fit is generally adequate."
+            ),
+            suggestedReviewAction=(
+                "Continue monitoring channel fit as company context evolves."
+            ),
+            supportingSignals=["Top channel: working capital line", "Ranking band: trade cycle priority"],
+            source="funding_channel_ranking_v1",
+        ),
+        RedFlagItem(
+            flagKey="cross_border_red_flag",
+            label="Cross-border Funding Context",
+            severity="moderate",
+            category="cross_border",
+            signal="Cross-border FX risk: elevated, review signal: worth reviewing",
+            rationale=(
+                "HKD/RMB spread: hkd advantage. "
+                "FX risk band: elevated. "
+                "Cross-border review: worth reviewing."
+            ),
+            suggestedReviewAction=(
+                "Review cross-border funding exposure and consider whether "
+                "FX hedging or RMB-denominated facilities should be evaluated."
+            ),
+            supportingSignals=["Spread band: hkd_advantage", "FX risk: elevated"],
+            source="cross_border_funding_context_v1",
+        ),
+        RedFlagItem(
+            flagKey="timing_red_flag",
+            label="Market Timing Context",
+            severity="moderate",
+            category="timing",
+            signal="Timing band: neutral",
+            rationale=(
+                "Market timing context is neutral; no immediate "
+                "timing-related red flag."
+            ),
+            suggestedReviewAction=(
+                "No timing-related action required currently."
+            ),
+            supportingSignals=["Golden Timing Index v1"],
+            source="timing_signal_v1",
+        ),
+        RedFlagItem(
+            flagKey="liquidity_red_flag",
+            label="Liquidity & Working Capital",
+            severity="moderate",
+            category="liquidity",
+            signal="Liquidity context: watch",
+            rationale=(
+                "Working capital gap and DSO data indicate "
+                "potential liquidity pressure."
+            ),
+            suggestedReviewAction=(
+                "Review working capital position and consider whether "
+                "a working capital facility or receivables financing could "
+                "improve liquidity buffer."
+            ),
+            supportingSignals=["Working capital gap: HKD 3.2M", "DSO: 52d (watch)"],
+            source="company_context_v1",
+        ),
+    ]
 
+    mitigants = [
+        RedFlagMitigant(
+            label="Working capital optimisation",
+            rationale=(
+                "Addressing DSO stretch and working capital gap through "
+                "receivables discipline and supplier terms negotiation may "
+                "improve liquidity context."
+            ),
+            source="company_context_v1",
+        ),
+        RedFlagMitigant(
+            label="Sector diversification or hedging",
+            rationale=(
+                "Manufacturing (Export) faces headwinds; evaluate whether "
+                "revenue diversification or input-cost hedging could offset "
+                "sector-level pressure."
+            ),
+            source="industry_health_v1",
+        ),
+    ]
+
+    components = [
+        RedFlagsSummaryComponent(
+            label="Rates & liquidity",
+            value="moderate",
+            signal="Rates & liquidity context: moderate",
+            explanation="HIBOR 1M at 4.25% is above the low threshold.",
+        ),
+        RedFlagsSummaryComponent(
+            label="FX & currency",
+            value="moderate",
+            signal="FX context: moderate volatility detected",
+            explanation="USD/HKD movement and GBA funding signals indicate moderate FX context.",
+        ),
+        RedFlagsSummaryComponent(
+            label="Sector health",
+            value="watch",
+            signal="Industry health: watch",
+            explanation="Manufacturing (Export) sector health is rated watch.",
+        ),
+        RedFlagsSummaryComponent(
+            label="Funding channel fit",
+            value="0 watch / 2 moderate",
+            signal="Funding channels: profile shows 0 watch-fit and 2 moderate-fit channels",
+            explanation="Channel fit is generally adequate.",
+        ),
+        RedFlagsSummaryComponent(
+            label="Cross-border context",
+            value="elevated",
+            signal="Cross-border FX risk: elevated",
+            explanation="HKD/RMB spread and FX risk indicate elevated cross-border context.",
+        ),
+        RedFlagsSummaryComponent(
+            label="Market timing",
+            value="neutral",
+            signal="Timing band: neutral",
+            explanation="Market timing context is neutral.",
+        ),
+        RedFlagsSummaryComponent(
+            label="Liquidity & working capital",
+            value="watch",
+            signal="Liquidity context: watch",
+            explanation="Working capital gap and DSO data indicate potential liquidity pressure.",
+        ),
+    ]
+
+    provenance = RedFlagProvenance(
+        source="market_watch_red_flags_macro_summary_v1",
+        provider="FinSight CFO Market Watch",
+        asOf=None,
+        freshness="Workspace",
+    )
+
+    return RedFlagsMacroSummaryResponse(
+        mode="context_only",
+        summaryBand="watch",
+        headline=(
+            "2 moderate and 3 elevated/moderate red flag(s) present. "
+            "Situation awareness recommended."
+        ),
+        redFlags=flags,
+        mitigants=mitigants,
+        components=components,
+        provenance=provenance,
+        source=provenance,
+        warnings=[
+            "Red Flags & Macro Risk Summary v1 is fixture/workspace-derived. "
+            "Provider integration pending for CME FedWatch, ChinaData.live/IHS, and LPR references.",
+        ],
+        disclaimer=(
+            "Red Flags & Macro Risk Summary v1 is context-only for planning support. "
+            "It consolidates market-watch signals and is not a credit decision, "
+            "underwriting assessment, or lending recommendation."
+        ),
+    )

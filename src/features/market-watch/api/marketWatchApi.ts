@@ -33,6 +33,7 @@ import {
   IndustryHealthResponse,
   FundingChannelRankingResponse,
   CrossBorderFundingContextResponse,
+  RedFlagsMacroSummaryResponse,
 } from '../types'
 
 const API_BASE_URL =
@@ -582,6 +583,46 @@ export async function getCrossBorderFundingContext(): Promise<CrossBorderFunding
       source: provenance,
       warnings: ['Backend cross-border funding context endpoint unavailable.'],
       disclaimer: 'Cross-border funding context is for planning support only. Not a financing recommendation, arbitrage instruction, or lending decision.',
+    }
+  }
+}
+
+export async function getRedFlagsMacroSummary(): Promise<RedFlagsMacroSummaryResponse> {
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/api/market-watch/red-flags-macro-summary`,
+      { signal: AbortSignal.timeout(5000) },
+    )
+
+    if (!res.ok) {
+      throw new Error(`Backend returned ${res.status}`)
+    }
+
+    const body = await res.json()
+    return {
+      ...body,
+      provenance: body.provenance ?? body.source,
+      warnings: body.warnings ?? [],
+    } as RedFlagsMacroSummaryResponse
+  } catch {
+    await delay(200)
+    const provenance = {
+      source: 'local_fallback',
+      provider: 'Local fallback',
+      asOf: null,
+      freshness: 'Workspace' as const,
+    }
+    return {
+      mode: 'context_only',
+      summaryBand: 'unavailable' as const,
+      headline: 'Red flags summary is unavailable because the backend endpoint could not be reached.',
+      redFlags: [],
+      mitigants: [],
+      components: [],
+      provenance,
+      source: provenance,
+      warnings: ['Backend red-flags-macro-summary endpoint unavailable.'],
+      disclaimer: 'Red Flags & Macro Risk Summary v1 is context-only for planning support. It consolidates market-watch signals and is not a credit decision, underwriting assessment, or lending recommendation.',
     }
   }
 }

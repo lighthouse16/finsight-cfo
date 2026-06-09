@@ -235,6 +235,58 @@ class CrossBorderFundingContextResponse(BaseModel):
     disclaimer: str
 
 
+RedFlagSeverity = Literal["low", "moderate", "elevated", "stressed", "unavailable"]
+RedFlagCategory = Literal[
+    "rates", "fx", "sector", "funding", "cross_border", "timing", "liquidity"
+]
+SummaryBand = Literal["clear", "watch", "elevated", "stressed", "unavailable"]
+
+
+class RedFlagProvenance(BaseModel):
+    source: str
+    provider: str
+    asOf: Optional[str] = None
+    freshness: FreshnessStatus
+
+
+class RedFlagMitigant(BaseModel):
+    label: str
+    rationale: str
+    source: str
+
+
+class RedFlagItem(BaseModel):
+    flagKey: str
+    label: str
+    severity: RedFlagSeverity
+    category: RedFlagCategory
+    signal: str
+    rationale: str
+    suggestedReviewAction: str
+    supportingSignals: List[str] = Field(default_factory=list)
+    source: str
+
+
+class RedFlagsSummaryComponent(BaseModel):
+    label: str
+    value: Optional[str] = None
+    signal: str
+    explanation: str
+
+
+class RedFlagsMacroSummaryResponse(BaseModel):
+    mode: Literal["context_only"] = "context_only"
+    summaryBand: SummaryBand
+    headline: str
+    redFlags: List[RedFlagItem]
+    mitigants: List[RedFlagMitigant]
+    components: List[RedFlagsSummaryComponent]
+    provenance: RedFlagProvenance
+    source: RedFlagProvenance
+    warnings: List[str] = Field(default_factory=list)
+    disclaimer: str
+
+
 class MarketWatchError(BaseModel):
     code: str
     message: str
