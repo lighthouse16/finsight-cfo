@@ -62,6 +62,8 @@ Facility structures (/api/advisory/demo-facility-structures)
   ↓ candidate limits, pricing spreads, annual costs
 Advisory blueprint UI (/platform/advisory-blueprint)
   ↓ advisor-ready JSON brief, consolidated view
+Demo Flow Rail ([DemoFlowRail.tsx](file:///D:/projects/finsight-cfo/src/components/platform/DemoFlowRail.tsx))
+  ↓ 4-step pitch rail (Data Room → Financial Preview → Market Watch → Advisory Blueprint) guides judges through the end-to-end demo path
 ```
 
 **Important**: Data Room ingestion remains preview-only. Production analysis is not replaced, no files are permanently stored, no preview state is written to a database, and demo/provider data remains active where preview data is unavailable. OCR/PDF parsing is not implemented yet.
@@ -142,8 +144,9 @@ Advisory blueprint UI (/platform/advisory-blueprint)
 | 4.7 | Accessibility Label Fix | **Done** | Fixed disabled search input in [TopCommandBar.tsx](file:///D:/projects/finsight-cfo/src/components/platform/TopCommandBar.tsx) — added `id`, `name`, `aria-label`. Audit confirmed all form controls have proper labels, icon-only buttons have accessible names, and status chips include text labels. |
 | 4.8 | Nối luồng Backend E2E | **Partial** | Current preview E2E flow is connected: Data Room upload/parse → snapshot preview → backend preview context → `/api/financials/preview-analysis` → Market Watch / Advisory Blueprint preview panels. This is still preview-only: no DB persistence, no production analysis replacement, demo/provider data remains active where preview data is unavailable, and OCR/PDF parsing is not implemented yet. |
 | 4.9 | E2E & Edge Case Testing | **Partial** | Backend has 110 passing tests across `test_financials.py`, `test_market_watch.py`, `test_advisory.py`, `test_advisory_blueprint.py`, `test_health.py`, `test_data_room.py`. Frontend has no test infrastructure. Division-by-zero handling exists in ratio engine. |
+| 4.10 | Demo / Pitch Polish v1 | **Done** | Reusable [DemoFlowRail.tsx](file:///D:/projects/finsight-cfo/src/components/platform/DemoFlowRail.tsx) guides judges through 4 demo steps (Data Room → Financial Preview → Market Watch → Advisory Blueprint) with icons, descriptions, route links, and status chips (Preview-only / Source-aware / Context-only). Rendered on Data Room, Market Watch, and Advisory Blueprint pages below headings. CTA wording improved across the demo path. Frontend lint/build passes. Manual checks passed on `/platform/data-room`, `/platform/market-watch`, `/platform/advisory-blueprint` — 0 console errors. Backend not touched. UI/pitch polish only — no backend features, provider integrations, or production decision logic added. |
 
-**Phase 4 verdict**: 🟡 **4.1 Partial, 4.2-4.7 Done, 4.8 Partial, 4.9 Partial.** Platform UI foundation is strong — Market Watch, Advisory Blueprint, Data Room pages exist with workflow navigation, lazy loading, accessibility fixes, Data Room preview ingestion, snapshot preview UI, local preview session persistence, backend preview context, `/api/financials/preview-analysis`, and downstream preview panels. Still lacks OCR/PDF parsing, permanent storage, production analysis replacement, AI CFO chat, Phase 1 sliders, and frontend test infrastructure.
+**Phase 4 verdict**: 🟡 **4.1 Partial, 4.2-4.7 Done, 4.8 Partial, 4.9 Partial, 4.10 Done.** Platform UI foundation is strong — Market Watch, Advisory Blueprint, Data Room pages exist with workflow navigation, lazy loading, accessibility fixes, Data Room preview ingestion, snapshot preview UI, local preview session persistence, backend preview context, `/api/financials/preview-analysis`, downstream preview panels, and DemoFlowRail pitch polish. Still lacks OCR/PDF parsing, permanent storage, production analysis replacement, AI CFO chat, Phase 1 sliders, and frontend test infrastructure.
 
 ---
 
@@ -178,10 +181,10 @@ Advisory blueprint UI (/platform/advisory-blueprint)
 | Phase 1: Business Valuation | 7 | 🟡 6 Partial, 1 Done |
 | Phase 2: Market Prediction | 6 | 🟢 6 Done |
 | Phase 3: Advisory & Structuring | 5 | 🟡 5 Partial |
-| Phase 4: UI/UX & E2E | 9 | 🟢 6 Done, 3 Partial |
+| Phase 4: UI/UX & E2E | 10 | 🟢 7 Done, 3 Partial |
 | Phase 5: First Round | 3 | 🟡 1 Partial, 2 Not Started |
 | Phase 6: Finalist | 2 | 🔴 2 Not Started |
-| **Total** | **37** | **14 Done, 17 Partial, 6 Not Started** |
+| **Total** | **38** | **15 Done, 17 Partial, 6 Not Started** |
 
 ---
 
@@ -225,21 +228,20 @@ The following gaps must be addressed before the platform can move from demo cont
 
 ---
 
-> These priorities build on the completed Phase 2 workflow (Timing → Industry Health → Funding Channel Ranking → Cross-border Funding Context → Red Flags Macro Summary) and the Source Registry Hardening pass that standardized provenance metadata across all cards.
+> These priorities build on the completed Phase 2 workflow (Timing → Industry Health → Funding Channel Ranking → Cross-border Funding Context → Red Flags Macro Summary), the Source Registry Hardening pass that standardized provenance metadata across all cards, and the Demo Flow Rail that guides judges through the end-to-end pitch path.
 
-### Priority 1: Demo/Pitch Polish for BOCHK Submission
-Prepare the end-to-end flow for BOCHK challenge demonstration:
-- Polish any rough edges in the Market Pulse → Red Flags → Funding Channels → Cross-border demo walkthrough
-- Ensure all source/provenance tooltips correctly explain fixture vs provider data (registry provides consistent labels)
-- Confirm the Red Flags & Macro Risk Summary card properly consolidates the Phase 2 story
-- Optionally add guided tour or onboarding hints (only if time permits)
-
-### Priority 2: Provider Integration Hardening
+### Priority 1: Provider Integration Hardening
 Continue connecting real provider data for Phase 2 signals that still use fixture/workspace-derived data:
 - CME FedWatch integration (for Timing Signal & Red Flags macro context)
 - ChinaData.live or IHS integration (for Industry Health PMI/IIP/IEX & Red Flags sector context)
 - LPR reference provider (for Cross-border Funding Context)
 - Lender product catalog research (for Funding Channel Ranking)
+
+### Priority 2: Final Demo Script / Presentation Flow
+Polish the judge-facing presentation flow now that the DemoFlowRail is live:
+- Draft a walkthrough script that follows the 4-step rail (Data Room → Financial Preview → Market Watch → Advisory Blueprint)
+- Ensure each demo step has a clear talking point and expected judge takeaway
+- Coordinate with pitch deck content from Phase 5
 
 ### Priority 3: Optional Phase 3 Onboarding / Compliance Flow
 Depending on workflow priority, begin scoping Phase 3 compliance and onboarding flow for the advisory engine.
