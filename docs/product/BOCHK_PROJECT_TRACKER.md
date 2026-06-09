@@ -52,6 +52,7 @@ Market Watch context (/api/market-watch/*)
   ↓ rates, FX, sector benchmarks, commodities, stress signals
   ↓ Timing Signal → Industry Health → Funding Channel Ranking → Cross-border Funding Context → Red Flags Macro Summary
   ↓ Source Registry Hardening: all provenance built from [source_registry.py](file:///D:/projects/finsight-cfo/backend/app/services/market_watch/source_registry.py) with consistent mode badges rendered via [sourceMeta.ts](file:///D:/projects/finsight-cfo/src/features/market-watch/utils/sourceMeta.ts)
+  ↓ Provider Integration Hardening: no-network adapter contracts define provider-ready interfaces for 7 categories (HIBOR/HK rates, HKMA liquidity/HONIA, IHS/sector benchmarks, ChinaData/macro-sector, FedWatch/rate expectations, LPR/RMB benchmarks, FX reference) — adapter metadata exposed in all provenance responses
 Advisory precheck (/api/advisory/demo-precheck)
   ↓ hard-gate checks (Data Integrity, DSCR, Liquidity, Leverage, etc.)
 Unified risk score (/api/advisory/demo-risk-score)
@@ -112,8 +113,9 @@ Demo Flow Rail ([DemoFlowRail.tsx](file:///D:/projects/finsight-cfo/src/componen
 | 2.4 | Cross-border Funding Context v1 | **Done** | [cross_border_funding_context_service.py](file:///D:/projects/finsight-cfo/backend/app/services/market_watch/cross_border_funding_context_service.py) provides context-only HKD/HIBOR vs RMB/LPR-style funding comparison. Bands: `spreadBand` (hkd_advantage/rmb_advantage/balanced/unavailable), `fxRiskBand` (low/moderate/elevated/unavailable), `crossBorderReviewBand` (worth_reviewing/monitor/not_priority/unavailable). Explanation text, 5 context components, provenance, 2 warnings about fixture/provider-pending data, and disclaimer. LPR reference is a fixture placeholder — no real HIBOR-LPR spread or BOCHK GBA lending advisory integration (pending). No arbitrage instruction or financing recommendation language — strictly context-only. Frontend card in FX & GBA tab with full loading/null/fallback states. [test_cross_border_funding_context.py](file:///D:/projects/finsight-cfo/backend/tests/test_cross_border_funding_context.py) validates shape, bands, warnings, disclaimer, and forbidden terms. |
 | 2.5 | Red Flags & Macro Risk Summary v1 | **Done** | [red_flags_macro_summary_service.py](file:///D:/projects/finsight-cfo/backend/app/services/market_watch/red_flags_macro_summary_service.py) consolidates all existing Phase 2 signals into a context-only red-flag dashboard. 7 red flag categories (`rates`, `fx`, `sector`, `funding`, `cross_border`, `timing`, `liquidity`) with 5 severity levels (`low`/`moderate`/`elevated`/`stressed`/`unavailable`). Summary band escalation logic (stressed if 2+ stressed or liquidity+fx+rates stack; elevated if 2+ elevated; watch if any moderate/elevated; clear if all low; unavailable if insufficient data). 3+ mitigants. Headline, suggested review actions per flag, supporting signals, component breakdown grid. Graceful degradation: if any underlying service crashes, adds a warning and continues with partial data. Context-only language enforced via forbidden-term scan in [test_red_flags_macro_summary.py](file:///D:/projects/finsight-cfo/backend/tests/test_red_flags_macro_summary.py) (19 tests). Frontend card in Market Pulse tab after Timing Signal, before Funding Channel Ranking. No real CME FedWatch / ChinaData.live integration (pending). No true ML forecast (pending). |
 | 2.6 | Source Registry Hardening v1 | **Done** | Centralized source/provenance metadata registry at [source_registry.py](file:///D:/projects/finsight-cfo/backend/app/services/market_watch/source_registry.py). Defines 9 registered sources with normalized source key, label, mode (`provider-backed`/`workspace-derived`/`fixture-backed`/`unavailable`), freshness, caveat, provider, and confidence. `build_provenance()` helper unifies provenance construction across all 5 Phase 2 services. Frontend mirror at [sourceMeta.ts](file:///D:/projects/finsight-cfo/src/features/market-watch/utils/sourceMeta.ts) with `buildSourceItems()` providing consistent `SourceItem[]` for `SourceInfoTooltip` across Golden Timing, Industry Health, Funding Channel Ranking, Cross-border Funding Context, and Red Flags & Macro Summary cards. Full backend test suite (202 pass), frontend lint/build pass, and manual UI checks across Market Pulse, Rates & Liquidity, FX & GBA, and Sector Benchmarks confirmed. Source registry standardizes provenance only — it does not add new provider integrations, make fixture data provider-backed, or add ML/lender scraping. All signals remain context-only/planning-support only. |
+| 2.7 | Provider Integration Hardening v1 | **Done** | Provider-ready adapter contracts at [provider_adapters.py](file:///D:/projects/finsight-cfo/backend/app/services/market_watch/provider_adapters.py). Defines typed interfaces (`BaseMarketDataAdapter` protocol) and three no-network adapters: `FixtureMarketDataAdapter` (fixture-backed), `WorkspaceDerivedAdapter` (workspace-derived), `MissingProviderAdapter` (unavailable). Each returns structured `ProviderStatus` with `providerName`, `providerKey`, `mode`, `asOf`, `freshness`, `caveat`, `warnings`, and `confidence`. Supports 7 provider categories: HIBOR/HK rates, HKMA liquidity/HONIA, IHS/sector benchmarks, ChinaData/macro-sector, FedWatch/rate expectations, LPR/RMB benchmarks, and FX reference. `build_provenance()` now returns `providerAdapter` and `providerIntegration` metadata in all API responses. No real provider credentials, external API calls, or scraping added — fixture/workspace-derived data remains active. No new dependencies; async adapter tests use stdlib `asyncio.run()`. Full backend suite: 270 passed. No frontend files touched. |
 
-**Phase 2 verdict**: 🟢 **6 Done.** Golden Timing Index, Industry Health Context, Funding Channel Ranking, Cross-border Funding Context, Red Flags & Macro Risk Summary, and Source Registry Hardening are all implemented and tested. All Phase 2 signals are context-only and planning-support only. No real CME FedWatch / ChinaData.live / IHS integrations yet. No true ML forecast yet. Source registry standardizes provenance metadata only — it does not fill provider gaps.
+**Phase 2 verdict**: 🟢 **7 Done.** Golden Timing Index, Industry Health Context, Funding Channel Ranking, Cross-border Funding Context, Red Flags & Macro Risk Summary, Source Registry Hardening, and Provider Integration Hardening are all implemented and tested. Provider adapter contracts define ready interfaces for 7 categories — no real CME FedWatch / ChinaData.live / IHS / LPR integrations yet, but integration points are now explicit in the architecture. No true ML forecast yet. All Phase 2 signals remain context-only and planning-support only.
 
 ---
 
@@ -179,12 +181,12 @@ Demo Flow Rail ([DemoFlowRail.tsx](file:///D:/projects/finsight-cfo/src/componen
 |---|---|---|
 | Phase 0: Infrastructure | 5 | 🟡 2 Done, 1 Partial, 2 Not Started |
 | Phase 1: Business Valuation | 7 | 🟡 6 Partial, 1 Done |
-| Phase 2: Market Prediction | 6 | 🟢 6 Done |
+| Phase 2: Market Prediction | 7 | 🟢 7 Done |
 | Phase 3: Advisory & Structuring | 5 | 🟡 5 Partial |
 | Phase 4: UI/UX & E2E | 10 | 🟢 7 Done, 3 Partial |
 | Phase 5: First Round | 3 | 🟡 1 Partial, 2 Not Started |
 | Phase 6: Finalist | 2 | 🔴 2 Not Started |
-| **Total** | **38** | **15 Done, 17 Partial, 6 Not Started** |
+| **Total** | **39** | **16 Done, 17 Partial, 6 Not Started** |
 
 ---
 
@@ -218,6 +220,7 @@ The following gaps must be addressed before the platform can move from demo cont
 - Funding channel ranking uses workspace-derived company context and fixture industry data; no real lender product catalog scraping or APR comparison
 - Red Flags & Macro Risk Summary consolidates all Phase 2 signals but remains context-only: no real CME FedWatch, ChinaData.live/IHS, or LPR provider integrations yet; some references remain fixture/workspace-derived
 - Source Registry Hardening v1 standardizes provenance metadata across all Phase 2 services and cards. It does not add new provider integrations, does not make fixture data provider-backed, and does not add ML or lender scraping. All signals remain context-only/planning-support only.
+- Provider Integration Hardening v1 adds provider-ready adapter contracts defining typed interfaces and three no-network adapters (FixtureMarketDataAdapter, WorkspaceDerivedAdapter, MissingProviderAdapter) across 7 provider categories. `providerAdapter` and `providerIntegration` metadata exposed in all provenance responses. No real provider credentials, external API calls, or scraping added. Fixture/workspace-derived data remains active until provider integrations are implemented. No new dependencies.
 
 ### Platform Hardening
 - Authentication / authorization hardening (production-grade auth, not mock)
@@ -228,10 +231,10 @@ The following gaps must be addressed before the platform can move from demo cont
 
 ---
 
-> These priorities build on the completed Phase 2 workflow (Timing → Industry Health → Funding Channel Ranking → Cross-border Funding Context → Red Flags Macro Summary), the Source Registry Hardening pass that standardized provenance metadata across all cards, and the Demo Flow Rail that guides judges through the end-to-end pitch path.
+> These priorities build on the completed Phase 2 workflow (Timing → Industry Health → Funding Channel Ranking → Cross-border Funding Context → Red Flags Macro Summary), the Source Registry Hardening pass that standardized provenance metadata across all cards, the Provider Integration Hardening pass that defined provider-ready adapter contracts with explicit integration points, and the Demo Flow Rail that guides judges through the end-to-end pitch path.
 
-### Priority 1: Provider Integration Hardening
-Continue connecting real provider data for Phase 2 signals that still use fixture/workspace-derived data:
+### Priority 1: Real Provider Integrations (Phase 2 services)
+Connect real provider data for Phase 2 signals that still use fixture/workspace-derived data, using the adapter contracts defined in Provider Integration Hardening v1:
 - CME FedWatch integration (for Timing Signal & Red Flags macro context)
 - ChinaData.live or IHS integration (for Industry Health PMI/IIP/IEX & Red Flags sector context)
 - LPR reference provider (for Cross-border Funding Context)
@@ -242,9 +245,6 @@ Polish the judge-facing presentation flow now that the DemoFlowRail is live:
 - Draft a walkthrough script that follows the 4-step rail (Data Room → Financial Preview → Market Watch → Advisory Blueprint)
 - Ensure each demo step has a clear talking point and expected judge takeaway
 - Coordinate with pitch deck content from Phase 5
-
-### Priority 3: Optional Phase 3 Onboarding / Compliance Flow
-Depending on workflow priority, begin scoping Phase 3 compliance and onboarding flow for the advisory engine.
 
 ---
 
@@ -281,6 +281,7 @@ Market Watch UI should remain at its current polish level — clean and professi
 | Cross-border Funding Context v1 | ✅ Workspace | Context-only, fixture LPR placeholder | [cross_border_funding_context_service.py](file:///D:/projects/finsight-cfo/backend/app/services/market_watch/cross_border_funding_context_service.py) | FX & GBA |
 | Red Flags & Macro Risk Summary v1 | ✅ Workspace | Context-only, consolidates Phase 2 signals | [red_flags_macro_summary_service.py](file:///D:/projects/finsight-cfo/backend/app/services/market_watch/red_flags_macro_summary_service.py) | Market Pulse |
 | Source Registry Hardening v1 | ✅ Workspace | Provenance metadata standardisation; registry-driven tooltip badges | [source_registry.py](file:///D:/projects/finsight-cfo/backend/app/services/market_watch/source_registry.py), [sourceMeta.ts](file:///D:/projects/finsight-cfo/src/features/market-watch/utils/sourceMeta.ts) | All Market Watch tabs |
+| Provider Integration Hardening v1 | ✅ Adapter | Provider-ready no-network adapter contracts for 7 categories; exposes `providerAdapter`/`providerIntegration` in all provenance | [provider_adapters.py](file:///D:/projects/finsight-cfo/backend/app/services/market_watch/provider_adapters.py) | Internal architecture; metadata visible in all Market Watch provenance responses |
 | Financial Analysis Summary | ✅ Demo | Demo-context | [summary_engine.py](file:///D:/projects/finsight-cfo/backend/app/services/financials/summary_engine.py) | Market Watch, Advisory |
 | Advisory Precheck | ✅ Demo | Demo-context | [precheck_engine.py](file:///D:/projects/finsight-cfo/backend/app/services/advisory/precheck_engine.py) | Advisory Blueprint |
 | Unified Risk Score | ✅ Demo | Demo-context | [unified_risk_score_engine.py](file:///D:/projects/finsight-cfo/backend/app/services/advisory/unified_risk_score_engine.py) | Advisory Blueprint |
