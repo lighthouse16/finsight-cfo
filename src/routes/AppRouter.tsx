@@ -23,6 +23,7 @@ const PlatformPlaceholderPage = lazy(
   () => import('../pages/PlatformPlaceholderPage'),
 )
 const NotFoundPage = lazy(() => import('../pages/NotFoundPage'))
+const OverviewPage = lazy(() => import('../features/overview/OverviewPage'))
 const MarketWatchPage = lazy(
   () => import('../features/market-watch/MarketWatchPage'),
 )
@@ -59,7 +60,7 @@ const platformRoutes: PlatformRoute[] = [
       'Your CFO command center for financial health, market pressure, credit readiness, and next actions.',
     icon: LayoutDashboard,
     modulePurpose:
-      'The Overview module will consolidate key indicators from across your workspace into a single decision-ready view.',
+      'The Overview module consolidates key indicators from across your workspace into a single decision-ready view.',
   },
   {
     path: 'market-watch',
@@ -178,6 +179,10 @@ function withPageFallback(element: JSX.Element, copy?: string) {
 }
 
 function renderPlatformRoute(route: PlatformRoute) {
+  if (route.path === 'overview') {
+    return withShellFallback(<OverviewPage />, 'Loading executive overview...')
+  }
+
   if (route.path === 'market-watch') {
     return withShellFallback(
       <MarketWatchPage />,
@@ -258,7 +263,7 @@ export default function AppRouter() {
 
         {/* Platform shell with nested routes */}
         <Route path="/platform" element={<PlatformShell />}>
-          <Route index element={<Navigate to="market-watch" replace />} />
+          <Route index element={<Navigate to="overview" replace />} />
           {platformRoutes.map((route) => (
             <Route
               key={route.path}
