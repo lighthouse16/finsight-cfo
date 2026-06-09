@@ -2,7 +2,7 @@
 
 > **Source of truth**: `BOCHK Challenge 2026.docx` (team document)
 > **Repo**: `D:\projects\finsight-cfo`
-> **Last updated**: 2026-06-08
+> **Last updated**: 2026-06-09
 
 ---
 
@@ -50,7 +50,7 @@ Financial Analysis Summary (FinancialAnalysisSummary)
   ↓ band classifications, key signals, watch items, strengths, constraints
 Market Watch context (/api/market-watch/*)
   ↓ rates, FX, sector benchmarks, commodities, stress signals
-  ↓ Timing Signal → Industry Health → Funding Channel Ranking → Cross-border Funding Context
+  ↓ Timing Signal → Industry Health → Funding Channel Ranking → Cross-border Funding Context → Red Flags Macro Summary
 Advisory precheck (/api/advisory/demo-precheck)
   ↓ hard-gate checks (Data Integrity, DSCR, Liquidity, Leverage, etc.)
 Unified risk score (/api/advisory/demo-risk-score)
@@ -107,9 +107,9 @@ Advisory blueprint UI (/platform/advisory-blueprint)
 | 2.2 | Industry Health Context v1 | **Done** | [industry_health_service.py](file:///D:/projects/finsight-cfo/backend/app/services/market_watch/industry_health_service.py) builds a context-only industry health signal with PMI proxy, export growth proxy, industrial production proxy, and margin context. Band system: `strong` / `stable` / `caution` / `unavailable`. No real ChinaData.live/IHS integration (pending). Sector references and PMI/IIP/IEX values are workspace-derived fixture proxies initially and must be replaced with licensed provider data before production use. Context-only language, disclaimer, and source/provenance caveats enforced via test scan. [test_industry_health.py](file:///D:/projects/finsight-cfo/backend/tests/test_industry_health.py) validates sector contexts, default fallback, and safe wording. |
 | 2.3 | Funding Channel Ranking v1 | **Done** | [funding_channel_ranking_service.py](file:///D:/projects/finsight-cfo/backend/app/services/market_watch/funding_channel_ranking_service.py) ranks candidate funding channels (receivables discounting, term loan, trade finance, wc facility, fx hedging) based on workspace-derived company context, timing signal, and industry health. Context-only: each channel is ranked `strong_fit` / `moderate_fit` / `limited_fit` / `not_recommended`. Constraints and company context flags disclose fixture/provider-pending limitations. No real lender product catalog scraping (pending). [test_funding_channel_ranking.py](file:///D:/projects/finsight-cfo/backend/tests/test_funding_channel_ranking.py) validates exactly 5 channels, item fields, safety wording, and forbidden term scan. |
 | 2.4 | Cross-border Funding Context v1 | **Done** | [cross_border_funding_context_service.py](file:///D:/projects/finsight-cfo/backend/app/services/market_watch/cross_border_funding_context_service.py) provides context-only HKD/HIBOR vs RMB/LPR-style funding comparison. Bands: `spreadBand` (hkd_advantage/rmb_advantage/balanced/unavailable), `fxRiskBand` (low/moderate/elevated/unavailable), `crossBorderReviewBand` (worth_reviewing/monitor/not_priority/unavailable). Explanation text, 5 context components, provenance, 2 warnings about fixture/provider-pending data, and disclaimer. LPR reference is a fixture placeholder — no real HIBOR-LPR spread or BOCHK GBA lending advisory integration (pending). No arbitrage instruction or financing recommendation language — strictly context-only. Frontend card in FX & GBA tab with full loading/null/fallback states. [test_cross_border_funding_context.py](file:///D:/projects/finsight-cfo/backend/tests/test_cross_border_funding_context.py) validates shape, bands, warnings, disclaimer, and forbidden terms. |
-| 2.5 | Red Flags & Macro Risk Summary | **Not Started** | No "Window Dressing" (end of Q2/Q4) or Mega IPO red flag detection beyond the existing calendar-flag foundation in Timing Signal. No aggregated macro risk summary card. Real CME FedWatch / ChinaData.live integrations remain pending for actual macro risk data. |
+| 2.5 | Red Flags & Macro Risk Summary v1 | **Done** | [red_flags_macro_summary_service.py](file:///D:/projects/finsight-cfo/backend/app/services/market_watch/red_flags_macro_summary_service.py) consolidates all existing Phase 2 signals into a context-only red-flag dashboard. 7 red flag categories (`rates`, `fx`, `sector`, `funding`, `cross_border`, `timing`, `liquidity`) with 5 severity levels (`low`/`moderate`/`elevated`/`stressed`/`unavailable`). Summary band escalation logic (stressed if 2+ stressed or liquidity+fx+rates stack; elevated if 2+ elevated; watch if any moderate/elevated; clear if all low; unavailable if insufficient data). 3+ mitigants. Headline, suggested review actions per flag, supporting signals, component breakdown grid. Graceful degradation: if any underlying service crashes, adds a warning and continues with partial data. Context-only language enforced via forbidden-term scan in [test_red_flags_macro_summary.py](file:///D:/projects/finsight-cfo/backend/tests/test_red_flags_macro_summary.py) (19 tests). Frontend card in Market Pulse tab after Timing Signal, before Funding Channel Ranking. No real CME FedWatch / ChinaData.live integration (pending). No true ML forecast (pending).
 
-**Phase 2 verdict**: 🟢 **4 Done, 1 Not Started.** Golden Timing Index, Industry Health Context, Funding Channel Ranking, and Cross-border Funding Context are implemented and tested. Red Flags & Macro Risk Summary remains a stub pending real CME FedWatch and ChinaData.live integrations.
+**Phase 2 verdict**: 🟢 **5 Done.** Golden Timing Index, Industry Health Context, Funding Channel Ranking, Cross-border Funding Context, and Red Flags & Macro Risk Summary are all implemented and tested. All Phase 2 signals are context-only and planning-support only. No real CME FedWatch / ChinaData.live / IHS integrations yet. No true ML forecast yet.
 
 ---
 
@@ -174,12 +174,12 @@ Advisory blueprint UI (/platform/advisory-blueprint)
 |---|---|---|
 | Phase 0: Infrastructure | 5 | 🟡 2 Done, 1 Partial, 2 Not Started |
 | Phase 1: Business Valuation | 7 | 🟡 6 Partial, 1 Done |
-| Phase 2: Market Prediction | 5 | 🟢 4 Done, 1 Not Started |
+| Phase 2: Market Prediction | 5 | 🟢 5 Done |
 | Phase 3: Advisory & Structuring | 5 | 🟡 5 Partial |
 | Phase 4: UI/UX & E2E | 9 | 🟢 6 Done, 3 Partial |
 | Phase 5: First Round | 3 | 🟡 1 Partial, 2 Not Started |
 | Phase 6: Finalist | 2 | 🔴 2 Not Started |
-| **Total** | **36** | **12 Done, 18 Partial, 6 Not Started** |
+| **Total** | **36** | **13 Done, 17 Partial, 6 Not Started** |
 
 ---
 
@@ -209,11 +209,9 @@ The following gaps must be addressed before the platform can move from demo cont
 - Real freight / logistics provider integrations (Baltic Exchange, Freightos)
 
 ### Market Data
-- CME FedWatch integration
-- ChinaData.live macro data integration (PMI, IIP, IEX)
-- Golden Timing Index, Industry Health, and Cross-border Funding Context are context-only v1: still require real CME FedWatch, ChinaData.live/IHS, and LPR provider integrations before production readiness
 - Timing signal calendar flags cover basic quarters and public holidays; true ML forecast (Prophet/LSTM) pending
 - Funding channel ranking uses workspace-derived company context and fixture industry data; no real lender product catalog scraping or APR comparison
+- Red Flags & Macro Risk Summary consolidates all Phase 2 signals but remains context-only: no real CME FedWatch, ChinaData.live/IHS, or LPR provider integrations yet; some references remain fixture/workspace-derived
 
 ### Platform Hardening
 - Authentication / authorization hardening (production-grade auth, not mock)
@@ -224,36 +222,29 @@ The following gaps must be addressed before the platform can move from demo cont
 
 ---
 
-## Immediate Next Engineering Priorities
+> These priorities build on the completed Phase 2 workflow (Timing → Industry Health → Funding Channel Ranking → Cross-border Funding Context → Red Flags Macro Summary).
 
-> These priorities build on the completed Phase 2 workflow (Timing → Industry Health → Funding Channel Ranking → Cross-border Funding Context).
-
-### Priority 1: Phase 2.5 Red Flags & Macro Risk Summary
-Build the next Market Watch tab/feature to aggregate calendar red flags, rate volatility signals, and macro events into a single risk summary:
-- Consolidate existing calendar-flag data from Timing Signal (quarter-end, holidays, year-end)
-- Add rate-volatility context from HIBOR/HONIA trends
-- Card with severity bands and aggregated macro risk score (context-only)
-- No ML forecast, no real FedWatch or ChinaData.live integration yet
-
-### Priority 2: Market Watch Source Registry Hardening
+### Priority 1: Market Watch Source Registry Hardening
 Audit and document all fixture/workspace-derived sources with explicit replacement milestones:
-- Update [MARKET_WATCH_SOURCE_REGISTRY.md](file:///D:/projects/finsight-cfo/docs/product/MARKET_WATCH_SOURCE_REGISTRY.md) with Phase 2.1-2.4 sources
-- Tag each source as live / workspace-derived / fixture / missing
+- Update [MARKET_WATCH_SOURCE_REGISTRY.md](file:///D:/projects/finsight-cfo/docs/product/MARKET_WATCH_SOURCE_REGISTRY.md) with all Phase 2 sources (2.1–2.5)
+- Tag each source as real-time_provider / workspace-derived / fixture / missing
 - Identify which provider integrations are feasible before submission
 
-### Priority 3: Provider Integrations (Phase 2 Foundation)
-Begin connecting real provider data for the Phase 2 signals that still use fixture/workspace-derived data:
+### Priority 2: Provider Integration Hardening (Red Flags, Cross-border & Industry Health)
+Begin connecting real provider data for Phase 2 signals that still use fixture/workspace-derived data:
 - LPR reference provider (for Cross-border Funding Context)
-- CME FedWatch integration (for Timing Signal macro context)
-- ChinaData.live or IHS integration (for Industry Health PMI/IIP/IEX)
+- CME FedWatch integration (for Timing Signal & Red Flags macro context)
+- ChinaData.live or IHS integration (for Industry Health PMI/IIP/IEX & Red Flags sector context)
 - Lender product catalog research (for Funding Channel Ranking)
 
-### Priority 4: Demo Polish / Pitch Flow
-Prepare the Phase 2 workflow for BOCHK submission demos:
-- Ensure Market Watch page can be walked through as: Market Pulse → Timing Context → Industry Health → Funding Channels → Cross-border Context
-- Polish any rough edges in the narrative flow
-- Confirm all source/provenance tooltips correctly explain fixture vs live data
+### Priority 3: Demo Polish / Pitch Flow
+Prepare the Phase 2 end-to-end workflow for BOCHK submission demos:
+- Ensure Market Watch page can be walked through as: Market Pulse → Timing Context → Red Flags Summary → Industry Health → Funding Channels → Cross-border Context
+- Confirm all source/provenance tooltips correctly explain fixture vs provider data
 - Add guided tour or onboarding hints for judges (optional — only if time permits)
+
+### Priority 4: Optional Phase 3 Onboarding / Compliance Flow
+Depending on workflow priority, begin scoping Phase 3 compliance and onboarding flow for the advisory engine.
 
 ---
 
@@ -272,6 +263,8 @@ Market Watch currently has a **polished prototype frontend** (6 tabs, motion sys
 
 Market Watch UI should remain at its current polish level — clean and professional — but no new visual features until the data pipeline catches up.
 
+> **Note**: Phase 2.5 Red Flags & Macro Risk Summary card was added as a consolidated risk dashboard, but the rule still applies: this card reuses existing Phase 2 signals without adding new UI visual features beyond what is needed for the card's display.
+
 ---
 
 ## Appendix: Current Repo State — Source Integration Map
@@ -286,6 +279,7 @@ Market Watch UI should remain at its current polish level — clean and professi
 | Industry Health Context v1 | ✅ Workspace | Context-only, workspace-derived fixture | [industry_health_service.py](file:///D:/projects/finsight-cfo/backend/app/services/market_watch/industry_health_service.py) | Market Pulse, Sector Benchmarks |
 | Funding Channel Ranking v1 | ✅ Workspace | Context-only, workspace-derived company context | [funding_channel_ranking_service.py](file:///D:/projects/finsight-cfo/backend/app/services/market_watch/funding_channel_ranking_service.py) | Market Pulse |
 | Cross-border Funding Context v1 | ✅ Workspace | Context-only, fixture LPR placeholder | [cross_border_funding_context_service.py](file:///D:/projects/finsight-cfo/backend/app/services/market_watch/cross_border_funding_context_service.py) | FX & GBA |
+| Red Flags & Macro Risk Summary v1 | ✅ Workspace | Context-only, consolidates Phase 2 signals | [red_flags_macro_summary_service.py](file:///D:/projects/finsight-cfo/backend/app/services/market_watch/red_flags_macro_summary_service.py) | Market Pulse |
 | Financial Analysis Summary | ✅ Demo | Demo-context | [summary_engine.py](file:///D:/projects/finsight-cfo/backend/app/services/financials/summary_engine.py) | Market Watch, Advisory |
 | Advisory Precheck | ✅ Demo | Demo-context | [precheck_engine.py](file:///D:/projects/finsight-cfo/backend/app/services/advisory/precheck_engine.py) | Advisory Blueprint |
 | Unified Risk Score | ✅ Demo | Demo-context | [unified_risk_score_engine.py](file:///D:/projects/finsight-cfo/backend/app/services/advisory/unified_risk_score_engine.py) | Advisory Blueprint |
