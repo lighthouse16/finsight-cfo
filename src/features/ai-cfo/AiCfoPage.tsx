@@ -15,9 +15,9 @@ import PageHeader from '../../components/platform/PageHeader'
 import StatusChip from '../../components/platform/StatusChip'
 import DemoFlowRail from '../../components/platform/DemoFlowRail'
 import { getFinancialHealthAnalysis } from '../financial-health/financialHealthApi'
-import { getCreditScore, getAdvisoryBlueprint } from '../advisory-blueprint/api/advisoryBlueprintApi'
+import { getAdvisoryBlueprint, getCreditScore } from '../advisory-blueprint/api/advisoryBlueprintApi'
 import { getFundingChannelRanking, getRedFlagsMacroSummary } from '../market-watch/api/marketWatchApi'
-import type { CreditScoringResult } from '../advisory-blueprint/types'
+import type { AdvisoryBlueprintResponse, CreditScoringResult } from '../advisory-blueprint/types'
 import type { FinancialAnalysisResponse, FundingChannelRankingResponse, RedFlagsMacroSummaryResponse } from '../market-watch/types'
 
 type AiMessage = {
@@ -32,7 +32,7 @@ type AiContext = {
   credit: CreditScoringResult | null
   funding: FundingChannelRankingResponse | null
   macro: RedFlagsMacroSummaryResponse | null
-  blueprint: unknown | null
+  blueprint: AdvisoryBlueprintResponse | null
 }
 
 function formatHKD(value?: number | null) {
@@ -52,25 +52,7 @@ function formatBand(value?: string | null) {
 }
 
 function getValuation(financial: FinancialAnalysisResponse | null) {
-  return ((financial as unknown as {
-    valuation?: {
-      dcf?: {
-        enterpriseValue?: number | null
-        equityValue?: number | null
-        impliedEvEbitda?: number | null
-      }
-      wacc?: { wacc?: number | null }
-    }
-  })?.valuation ?? null)
-}
-
-function getBlueprintSummary(blueprint: unknown) {
-  if (!blueprint || typeof blueprint !== 'object') return null
-  const maybe = blueprint as { executiveSummary?: string; recommendedActions?: string[] }
-  return {
-    executiveSummary: maybe.executiveSummary,
-    recommendedActions: maybe.recommendedActions ?? [],
-  }
+  return financial?.valuation ?? null
 }
 
 function buildAnswer(question: string, context: AiContext): AiMessage {
@@ -80,7 +62,7 @@ function buildAnswer(question: string, context: AiContext): AiMessage {
   const funding = context.funding
   const macro = context.macro
   const valuation = getValuation(financial)
-  const blueprint = getBlueprintSummary(context.blueprint)
+  const blueprint = context.blueprint
   const topChannel = funding?.channels?.find((channel) => channel.key === funding.topChannelKey) ?? funding?.channels?.[0]
   const company = financial?.snapshot.companyName ?? 'the company'
 
@@ -89,7 +71,7 @@ function buildAnswer(question: string, context: AiContext): AiMessage {
       id: crypto.randomUUID(),
       role: 'assistant',
       sources: ['Valuation', 'Financial Health'],
-      content: `${company}'s indicative valuation context is ${formatHKD(valuation?.dcf?.enterpriseValue)} enterprise value and ${formatHKD(valuation?.dcf?.equityValue)} equity value. The model WACC is ${formatPercent(valuation?.wacc?.wacc)}. Treat this as planning context only: it supports the funding narrative, but should not be used as a formal appraisal without validating assumptions, forecast drivers, discount rate, and terminal value.`
+      content: `${company}'s indicative valuation context is ${formatHKD(valuation?.dcf?.enterpriseValue)} enterprise value and ${formatHKD(valuation?.dcf?.equityValue)} equity value. The model WACC is ${formatPercent(valuation?.wacc?.wacc)}. Treat this as planning context only: it supports the funding narrative, but should not be used as a formal appraisal without validating assumptions, forecast drivers, discount rate, and terminal value.`,
     }
   }
 
@@ -98,7 +80,7 @@ function buildAnswer(question: string, context: AiContext): AiMessage {
       id: crypto.randomUUID(),
       role: 'assistant',
       sources: ['Credit Readiness', 'Financial Health'],
-      content: `The readiness scorecard is ${credit?.compositeScore ?? 'unavailable'}, with funding readiness marked as ${formatBand(credit?.fundingReadiness)}. ${credit?.pdProxyBand ?? 'The PD proxy band is unavailable.'} Key positives include ${(credit?.positiveDrivers ?? []).slice(0, 2).join('; ') || 'no positive drivers available'}. Key watch items include ${(credit?.riskDrivers ?? []).slice(0, 2).join('; ') || 'no risk drivers available'}. This is context-only and not a lending decision.`
+      content: `The readiness scorecard is ${credit?.compositeScore ?? 'unavailable'}, with funding readiness marked as ${formatBand(credit?.fundingReadiness)}. ${credit?.pdProxyBand ?? 'The PD proxy band is unavailable.'} Key positives include ${(credit?.positiveDrivers ?? []).slice(0, 2).join('; ') || 'no positive drivers available'}. Key watch items include ${(credit?.riskDrivers ?? []).slice(0, 2).join('; ') || 'no risk drivers available'}. This is context-only and not a lending decision.`,
     }
   }
 
@@ -109,7 +91,7 @@ function buildAnswer(question: string, context: AiContext): AiMessage {
       sources: ['Funding Strategy', 'Advisory Blueprint'],
       content: topChannel
         ? `The top funding channel context is ${topChannel.label} with ${formatBand(topChannel.fitBand)} fit and score ${topChannel.score}. Use case: ${topChannel.useCase}. Rationale: ${topChannel.rationale}. Before using this externally, validate facility amount, collateral, tenor, covenants, and updated bank eligibility requirements.`
-        : 'Funding channel ranking is unavailable. Open Funding Strategy after backend/data context is available to review channels, facility fit, and constraints.'
+        : 'Funding channel ranking is unavailable. Open Funding Strategy after backend/data context is available to review channels, facility fit, and constraints.',
     }
   }
 
@@ -118,18 +100,23 @@ function buildAnswer(question: string, context: AiContext): AiMessage {
       id: crypto.randomUUID(),
       role: 'assistant',
       sources: ['Market Watch', 'Macro Risk Summary'],
-      content: `${macro?.headline ?? 'Macro context is currently unavailable.'} Key red flags: ${(macro?.redFlags ?? []).slice(0, 3).map((flag) => `${flag.label} (${flag.severity})`).join('; ') || 'none available'}. Suggested mitigants: ${(macro?.mitigants ?? []).slice(0, 2).map((item) => item.label).join('; ') || 'none available'}.`
+      content: `${macro?.headline ?? 'Macro context is currently unavailable.'} Key red flags: ${(macro?.redFlags ?? []).slice(0, 3).map((flag) => `${flag.label} (${flag.severity})`).join('; ') || 'none available'}. Suggested mitigants: ${(macro?.mitigants ?? []).slice(0, 2).map((item) => item.label).join('; ') || 'none available'}.`,
     }
   }
 
   if (q.includes('report') || q.includes('summary') || q.includes('brief') || q.includes('advisor')) {
+    const actionSummary = (blueprint?.recommendedActions ?? [])
+      .slice(0, 3)
+      .map((action) => `${action.label}: ${action.rationale}`)
+      .join(' ')
+
     return {
       id: crypto.randomUUID(),
       role: 'assistant',
       sources: ['Reports', 'Advisory Blueprint'],
-      content: blueprint?.executiveSummary
-        ? `${blueprint.executiveSummary} Recommended next actions: ${(blueprint.recommendedActions ?? []).slice(0, 3).join(' ')} Open Reports for a CFO snapshot or Advisory Blueprint for the advisor-facing version.`
-        : 'The advisor-ready summary is unavailable. Open Reports for the current CFO snapshot and Advisory Blueprint for detailed advisory output.'
+      content: blueprint?.executiveBrief
+        ? `${blueprint.executiveBrief} Recommended next actions: ${actionSummary || 'review the advisory blueprint actions.'} Open Reports for a CFO snapshot or Advisory Blueprint for the advisor-facing version.`
+        : 'The advisor-ready summary is unavailable. Open Reports for the current CFO snapshot and Advisory Blueprint for detailed advisory output.',
     }
   }
 
@@ -137,7 +124,7 @@ function buildAnswer(question: string, context: AiContext): AiMessage {
     id: crypto.randomUUID(),
     role: 'assistant',
     sources: ['Overview', 'Financial Health', 'Credit Readiness', 'Funding Strategy'],
-    content: `${company} currently shows financial health as ${formatBand(financial?.summary?.overallBand)}, readiness as ${formatBand(credit?.fundingReadiness)}, top funding context as ${topChannel?.label ?? 'unavailable'}, and valuation EV as ${formatHKD(valuation?.dcf?.enterpriseValue)}. A practical next step is to review Financial Health watch items, then move to Funding Strategy and Advisory Blueprint for a lender-facing narrative.`
+    content: `${company} currently shows financial health as ${formatBand(financial?.summary?.overallBand)}, readiness as ${formatBand(credit?.fundingReadiness)}, top funding context as ${topChannel?.label ?? 'unavailable'}, and valuation EV as ${formatHKD(valuation?.dcf?.enterpriseValue)}. A practical next step is to review Financial Health watch items, then move to Funding Strategy and Advisory Blueprint for a lender-facing narrative.`,
   }
 }
 
@@ -181,7 +168,7 @@ export default function AiCfoPage() {
           id: crypto.randomUUID(),
           role: 'assistant',
           sources: ['Workspace context'],
-          content: `I have loaded the current CFO workspace context. Ask about valuation, credit readiness, funding strategy, macro risks, or the advisor-ready brief. Answers are deterministic and context-only for demo purposes.`,
+          content: 'I have loaded the current CFO workspace context. Ask about valuation, credit readiness, funding strategy, macro risks, or the advisor-ready brief. Answers are deterministic and context-only for demo purposes.',
         },
       ])
     } catch (e) {
