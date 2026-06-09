@@ -43,6 +43,7 @@ const ValuationPage = lazy(
   () => import('../features/valuation/ValuationPage'),
 )
 const ReportsPage = lazy(() => import('../features/reports/ReportsPage'))
+const AiCfoPage = lazy(() => import('../features/ai-cfo/AiCfoPage'))
 const DataRoomPage = lazy(() => import('../features/data-room/DataRoomPage'))
 
 type PlatformRoute = {
@@ -133,7 +134,7 @@ const platformRoutes: PlatformRoute[] = [
       'Ask questions across your financial records, market context, and funding strategy.',
     icon: BotMessageSquare,
     modulePurpose:
-      'AI CFO will provide a conversational interface to explore questions across your financial records, market context, and funding strategy.',
+      'AI CFO provides a context-aware conversational interface across financial records, valuation, market context, and funding strategy.',
   },
   {
     path: 'reports',
@@ -221,6 +222,10 @@ function renderPlatformRoute(route: PlatformRoute) {
 
   if (route.path === 'reports') {
     return withShellFallback(<ReportsPage />, 'Preparing CFO report...')
+  }
+
+  if (route.path === 'ai-cfo') {
+    return withShellFallback(<AiCfoPage />, 'Loading AI CFO context...')
   }
 
   if (route.path === 'advisory-blueprint') {
