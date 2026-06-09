@@ -15,10 +15,22 @@ import PageHeader from '../../components/platform/PageHeader'
 import StatusChip from '../../components/platform/StatusChip'
 import DemoFlowRail from '../../components/platform/DemoFlowRail'
 import { getFinancialHealthAnalysis } from '../financial-health/financialHealthApi'
-import { getCreditScore, getAdvisoryBlueprint, getAdvisoryFacilityStructures } from '../advisory-blueprint/api/advisoryBlueprintApi'
+import {
+  getAdvisoryBlueprint,
+  getAdvisoryFacilityStructures,
+  getCreditScore,
+} from '../advisory-blueprint/api/advisoryBlueprintApi'
 import { getFundingChannelRanking, getRedFlagsMacroSummary } from '../market-watch/api/marketWatchApi'
-import type { CreditScoringResult, AdvisoryBlueprintResponse, FacilityStructuringResponse } from '../advisory-blueprint/types'
-import type { FinancialAnalysisResponse, FundingChannelRankingResponse, RedFlagsMacroSummaryResponse } from '../market-watch/types'
+import type {
+  AdvisoryBlueprintResponse,
+  CreditScoringResult,
+  FacilityStructuringResponse,
+} from '../advisory-blueprint/types'
+import type {
+  FinancialAnalysisResponse,
+  FundingChannelRankingResponse,
+  RedFlagsMacroSummaryResponse,
+} from '../market-watch/types'
 
 type ReportState = {
   financial: FinancialAnalysisResponse | null
@@ -47,8 +59,37 @@ function formatBand(value?: string | null) {
 
 function bandVariant(value?: string | null): 'signal' | 'caution' | 'neutral' {
   if (!value) return 'neutral'
-  if (['strong', 'adequate', 'clear', 'low', 'ready_context', 'bank_review_ready', 'strong_fit', 'moderate_fit'].includes(value)) return 'signal'
-  if (['watch', 'constrained', 'elevated', 'stressed', 'high', 'needs_review', 'not_ready', 'watch_fit'].includes(value)) return 'caution'
+  if (
+    [
+      'strong',
+      'adequate',
+      'clear',
+      'low',
+      'ready_context',
+      'bank_review_ready',
+      'strong_fit',
+      'moderate_fit',
+      'available',
+      'ready_context',
+    ].includes(value)
+  ) {
+    return 'signal'
+  }
+  if (
+    [
+      'watch',
+      'constrained',
+      'elevated',
+      'stressed',
+      'high',
+      'needs_review',
+      'not_ready',
+      'watch_fit',
+      'unavailable',
+    ].includes(value)
+  ) {
+    return 'caution'
+  }
   return 'neutral'
 }
 
@@ -115,21 +156,57 @@ export default function ReportsPage() {
     loadReports()
   }, [])
 
-  const valuation = ((state.financial as unknown as { valuation?: { dcf?: { enterpriseValue?: number | null; equityValue?: number | null }; wacc?: { wacc?: number | null } } })?.valuation ?? null)
+  const valuation =
+    ((state.financial as unknown as {
+      valuation?: {
+        dcf?: { enterpriseValue?: number | null; equityValue?: number | null }
+        wacc?: { wacc?: number | null }
+      }
+    })?.valuation ?? null)
   const snapshot = state.financial?.snapshot
-  const topChannel = state.funding?.channels?.find((channel) => channel.key === state.funding?.topChannelKey) ?? state.funding?.channels?.[0]
+  const topChannel =
+    state.funding?.channels?.find((channel) => channel.key === state.funding?.topChannelKey) ??
+    state.funding?.channels?.[0]
   const topFacility = state.facilities?.candidates?.[0]
-  const isPreview = Boolean(snapshot?.metadata?.preview_only || snapshot?.metadata?.previewOnly || snapshot?.metadata?.source === 'data_room_workspace_preview')
+  const isPreview = Boolean(
+    snapshot?.metadata?.preview_only ||
+      snapshot?.metadata?.previewOnly ||
+      snapshot?.metadata?.source === 'data_room_workspace_preview',
+  )
 
   const reportSections = useMemo(() => {
-    const sections = [
-      { label: 'Financial Health', status: state.financial?.summary?.overallBand, to: '/platform/financial-health', icon: HeartPulse },
-      { label: 'Valuation', status: valuation?.dcf?.enterpriseValue ? 'available' : 'unavailable', to: '/platform/valuation', icon: BarChart3 },
-      { label: 'Credit Readiness', status: state.credit?.fundingReadiness, to: '/platform/credit-readiness', icon: ShieldCheck },
-      { label: 'Funding Strategy', status: topChannel?.fitBand ?? state.funding?.rankingBand, to: '/platform/funding-strategy', icon: Landmark },
-      { label: 'Advisory Blueprint', status: state.blueprint ? 'available' : 'unavailable', to: '/platform/advisory-blueprint', icon: FileText },
+    return [
+      {
+        label: 'Financial Health',
+        status: state.financial?.summary?.overallBand,
+        to: '/platform/financial-health',
+        icon: HeartPulse,
+      },
+      {
+        label: 'Valuation',
+        status: valuation?.dcf?.enterpriseValue ? 'available' : 'unavailable',
+        to: '/platform/valuation',
+        icon: BarChart3,
+      },
+      {
+        label: 'Credit Readiness',
+        status: state.credit?.fundingReadiness,
+        to: '/platform/credit-readiness',
+        icon: ShieldCheck,
+      },
+      {
+        label: 'Funding Strategy',
+        status: topChannel?.fitBand ?? state.funding?.rankingBand,
+        to: '/platform/funding-strategy',
+        icon: Landmark,
+      },
+      {
+        label: 'Advisory Blueprint',
+        status: state.blueprint?.blueprintStatus ?? 'unavailable',
+        to: '/platform/advisory-blueprint',
+        icon: FileText,
+      },
     ]
-    return sections
   }, [state.financial, state.credit, state.funding, state.blueprint, valuation, topChannel])
 
   if (loading) {
@@ -349,18 +426,20 @@ export default function ReportsPage() {
         </div>
       </section>
 
-      {(state.blueprint?.executiveSummary || state.macro?.headline) && (
+      {(state.blueprint?.executiveBrief || state.macro?.headline) && (
         <section className="softform-card rounded-[32px] p-6 sm:p-8 space-y-5">
           <div className="flex items-center justify-between border-b border-softform-navy-950/5 pb-4">
             <h2 className="text-lg font-bold text-softform-navy-950">Advisor-Ready Summary</h2>
-            <StatusChip variant={bandVariant(state.macro?.summaryBand)}>{formatBand(state.macro?.summaryBand)}</StatusChip>
+            <StatusChip variant={bandVariant(state.blueprint?.blueprintStatus ?? state.macro?.summaryBand)}>
+              {formatBand(state.blueprint?.blueprintStatus ?? state.macro?.summaryBand)}
+            </StatusChip>
           </div>
           <p className="text-sm leading-relaxed text-softform-text-secondary">
-            {state.blueprint?.executiveSummary ?? state.macro?.headline}
+            {state.blueprint?.executiveBrief ?? state.macro?.headline}
           </p>
-          {(state.blueprint?.recommendedActions ?? []).slice(0, 4).map((action, idx) => (
-            <p key={idx} className="rounded-xl border border-white/60 bg-white/45 px-4 py-3 text-xs leading-relaxed text-softform-text-secondary">
-              {action}
+          {(state.blueprint?.recommendedActions ?? []).slice(0, 4).map((action) => (
+            <p key={action.actionKey} className="rounded-xl border border-white/60 bg-white/45 px-4 py-3 text-xs leading-relaxed text-softform-text-secondary">
+              <strong className="text-softform-navy-950">{action.label}:</strong> {action.rationale}
             </p>
           ))}
         </section>
