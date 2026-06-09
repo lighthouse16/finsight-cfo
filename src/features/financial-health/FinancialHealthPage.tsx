@@ -116,8 +116,8 @@ export default function FinancialHealthPage() {
 
   const summary = analysis.summary
   const snapshot = analysis.snapshot
-  const valuation = 'valuation' in analysis ? (analysis as any).valuation : null
-  const projections = 'projections' in analysis ? (analysis as any).projections : null
+  const valuation = analysis.valuation
+  const projections = analysis.projections
   const projectedYears = projections?.projectedYears ?? []
   const firstProjectedYear = projectedYears[0]
   const lastProjectedYear = projectedYears[projectedYears.length - 1]
