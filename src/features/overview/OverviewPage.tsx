@@ -27,6 +27,12 @@ type OverviewState = {
   macro: RedFlagsMacroSummaryResponse | null
 }
 
+type NextAction = {
+  title: string
+  body: string
+  to: string
+}
+
 function formatHKD(value?: number | null) {
   if (value === undefined || value === null || Number.isNaN(value)) return 'N/A'
   if (Math.abs(value) >= 1_000_000) return `HKD ${(value / 1_000_000).toFixed(2)}M`
@@ -94,23 +100,23 @@ export default function OverviewPage() {
     loadOverview()
   }, [])
 
-  const valuation = ((state.financial as unknown as { valuation?: { dcf?: { enterpriseValue?: number | null; equityValue?: number | null }; wacc?: { wacc?: number | null } } })?.valuation ?? null)
+  const valuation = state.financial?.valuation ?? null
   const topChannel = state.funding?.channels?.find((channel) => channel.key === state.funding?.topChannelKey) ?? state.funding?.channels?.[0]
 
   const nextActions = useMemo(() => {
-    const actions: { title: string; body: string; to: string; icon: typeof ArrowRight }[] = []
+    const actions: NextAction[] = []
     if (!state.financial) {
-      actions.push({ title: 'Upload financial records', body: 'Start with Data Room to activate preview analysis.', to: '/platform/data-room', icon: ArrowRight })
+      actions.push({ title: 'Upload financial records', body: 'Start with Data Room to activate preview analysis.', to: '/platform/data-room' })
     } else if ((state.financial.summary?.watchItems?.length ?? 0) > 0) {
-      actions.push({ title: 'Review financial watch items', body: state.financial.summary?.watchItems?.[0] ?? 'Inspect ratio and integrity signals.', to: '/platform/financial-health', icon: ArrowRight })
+      actions.push({ title: 'Review financial watch items', body: state.financial.summary?.watchItems?.[0] ?? 'Inspect ratio and integrity signals.', to: '/platform/financial-health' })
     }
     if (state.credit?.fundingReadiness === 'needs_review' || state.credit?.fundingReadiness === 'not_ready') {
-      actions.push({ title: 'Improve readiness scorecard', body: state.credit.nextDataNeeded?.[0] ?? 'Review scorecard drivers and next data needs.', to: '/platform/credit-readiness', icon: ArrowRight })
+      actions.push({ title: 'Improve readiness scorecard', body: state.credit.nextDataNeeded?.[0] ?? 'Review scorecard drivers and next data needs.', to: '/platform/credit-readiness' })
     }
     if (topChannel) {
-      actions.push({ title: `Prioritize ${topChannel.label}`, body: topChannel.useCase, to: '/platform/funding-strategy', icon: ArrowRight })
+      actions.push({ title: `Prioritize ${topChannel.label}`, body: topChannel.useCase, to: '/platform/funding-strategy' })
     }
-    actions.push({ title: 'Generate advisory blueprint', body: 'Convert the current context into an advisor-ready brief.', to: '/platform/advisory-blueprint', icon: ArrowRight })
+    actions.push({ title: 'Generate advisory blueprint', body: 'Convert the current context into an advisor-ready brief.', to: '/platform/advisory-blueprint' })
     return actions.slice(0, 4)
   }, [state.financial, state.credit, topChannel])
 
