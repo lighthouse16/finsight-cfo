@@ -38,6 +38,9 @@ const CreditReadinessPage = lazy(
 const FundingStrategyPage = lazy(
   () => import('../features/funding-strategy/FundingStrategyPage'),
 )
+const ValuationPage = lazy(
+  () => import('../features/valuation/ValuationPage'),
+)
 const DataRoomPage = lazy(() => import('../features/data-room/DataRoomPage'))
 
 type PlatformRoute = {
@@ -119,7 +122,7 @@ const platformRoutes: PlatformRoute[] = [
       'Build an indicative valuation view from financial forecasts, market inputs, and conservative assumptions.',
     icon: BarChart3,
     modulePurpose:
-      'The Valuation module will support indicative valuation views built from financial forecasts, market inputs, and conservative assumptions.',
+      'Valuation presents WACC, DCF bridge, FCFF present values, sensitivity points, and sanity checks from the active financial snapshot.',
   },
   {
     path: 'ai-cfo',
@@ -200,6 +203,13 @@ function renderPlatformRoute(route: PlatformRoute) {
     return withShellFallback(
       <FundingStrategyPage />,
       'Loading funding strategy...',
+    )
+  }
+
+  if (route.path === 'valuation') {
+    return withShellFallback(
+      <ValuationPage />,
+      'Loading valuation model...',
     )
   }
 
