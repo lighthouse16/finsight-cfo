@@ -27,7 +27,7 @@ const MarketWatchPage = lazy(
   () => import('../features/market-watch/MarketWatchPage'),
 )
 const AdvisoryBlueprintPage = lazy(
-  () => import('../features/advisory-blueprint/AdvisoryBlueprintPage'),
+  () => import('../features/advisory-blueprint/AdvisoryBlueprintWithCreditPage'),
 )
 const CreditReadinessPage = lazy(
   () => import('../features/credit-readiness/CreditReadinessPage'),
