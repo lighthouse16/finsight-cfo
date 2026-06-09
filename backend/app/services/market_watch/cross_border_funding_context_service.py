@@ -25,6 +25,7 @@ from app.services.market_watch.fixtures import (
     get_cross_border_funding_context_fixture,
 )
 from app.services.market_watch.rates_liquidity_service import get_rates_liquidity
+from app.services.market_watch.source_registry import build_provenance
 
 DISCLAIMER = (
     "Cross-border funding context is for planning support only. "
@@ -122,10 +123,7 @@ async def get_cross_border_funding_context() -> CrossBorderFundingContextRespons
     # --- Provenance ---
     now = datetime.utcnow().isoformat() + "Z"
     provenance = CrossBorderFundingProvenance(
-        source="market_watch_cross_border_funding_context_v1",
-        provider="FinSight CFO Market Watch",
-        asOf=None,
-        freshness="Workspace",
+        **build_provenance("cross_border_funding_context_v1"),
     )
 
     # --- Warnings ---

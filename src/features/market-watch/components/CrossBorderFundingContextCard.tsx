@@ -2,6 +2,7 @@ import { Info, TrendingUp } from 'lucide-react'
 import clsx from 'clsx'
 import { CrossBorderFundingContextResponse } from '../types'
 import SourceInfoTooltip from './SourceInfoTooltip'
+import { buildSourceItems } from '../utils/sourceMeta'
 
 type CrossBorderFundingContextCardProps = {
   context: CrossBorderFundingContextResponse | null
@@ -45,20 +46,7 @@ export default function CrossBorderFundingContextCard({
         </span>
         <SourceInfoTooltip
           title="Cross-border funding provenance"
-          sources={[
-            {
-              label: context.provenance.provider,
-              mode: 'workspace-derived',
-              freshness: context.provenance.freshness,
-            },
-            {
-              label: context.provenance.asOf
-                ? `As of ${context.provenance.asOf}`
-                : 'As-of date unavailable',
-              mode: 'workspace-derived',
-              freshness: context.provenance.freshness,
-            },
-          ]}
+          sources={buildSourceItems(context.provenance)}
         />
       </div>
 

@@ -9,6 +9,7 @@ from app.models.market_watch import (
     TimingSignalResponse,
 )
 from app.services.market_watch.rates_liquidity_service import get_rates_liquidity
+from app.services.market_watch.source_registry import build_provenance
 
 DISCLAIMER = "Timing context only. Not a financing instruction."
 
@@ -138,10 +139,12 @@ async def get_timing_signal() -> TimingSignalResponse:
             TimingSignalComponent(band=calendar_flag, label="Calendar flag", value=calendar_flag, explanation=calendar_explanation),
         ],
         provenance=TimingSignalProvenance(
-            source="market_watch_rates_liquidity",
-            provider=rates_liquidity.metadata.source.provider,
-            asOf=rates_liquidity.metadata.asOf,
-            freshness=rates_liquidity.metadata.freshness,
+            **build_provenance(
+                "timing_signal_v1",
+                as_of=rates_liquidity.metadata.asOf,
+                provider_override=rates_liquidity.metadata.source.provider,
+                freshness_override=rates_liquidity.metadata.freshness,
+            ),
         ),
         warnings=warnings,
         disclaimer=DISCLAIMER,

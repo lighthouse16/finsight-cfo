@@ -2,6 +2,7 @@ import { Info, TrendingUp, ArrowRight } from 'lucide-react'
 import clsx from 'clsx'
 import { FundingChannelRankingResponse } from '../types'
 import SourceInfoTooltip from './SourceInfoTooltip'
+import { buildSourceItems } from '../utils/sourceMeta'
 
 type FundingChannelRankingCardProps = {
   ranking: FundingChannelRankingResponse | null
@@ -57,23 +58,7 @@ export default function FundingChannelRankingCard({ ranking }: FundingChannelRan
         </span>
         <SourceInfoTooltip
           title="Funding channel provenance"
-          sources={[
-            {
-              label: ranking.provenance.provider,
-              mode: 'workspace-derived',
-              freshness: ranking.provenance.freshness,
-            },
-            {
-              label: ranking.provenance.asOf ? `As of ${ranking.provenance.asOf}` : 'As-of date unavailable',
-              mode: 'workspace-derived',
-              freshness: ranking.provenance.freshness,
-            },
-            {
-              label: ranking.source.provider,
-              mode: 'fixture-backed',
-              freshness: ranking.source.freshness,
-            },
-          ]}
+          sources={buildSourceItems(ranking.provenance)}
         />
       </div>
 

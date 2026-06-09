@@ -31,6 +31,7 @@ from app.services.market_watch.cross_border_funding_context_service import get_c
 from app.services.market_watch.company_context import get_demo_company_profile, get_company_exposures
 from app.services.market_watch.rates_liquidity_service import get_rates_liquidity
 from app.services.market_watch.fx_gba_service import get_fx_gba
+from app.services.market_watch.source_registry import build_provenance
 
 DISCLAIMER = (
     "Red Flags & Macro Risk Summary v1 is context-only for planning support. "
@@ -118,10 +119,10 @@ async def get_red_flags_macro_summary() -> RedFlagsMacroSummaryResponse:
     # --- Provenance ---
     now = datetime.utcnow().isoformat() + "Z"
     provenance = RedFlagProvenance(
-        source="market_watch_red_flags_macro_summary_v1",
-        provider="FinSight CFO Market Watch",
-        asOf=None,
-        freshness="Workspace",
+        **build_provenance(
+            "red_flags_macro_summary_v1",
+            as_of=now,
+        ),
     )
 
     return RedFlagsMacroSummaryResponse(

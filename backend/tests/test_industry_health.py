@@ -40,8 +40,8 @@ def test_industry_health_default_context():
     assert data["benchmarkSignal"] in {"favorable", "neutral", "cautious", "unavailable"}
     assert isinstance(data["components"], list)
     assert len(data["components"]) >= 4
-    assert data["provenance"]["source"] == "market_watch_industry_health_v1"
-    assert data["source"]["source"] == "market_watch_industry_health_v1"
+    assert data["provenance"]["source"] == "industry_health_v1"
+    assert data["source"]["source"] == "industry_health_v1"
     assert data["warnings"]
     assert "fixture" in " ".join(data["warnings"]).lower()
     assert data["disclaimer"]

@@ -8,6 +8,7 @@ import {
 import { type RedFlagsMacroSummaryResponse } from '../types'
 import SourceInfoTooltip from './SourceInfoTooltip'
 import MotionReveal from './MotionReveal'
+import { buildSourceItems } from '../utils/sourceMeta'
 
 type Props = {
   summary: RedFlagsMacroSummaryResponse | null
@@ -115,12 +116,7 @@ export default function RedFlagsMacroSummaryCard({ summary }: Props) {
           </h2>
           <SourceInfoTooltip
             title="Red Flags & Macro Risk Summary v1"
-            sources={[
-              { label: 'Golden Timing Index v1', mode: 'workspace-derived', freshness: 'Daily' },
-              { label: 'Industry Health Context v1', mode: 'workspace-derived', freshness: 'Workspace' },
-              { label: 'Funding Channel Ranking v1', mode: 'workspace-derived', freshness: 'Workspace' },
-              { label: 'Cross-border Funding Context v1', mode: 'workspace-derived', freshness: 'Workspace' },
-            ]}
+            sources={buildSourceItems(summary.provenance)}
           />
         </div>
 

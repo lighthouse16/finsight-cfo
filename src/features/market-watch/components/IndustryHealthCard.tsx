@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { Factory, Info } from 'lucide-react'
 import { IndustryHealthResponse } from '../types'
 import SourceInfoTooltip from './SourceInfoTooltip'
+import { buildSourceItems } from '../utils/sourceMeta'
 
 const bandStyles: Record<string, string> = {
   resilient: 'border-emerald-400/35 bg-emerald-500/10 text-emerald-800',
@@ -46,15 +47,7 @@ export default function IndustryHealthCard({ industryHealth }: IndustryHealthCar
                 {provenance && (
                   <SourceInfoTooltip
                     title="Industry Health Sourcing"
-                    sources={[
-                      {
-                        label: provenance.provider,
-                        asOf: provenance.asOf ?? null,
-                        freshness: provenance.freshness,
-                        warnings: industryHealth.warnings,
-                        mode: 'workspace-derived',
-                      },
-                    ]}
+                    sources={buildSourceItems(provenance, industryHealth.warnings ? undefined : undefined)}
                   />
                 )}
               </div>

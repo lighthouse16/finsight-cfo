@@ -2,6 +2,7 @@ import { CalendarClock, Info, Landmark, LineChart, Waves } from 'lucide-react'
 import clsx from 'clsx'
 import { TimingSignalResponse } from '../types'
 import SourceInfoTooltip from './SourceInfoTooltip'
+import { buildSourceItems } from '../utils/sourceMeta'
 
 type TimingSignalCardProps = {
   signal: TimingSignalResponse | null
@@ -40,18 +41,7 @@ export default function TimingSignalCard({ signal }: TimingSignalCardProps) {
             </span>
             <SourceInfoTooltip
               title="Timing signal provenance"
-              sources={[
-                {
-                  label: signal.provenance.provider,
-                  mode: 'provider-backed',
-                  freshness: signal.provenance.freshness,
-                },
-                {
-                  label: signal.provenance.asOf ? `As of ${signal.provenance.asOf}` : 'As-of date unavailable',
-                  mode: 'workspace-derived',
-                  freshness: signal.provenance.freshness,
-                },
-              ]}
+              sources={buildSourceItems(signal.provenance)}
             />
           </div>
           <div className="flex flex-wrap items-center gap-3">

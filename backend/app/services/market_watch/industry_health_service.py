@@ -14,6 +14,7 @@ from app.models.market_watch import (
     WorkingCapitalSignal,
 )
 from app.services.market_watch.sector_benchmarks_service import get_sector_benchmarks
+from app.services.market_watch.source_registry import build_provenance
 
 DISCLAIMER = (
     "Industry health context is for planning support only. It uses fixture/workspace-derived "
@@ -217,10 +218,12 @@ async def get_industry_health(
     band = _overall_band(demand, margin, working_capital, benchmark)
 
     provenance = IndustryHealthProvenance(
-        source="market_watch_industry_health_v1",
-        provider=data.metadata.source.name,
-        asOf=data.metadata.asOf,
-        freshness=data.metadata.freshness,
+        **build_provenance(
+            "industry_health_v1",
+            as_of=data.metadata.asOf,
+            provider_override=data.metadata.source.name,
+            freshness_override=data.metadata.freshness,
+        ),
     )
     warnings = [
         "Industry Health Context v1 is fixture/workspace-derived. Production sector provider integration is pending.",

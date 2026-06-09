@@ -26,6 +26,7 @@ from app.services.market_watch.company_context import (
 )
 from app.services.market_watch.timing_signal_service import get_timing_signal
 from app.services.market_watch.industry_health_service import get_industry_health
+from app.services.market_watch.source_registry import build_provenance
 
 DISCLAIMER = (
     "Channel ranking is context-only for planning support. "
@@ -272,10 +273,7 @@ async def get_funding_channel_ranking() -> FundingChannelRankingResponse:
 
     # --- Provenance ---
     provenance = FundingChannelProvenance(
-        source="market_watch_funding_channel_ranking_v1",
-        provider="FinSight CFO Market Watch",
-        asOf=None,
-        freshness="Workspace",
+        **build_provenance("funding_channel_ranking_v1"),
     )
 
     # --- Explanation ---

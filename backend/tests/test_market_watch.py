@@ -641,7 +641,7 @@ def test_timing_signal_endpoint_favorable(monkeypatch):
     assert data["hiborTrendSignal"] == "easing"
     assert data["liquidityTimingSignal"] == "favorable"
     assert data["goldenTimingBand"] == "favorable"
-    assert data["provenance"]["source"] == "market_watch_rates_liquidity"
+    assert data["provenance"]["source"] == "timing_signal_v1"
     assert data["disclaimer"] == "Timing context only. Not a financing instruction."
 
 
