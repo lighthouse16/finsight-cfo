@@ -50,6 +50,7 @@ Financial Analysis Summary (FinancialAnalysisSummary)
   ↓ band classifications, key signals, watch items, strengths, constraints
 Market Watch context (/api/market-watch/*)
   ↓ rates, FX, sector benchmarks, commodities, stress signals
+  ↓ Timing Signal → Industry Health → Funding Channel Ranking → Cross-border Funding Context
 Advisory precheck (/api/advisory/demo-precheck)
   ↓ hard-gate checks (Data Integrity, DSCR, Liquidity, Leverage, etc.)
 Unified risk score (/api/advisory/demo-risk-score)
@@ -102,13 +103,13 @@ Advisory blueprint UI (/platform/advisory-blueprint)
 
 | ID | Task | Repo Status | Evidence |
 |---|---|---|---|
-| 2.1 | Gọi API Vĩ mô (WHEN Ingestion) | **Partial** | **HKMA HIBOR**: [hkma_client.py](file:///D:/projects/finsight-cfo/backend/app/services/market_watch/hkma_client.py) — working. **HKAB HIBOR**: [hkab_web_client.py](file:///D:/projects/finsight-cfo/backend/app/services/market_watch/hkab_web_client.py) — working (web scraping fallback). **FX Frankfurter**: [fx_client.py](file:///D:/projects/finsight-cfo/backend/app/services/market_watch/fx_client.py) — working. **CME FedWatch**: Not implemented. **Apify/HKEX Mega IPO**: Not implemented. |
-| 2.2 | Dự báo HIBOR & Red Flags | **Not Started** | No Prophet or LSTM model. No Golden Timing Index logic. No "Window Dressing" (end of Q2/Q4) or Mega IPO red flag detection. Market Watch has static "Rate sensitivity" context cards only. |
-| 2.3 | Đối sánh Sức khỏe Ngành | **Not Started** | No ChinaData.live API integration. No IHS formula (ω1·f(PMI) + ω2·f(IIP) + ω3·f(IEX)). Sector benchmarks use workspace demo data ([marketWatchApi.ts](file:///D:/projects/finsight-cfo/src/features/market-watch/api/marketWatchApi.ts#L490-L626)). |
-| 2.4 | Quét Kênh tài trợ (WHERE) | **Not Started** | No web scraping of bank fee schedules. No APR comparison engine. No Virtual Bank vs Traditional Bank trade-off matrix. |
-| 2.5 | Cross-border Arbitrage | **Not Started** | No HIBOR-LPR spread calculation. No BOCHK GBA cross-border lending advisory trigger. No FX hedging cost analysis. |
+| 2.1 | Golden Timing Index v1 | **Done** | [timing_signal_service.py](file:///D:/projects/finsight-cfo/backend/app/services/market_watch/timing_signal_service.py) computes a context-only timing signal using HIBOR/HONIA rate trends, calendar red flags (quarter-end window dressing, CNY public holidays, year-end), and optional sector health context. Band system: `favorable` / `neutral` / `cautious` / `unavailable`. No CME FedWatch integration (pending). No true ML forecast (Prophet/LSTM pending). [test_market_watch.py](file:///D:/projects/finsight-cfo/backend/tests/test_market_watch.py) validates safe wording, band edges, and calendar triggers. |
+| 2.2 | Industry Health Context v1 | **Done** | [industry_health_service.py](file:///D:/projects/finsight-cfo/backend/app/services/market_watch/industry_health_service.py) builds a context-only industry health signal with PMI proxy, export growth proxy, industrial production proxy, and margin context. Band system: `strong` / `stable` / `caution` / `unavailable`. No real ChinaData.live/IHS integration (pending). Sector references and PMI/IIP/IEX values are workspace-derived fixture proxies initially and must be replaced with licensed provider data before production use. Context-only language, disclaimer, and source/provenance caveats enforced via test scan. [test_industry_health.py](file:///D:/projects/finsight-cfo/backend/tests/test_industry_health.py) validates sector contexts, default fallback, and safe wording. |
+| 2.3 | Funding Channel Ranking v1 | **Done** | [funding_channel_ranking_service.py](file:///D:/projects/finsight-cfo/backend/app/services/market_watch/funding_channel_ranking_service.py) ranks candidate funding channels (receivables discounting, term loan, trade finance, wc facility, fx hedging) based on workspace-derived company context, timing signal, and industry health. Context-only: each channel is ranked `strong_fit` / `moderate_fit` / `limited_fit` / `not_recommended`. Constraints and company context flags disclose fixture/provider-pending limitations. No real lender product catalog scraping (pending). [test_funding_channel_ranking.py](file:///D:/projects/finsight-cfo/backend/tests/test_funding_channel_ranking.py) validates exactly 5 channels, item fields, safety wording, and forbidden term scan. |
+| 2.4 | Cross-border Funding Context v1 | **Done** | [cross_border_funding_context_service.py](file:///D:/projects/finsight-cfo/backend/app/services/market_watch/cross_border_funding_context_service.py) provides context-only HKD/HIBOR vs RMB/LPR-style funding comparison. Bands: `spreadBand` (hkd_advantage/rmb_advantage/balanced/unavailable), `fxRiskBand` (low/moderate/elevated/unavailable), `crossBorderReviewBand` (worth_reviewing/monitor/not_priority/unavailable). Explanation text, 5 context components, provenance, 2 warnings about fixture/provider-pending data, and disclaimer. LPR reference is a fixture placeholder — no real HIBOR-LPR spread or BOCHK GBA lending advisory integration (pending). No arbitrage instruction or financing recommendation language — strictly context-only. Frontend card in FX & GBA tab with full loading/null/fallback states. [test_cross_border_funding_context.py](file:///D:/projects/finsight-cfo/backend/tests/test_cross_border_funding_context.py) validates shape, bands, warnings, disclaimer, and forbidden terms. |
+| 2.5 | Red Flags & Macro Risk Summary | **Not Started** | No "Window Dressing" (end of Q2/Q4) or Mega IPO red flag detection beyond the existing calendar-flag foundation in Timing Signal. No aggregated macro risk summary card. Real CME FedWatch / ChinaData.live integrations remain pending for actual macro risk data. |
 
-**Phase 2 verdict**: 🟡 **2.1 Partial — rest Not Started.** Market data ingestion (HKMA, HKAB, Frankfurter) is functional but prediction models (Prophet/LSTM), Chinese macro data, funding channel scraping, and cross-border arbitrage are absent.
+**Phase 2 verdict**: 🟢 **4 Done, 1 Not Started.** Golden Timing Index, Industry Health Context, Funding Channel Ranking, and Cross-border Funding Context are implemented and tested. Red Flags & Macro Risk Summary remains a stub pending real CME FedWatch and ChinaData.live integrations.
 
 ---
 
@@ -173,12 +174,12 @@ Advisory blueprint UI (/platform/advisory-blueprint)
 |---|---|---|
 | Phase 0: Infrastructure | 5 | 🟡 2 Done, 1 Partial, 2 Not Started |
 | Phase 1: Business Valuation | 7 | 🟡 6 Partial, 1 Done |
-| Phase 2: Market Prediction | 5 | 🟡 1 Partial, 4 Not Started |
+| Phase 2: Market Prediction | 5 | 🟢 4 Done, 1 Not Started |
 | Phase 3: Advisory & Structuring | 5 | 🟡 5 Partial |
 | Phase 4: UI/UX & E2E | 9 | 🟢 6 Done, 3 Partial |
 | Phase 5: First Round | 3 | 🟡 1 Partial, 2 Not Started |
 | Phase 6: Finalist | 2 | 🔴 2 Not Started |
-| **Total** | **36** | **8 Done, 23 Partial, 5 Not Started** |
+| **Total** | **36** | **12 Done, 18 Partial, 6 Not Started** |
 
 ---
 
@@ -210,8 +211,9 @@ The following gaps must be addressed before the platform can move from demo cont
 ### Market Data
 - CME FedWatch integration
 - ChinaData.live macro data integration (PMI, IIP, IEX)
-- HIBOR-LPR spread calculation for cross-border advisory
-- Bank fee schedule scraping / APR comparison
+- Golden Timing Index, Industry Health, and Cross-border Funding Context are context-only v1: still require real CME FedWatch, ChinaData.live/IHS, and LPR provider integrations before production readiness
+- Timing signal calendar flags cover basic quarters and public holidays; true ML forecast (Prophet/LSTM) pending
+- Funding channel ranking uses workspace-derived company context and fixture industry data; no real lender product catalog scraping or APR comparison
 
 ### Platform Hardening
 - Authentication / authorization hardening (production-grade auth, not mock)
@@ -224,42 +226,34 @@ The following gaps must be addressed before the platform can move from demo cont
 
 ## Immediate Next Engineering Priorities
 
-> These priorities follow the current implementation state and build on the demo pipeline foundation.
+> These priorities build on the completed Phase 2 workflow (Timing → Industry Health → Funding Channel Ranking → Cross-border Funding Context).
 
-### Priority 1: Persisted Workspace Preview Context Design
-Design the safe path from in-memory preview context to persisted preview workspace records:
-- Define metadata and snapshot reference schema for preview contexts
-- Keep production analysis not replaced until an explicit migration path exists
-- Preserve explicit `preview-only` and non-persistent provenance fields during the transition
-- Maintain demo/provider data as the default path unless preview mode is explicitly requested
+### Priority 1: Phase 2.5 Red Flags & Macro Risk Summary
+Build the next Market Watch tab/feature to aggregate calendar red flags, rate volatility signals, and macro events into a single risk summary:
+- Consolidate existing calendar-flag data from Timing Signal (quarter-end, holidays, year-end)
+- Add rate-volatility context from HIBOR/HONIA trends
+- Card with severity bands and aggregated macro risk score (context-only)
+- No ML forecast, no real FedWatch or ChinaData.live integration yet
 
-### Priority 2: Structured Parser Hardening with Template Validation
-Strengthen the CSV/XLSX parser prototype:
-- Validate required statement templates before normalization
-- Add clearer errors for missing periods, missing required fields, and unsupported columns
-- Keep parser limited to structured files; no OCR/PDF parsing
-- Expand backend test coverage for malformed template edge cases
+### Priority 2: Market Watch Source Registry Hardening
+Audit and document all fixture/workspace-derived sources with explicit replacement milestones:
+- Update [MARKET_WATCH_SOURCE_REGISTRY.md](file:///D:/projects/finsight-cfo/docs/product/MARKET_WATCH_SOURCE_REGISTRY.md) with Phase 2.1-2.4 sources
+- Tag each source as live / workspace-derived / fixture / missing
+- Identify which provider integrations are feasible before submission
 
-### Priority 3: CSV/XLSX Sample Templates and Downloadable Examples
-Provide user-facing structured upload examples:
-- P&L sample template
-- Balance Sheet sample template
-- Cash Flow sample template
-- Guidance copy that says company records required for production
+### Priority 3: Provider Integrations (Phase 2 Foundation)
+Begin connecting real provider data for the Phase 2 signals that still use fixture/workspace-derived data:
+- LPR reference provider (for Cross-border Funding Context)
+- CME FedWatch integration (for Timing Signal macro context)
+- ChinaData.live or IHS integration (for Industry Health PMI/IIP/IEX)
+- Lender product catalog research (for Funding Channel Ranking)
 
-### Priority 4: Document Upload Storage Design, Still Without OCR
-Design the storage architecture before implementing permanent file storage:
-- Metadata schema and retention rules
-- File storage boundaries and security constraints
-- Database persistence model
-- Explicitly defer OCR/PDF parsing until the structured ingestion path is stable
-
-### Priority 5: Market Watch Provenance Audit
-Audit remaining fixture/workspace-derived content:
-- Sector benchmarks: identify which can connect to real provider data
-- Commodities: evaluate FRED / World Bank integration feasibility
-- Stress signals: clarify which scenarios can use financial summary inputs
-- Update [MARKET_WATCH_SOURCE_REGISTRY.md](file:///D:/projects/finsight-cfo/docs/product/MARKET_WATCH_SOURCE_REGISTRY.md) with audit findings
+### Priority 4: Demo Polish / Pitch Flow
+Prepare the Phase 2 workflow for BOCHK submission demos:
+- Ensure Market Watch page can be walked through as: Market Pulse → Timing Context → Industry Health → Funding Channels → Cross-border Context
+- Polish any rough edges in the narrative flow
+- Confirm all source/provenance tooltips correctly explain fixture vs live data
+- Add guided tour or onboarding hints for judges (optional — only if time permits)
 
 ---
 
@@ -288,6 +282,10 @@ Market Watch UI should remain at its current polish level — clean and professi
 | HKMA HONIA (API) | ✅ Live | Provider-backed | [hkma_client.py](file:///D:/projects/finsight-cfo/backend/app/services/market_watch/hkma_client.py) | Rates & Liquidity |
 | HKMA Interbank Liquidity (API) | ✅ Live | Provider-backed | [hkma_client.py](file:///D:/projects/finsight-cfo/backend/app/services/market_watch/hkma_client.py) | Rates & Liquidity |
 | Frankfurter FX (API) | ✅ Live | Provider-backed | [fx_client.py](file:///D:/projects/finsight-cfo/backend/app/services/market_watch/fx_client.py) | FX & GBA |
+| Golden Timing Index v1 | ✅ Workspace | Context-only, market-rate-aware | [timing_signal_service.py](file:///D:/projects/finsight-cfo/backend/app/services/market_watch/timing_signal_service.py) | Market Pulse, Rates & Liquidity |
+| Industry Health Context v1 | ✅ Workspace | Context-only, workspace-derived fixture | [industry_health_service.py](file:///D:/projects/finsight-cfo/backend/app/services/market_watch/industry_health_service.py) | Market Pulse, Sector Benchmarks |
+| Funding Channel Ranking v1 | ✅ Workspace | Context-only, workspace-derived company context | [funding_channel_ranking_service.py](file:///D:/projects/finsight-cfo/backend/app/services/market_watch/funding_channel_ranking_service.py) | Market Pulse |
+| Cross-border Funding Context v1 | ✅ Workspace | Context-only, fixture LPR placeholder | [cross_border_funding_context_service.py](file:///D:/projects/finsight-cfo/backend/app/services/market_watch/cross_border_funding_context_service.py) | FX & GBA |
 | Financial Analysis Summary | ✅ Demo | Demo-context | [summary_engine.py](file:///D:/projects/finsight-cfo/backend/app/services/financials/summary_engine.py) | Market Watch, Advisory |
 | Advisory Precheck | ✅ Demo | Demo-context | [precheck_engine.py](file:///D:/projects/finsight-cfo/backend/app/services/advisory/precheck_engine.py) | Advisory Blueprint |
 | Unified Risk Score | ✅ Demo | Demo-context | [unified_risk_score_engine.py](file:///D:/projects/finsight-cfo/backend/app/services/advisory/unified_risk_score_engine.py) | Advisory Blueprint |
