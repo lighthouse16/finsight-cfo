@@ -5,6 +5,7 @@ from app.routes.financials import router as financials_router
 from app.routes.advisory import router as advisory_router
 from app.routes.data_room import router as data_room_router
 from app.routes.workflow import router as workflow_router
+from app.routes.cdi import router as cdi_router
 
 app = FastAPI(title="FinSight CFO API")
 
@@ -29,3 +30,4 @@ app.include_router(financials_router, prefix="/api/financials")
 app.include_router(advisory_router, prefix="/api/advisory")
 app.include_router(data_room_router, prefix="/api/data-room")
 app.include_router(workflow_router, prefix="/api/workflow")
+app.include_router(cdi_router, prefix="/api/cdi")
