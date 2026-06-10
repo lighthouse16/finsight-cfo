@@ -17,14 +17,17 @@ import DemoFlowRail from '../../components/platform/DemoFlowRail'
 import { getFinancialHealthAnalysis } from '../financial-health/financialHealthApi'
 import { getCreditScore } from '../advisory-blueprint/api/advisoryBlueprintApi'
 import { getFundingChannelRanking, getRedFlagsMacroSummary } from '../market-watch/api/marketWatchApi'
+import { getBochkWorkflowRun } from '../workflow/workflowApi'
 import type { CreditScoringResult } from '../advisory-blueprint/types'
 import type { FinancialAnalysisResponse, FundingChannelRankingResponse, RedFlagsMacroSummaryResponse } from '../market-watch/types'
+import type { BochkWorkflowRun, WorkflowStageStatus } from '../workflow/workflowApi'
 
 type OverviewState = {
   financial: FinancialAnalysisResponse | null
   credit: CreditScoringResult | null
   funding: FundingChannelRankingResponse | null
   macro: RedFlagsMacroSummaryResponse | null
+  workflow: BochkWorkflowRun | null
 }
 
 type NextAction = {
@@ -60,8 +63,15 @@ function variantForBand(value?: string | null): 'signal' | 'caution' | 'neutral'
   return 'neutral'
 }
 
+function variantForWorkflowStatus(status?: WorkflowStageStatus): 'signal' | 'caution' | 'neutral' {
+  if (!status) return 'neutral'
+  if (['completed', 'passed', 'preview_ready', 'demo_fallback'].includes(status)) return 'signal'
+  if (status === 'review' || status === 'unavailable') return 'caution'
+  return 'neutral'
+}
+
 export default function OverviewPage() {
-  const [state, setState] = useState<OverviewState>({ financial: null, credit: null, funding: null, macro: null })
+  const [state, setState] = useState<OverviewState>({ financial: null, credit: null, funding: null, macro: null, workflow: null })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -69,7 +79,7 @@ export default function OverviewPage() {
     setLoading(true)
     setError(null)
     try {
-      const [financial, credit, funding, macro] = await Promise.all([
+      const [financial, credit, funding, macro, workflow] = await Promise.all([
         getFinancialHealthAnalysis().catch((e) => {
           console.warn('Overview financial context unavailable', e)
           return null
@@ -86,8 +96,12 @@ export default function OverviewPage() {
           console.warn('Overview macro context unavailable', e)
           return null
         }),
+        getBochkWorkflowRun().catch((e) => {
+          console.warn('BOCHK workflow runner unavailable', e)
+          return null
+        }),
       ])
-      setState({ financial, credit, funding, macro })
+      setState({ financial, credit, funding, macro, workflow })
     } catch (e) {
       console.error('Overview load failed', e)
       setError('Overview is currently unavailable. Please check the backend connection.')
@@ -102,6 +116,8 @@ export default function OverviewPage() {
 
   const valuation = state.financial?.valuation ?? null
   const topChannel = state.funding?.channels?.find((channel) => channel.key === state.funding?.topChannelKey) ?? state.funding?.channels?.[0]
+  const workflowCoverage = state.workflow?.stageCoverage
+  const workflowStages = state.workflow?.stages ?? []
 
   const nextActions = useMemo(() => {
     const actions: NextAction[] = []
@@ -214,6 +230,68 @@ export default function OverviewPage() {
           <p className="mt-2 text-2xl font-black text-softform-navy-950">{topChannel ? `#${topChannel.rank}` : 'N/A'}</p>
           <p className="mt-1 text-xs text-softform-text-secondary">{topChannel?.label ?? 'Channel context unavailable'}</p>
         </Link>
+      </section>
+
+      <section className="softform-card rounded-[32px] p-6 sm:p-8 space-y-6">
+        <div className="flex flex-col gap-4 border-b border-softform-navy-950/5 pb-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-softform-navy-950 flex items-center gap-2">
+              <FileText size={20} className="text-softform-teal-deep" />
+              BOCHK Workflow Coverage
+            </h2>
+            <p className="mt-1 text-xs leading-relaxed text-softform-text-secondary">
+              Stage 0 to Stage 7 backend runner mapped to the challenge workflow.
+            </p>
+          </div>
+          <StatusChip variant={workflowCoverage ? 'signal' : 'caution'}>
+            {workflowCoverage ? `${workflowCoverage.completedStages}/${workflowCoverage.totalStages} stages ready` : 'Runner unavailable'}
+          </StatusChip>
+        </div>
+
+        {workflowCoverage ? (
+          <div className="grid gap-4 lg:grid-cols-[0.75fr_1.25fr]">
+            <div className="rounded-[24px] border border-softform-aqua-300/25 bg-softform-mist-100/60 p-5 shadow-soft-inner">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">Data source</p>
+              <p className="mt-2 text-xl font-black text-softform-navy-950">{formatBand(state.workflow?.dataSource)}</p>
+              <p className="mt-2 text-xs leading-relaxed text-softform-text-secondary">
+                {state.workflow?.company.companyName ?? 'Workspace company'} · {state.workflow?.company.reportingPeriod ?? 'reporting period unavailable'}
+              </p>
+              <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+                <div className="rounded-xl bg-white/55 px-3 py-2">
+                  <p className="text-lg font-black text-softform-navy-950">{workflowCoverage.completedStages}</p>
+                  <p className="text-[9px] uppercase tracking-wider text-softform-text-muted">Ready</p>
+                </div>
+                <div className="rounded-xl bg-white/55 px-3 py-2">
+                  <p className="text-lg font-black text-softform-navy-950">{workflowCoverage.reviewStages}</p>
+                  <p className="text-[9px] uppercase tracking-wider text-softform-text-muted">Review</p>
+                </div>
+                <div className="rounded-xl bg-white/55 px-3 py-2">
+                  <p className="text-lg font-black text-softform-navy-950">{workflowCoverage.unavailableStages}</p>
+                  <p className="text-[9px] uppercase tracking-wider text-softform-text-muted">Missing</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              {workflowStages.slice(0, 8).map((stage) => (
+                <div key={stage.stage} className="rounded-[18px] border border-white/60 bg-white/45 p-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-teal-deep">Stage {stage.stage}</p>
+                    <StatusChip variant={variantForWorkflowStatus(stage.status)} className="px-2 py-0.5 text-[8px] tracking-[0.1em]">
+                      {formatBand(stage.status)}
+                    </StatusChip>
+                  </div>
+                  <p className="mt-3 text-sm font-bold leading-snug text-softform-navy-950">{stage.name}</p>
+                  <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-softform-text-secondary">{stage.summary}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <p className="rounded-xl border border-white/60 bg-white/45 px-4 py-3 text-xs leading-relaxed text-softform-text-secondary">
+            Workflow runner is unavailable. Start the backend and check <code>/api/workflow/run</code>.
+          </p>
+        )}
       </section>
 
       <section className="grid gap-6 lg:grid-cols-[1fr_1fr]">
