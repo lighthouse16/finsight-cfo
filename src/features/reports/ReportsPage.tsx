@@ -13,7 +13,9 @@ import {
 } from 'lucide-react'
 import PageHeader from '../../components/platform/PageHeader'
 import StatusChip from '../../components/platform/StatusChip'
-import DemoFlowRail from '../../components/platform/DemoFlowRail'
+import SectionBlock from '../../components/platform/SectionBlock'
+import MetricDisplay from '../../components/platform/MetricDisplay'
+import SkeletonLoader from '../../components/platform/SkeletonLoader'
 import { getFinancialHealthAnalysis } from '../financial-health/financialHealthApi'
 import {
   getAdvisoryBlueprint,
@@ -211,11 +213,25 @@ export default function ReportsPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[50dvh] flex-col items-center justify-center space-y-4">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-softform-mist-100 text-softform-teal-deep animate-spin">
-          <RotateCw size={24} />
+      <div className="space-y-8 pb-12">
+        {/* Header Skeleton */}
+        <div className="space-y-3">
+          <SkeletonLoader variant="text" />
         </div>
-        <p className="text-sm font-medium text-softform-text-secondary animate-pulse">Preparing CFO report...</p>
+
+        {/* Cockpit Skeleton */}
+        <SkeletonLoader variant="card" className="min-h-[200px]" />
+
+        {/* 5 Metric Cards Skeleton */}
+        <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-5">
+          <SkeletonLoader variant="metric" count={5} />
+        </div>
+
+        {/* Double columns skeleton */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          <SkeletonLoader variant="card" className="min-h-[250px]" />
+          <SkeletonLoader variant="card" className="min-h-[250px]" />
+        </div>
       </div>
     )
   }
@@ -232,7 +248,7 @@ export default function ReportsPage() {
           <button
             type="button"
             onClick={loadReports}
-            className="inline-flex items-center gap-2 rounded-xl bg-softform-navy-900 px-5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-softform-navy-800 transition"
+            className="inline-flex items-center gap-2 rounded-xl bg-softform-navy-900 px-5 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-softform-navy-800 transition"
           >
             <RotateCw size={14} />
             Retry Connection
@@ -250,24 +266,23 @@ export default function ReportsPage() {
         chip={<StatusChip variant={isPreview ? 'signal' : 'neutral'}>{isPreview ? 'Workspace preview' : 'Demo report'}</StatusChip>}
       />
 
-      <DemoFlowRail />
-
-      <section className="softform-panel rounded-[32px] p-8 space-y-6 shadow-floating-panel relative overflow-hidden bg-gradient-to-br from-white/95 via-softform-mist-50/70 to-softform-ice-100/50 border border-white">
+      {/* CFO Report Package Hero Section in Premium Navy Contrast Card */}
+      <section className="softform-navy-card rounded-[32px] p-8 space-y-6 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-72 h-72 bg-softform-aqua-300/10 rounded-full blur-3xl pointer-events-none" />
         <div className="relative grid gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
           <div className="space-y-4">
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-softform-teal-deep">CFO report package</span>
-            <h2 className="text-3xl font-black text-softform-navy-950 tracking-tight">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-softform-aqua-300 animate-pulse">CFO report package</span>
+            <h2 className="text-3xl font-semibold text-white tracking-tight">
               {snapshot?.companyName ?? 'Workspace Company'} · {snapshot?.reportingPeriod ?? reportDate()}
             </h2>
-            <p className="text-sm leading-relaxed text-softform-text-secondary max-w-3xl">
+            <p className="text-sm leading-relaxed text-white/80 max-w-3xl">
               This page consolidates the current analysis into a board-style CFO snapshot and lender-facing summary. Content is context-only and should be reviewed before external use.
             </p>
-            <div className="flex flex-wrap gap-2">
-              <span className="rounded-full border border-white/70 bg-white/60 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-softform-navy-950">
+            <div className="flex flex-wrap gap-2 pt-1">
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-white/80">
                 Generated {reportDate()}
               </span>
-              <span className="rounded-full border border-white/70 bg-white/60 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-softform-navy-950">
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-white/80">
                 {isPreview ? 'Data Room sourced' : 'Demo source'}
               </span>
             </div>
@@ -277,68 +292,81 @@ export default function ReportsPage() {
             <button
               type="button"
               onClick={() => window.print()}
-              className="rounded-[22px] border border-softform-aqua-300/25 bg-softform-mist-100/70 p-4 text-left shadow-soft-inner hover-lift"
+              className="rounded-[22px] border border-white/10 bg-white/5 p-4 text-left shadow-soft-inner hover-lift"
             >
-              <Download size={18} className="text-softform-teal-deep" />
-              <p className="mt-3 text-sm font-black text-softform-navy-950">Print / Save PDF</p>
-              <p className="mt-1 text-xs text-softform-text-secondary">Use browser print for now.</p>
+              <Download size={18} className="text-softform-aqua-300" />
+              <p className="mt-3 text-sm font-semibold text-white">Print / Save PDF</p>
+              <p className="mt-1 text-xs text-white/70">Use browser print for now.</p>
             </button>
-            <Link to="/platform/advisory-blueprint" className="rounded-[22px] border border-softform-aqua-300/25 bg-softform-mist-100/70 p-4 shadow-soft-inner hover-lift">
-              <FileText size={18} className="text-softform-teal-deep" />
-              <p className="mt-3 text-sm font-black text-softform-navy-950">Advisor Brief</p>
-              <p className="mt-1 text-xs text-softform-text-secondary">Open detailed blueprint.</p>
+            <Link to="/platform/advisory-blueprint" className="rounded-[22px] border border-white/10 bg-white/5 p-4 shadow-soft-inner hover-lift">
+              <FileText size={18} className="text-softform-aqua-300" />
+              <p className="mt-3 text-sm font-semibold text-white">Advisor Brief</p>
+              <p className="mt-1 text-xs text-white/70">Open detailed blueprint.</p>
             </Link>
           </div>
         </div>
       </section>
 
+      {/* Report sections links grid */}
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         {reportSections.map((section) => {
           const Icon = section.icon
           return (
-            <Link key={section.label} to={section.to} className="rounded-[22px] border border-white/60 bg-white/55 p-5 shadow-sm hover-lift">
-              <Icon size={20} className="text-softform-teal-deep" />
-              <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">{section.label}</p>
-              <p className="mt-2 text-sm font-black text-softform-navy-950 capitalize">{formatBand(section.status)}</p>
+            <Link key={section.label} to={section.to} className="softform-metric-card rounded-[22px] p-5 hover-lift">
+              <MetricDisplay
+                label={section.label}
+                value={formatBand(section.status)}
+                icon={<Icon size={16} className="text-softform-teal-500" />}
+              />
             </Link>
           )
         })}
       </section>
 
-      <section className="softform-card rounded-[32px] p-6 sm:p-8 space-y-6">
-        <div className="flex items-center justify-between border-b border-softform-navy-950/5 pb-4">
-          <h2 className="text-lg font-bold text-softform-navy-950">Executive Snapshot</h2>
-          <StatusChip variant={bandVariant(state.financial?.summary?.overallBand)}>{formatBand(state.financial?.summary?.overallBand)}</StatusChip>
-        </div>
+      {/* Executive Snapshot */}
+      <SectionBlock
+        title="Executive Snapshot"
+        action={<StatusChip variant={bandVariant(state.financial?.summary?.overallBand)}>{formatBand(state.financial?.summary?.overallBand)}</StatusChip>}
+        containerType="card"
+        className="rounded-[32px] p-6 sm:p-8 space-y-6"
+      >
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-[20px] border border-white/60 bg-white/45 p-4">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">Revenue</p>
-            <p className="mt-2 text-xl font-black text-softform-navy-950 tabular-finance">{formatHKD(snapshot?.incomeStatement.revenue)}</p>
+          <div className="softform-metric-card rounded-[20px] p-4 hover-lift">
+            <MetricDisplay
+              label="Revenue"
+              value={formatHKD(snapshot?.incomeStatement.revenue)}
+            />
           </div>
-          <div className="rounded-[20px] border border-white/60 bg-white/45 p-4">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">EBITDA</p>
-            <p className="mt-2 text-xl font-black text-softform-navy-950 tabular-finance">{formatHKD(snapshot?.incomeStatement.ebitda)}</p>
+          <div className="softform-metric-card rounded-[20px] p-4 hover-lift">
+            <MetricDisplay
+              label="EBITDA"
+              value={formatHKD(snapshot?.incomeStatement.ebitda)}
+            />
           </div>
-          <div className="rounded-[20px] border border-white/60 bg-white/45 p-4">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">Enterprise Value</p>
-            <p className="mt-2 text-xl font-black text-softform-navy-950 tabular-finance">{formatHKD(valuation?.dcf?.enterpriseValue)}</p>
+          <div className="softform-metric-card rounded-[20px] p-4 hover-lift">
+            <MetricDisplay
+              label="Enterprise Value"
+              value={formatHKD(valuation?.dcf?.enterpriseValue)}
+            />
           </div>
-          <div className="rounded-[20px] border border-white/60 bg-white/45 p-4">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">Readiness Score</p>
-            <p className="mt-2 text-xl font-black text-softform-navy-950 tabular-finance">{state.credit?.compositeScore ?? 'N/A'}</p>
+          <div className="softform-metric-card rounded-[20px] p-4 hover-lift">
+            <MetricDisplay
+              label="Readiness Score"
+              value={state.credit?.compositeScore ?? 'N/A'}
+            />
           </div>
         </div>
-      </section>
+      </SectionBlock>
 
+      {/* Narratives Grid */}
       <section className="grid gap-6 lg:grid-cols-2">
-        <div className="softform-card rounded-[28px] p-6 sm:p-8 space-y-5">
-          <div className="flex items-center justify-between border-b border-softform-navy-950/5 pb-4">
-            <h2 className="text-lg font-bold text-softform-navy-950 flex items-center gap-2">
-              <HeartPulse size={20} className="text-softform-teal-deep" />
-              Financial Narrative
-            </h2>
-            <StatusChip variant={bandVariant(state.financial?.summary?.liquidityBand)}>{formatBand(state.financial?.summary?.liquidityBand)}</StatusChip>
-          </div>
+        <SectionBlock
+          title="Financial Narrative"
+          icon={<HeartPulse size={20} className="text-softform-teal-500" />}
+          action={<StatusChip variant={bandVariant(state.financial?.summary?.liquidityBand)}>{formatBand(state.financial?.summary?.liquidityBand)}</StatusChip>}
+          containerType="card"
+          className="rounded-[28px] p-6 sm:p-8 space-y-5"
+        >
           <div className="space-y-3">
             {(state.financial?.summary?.strengths ?? []).slice(0, 3).map((item, idx) => (
               <p key={`strength-${idx}`} className="rounded-xl border border-white/60 bg-white/45 px-4 py-3 text-xs leading-relaxed text-softform-text-secondary">
@@ -351,18 +379,17 @@ export default function ReportsPage() {
               </p>
             ))}
           </div>
-        </div>
+        </SectionBlock>
 
-        <div className="softform-card rounded-[28px] p-6 sm:p-8 space-y-5">
-          <div className="flex items-center justify-between border-b border-softform-navy-950/5 pb-4">
-            <h2 className="text-lg font-bold text-softform-navy-950 flex items-center gap-2">
-              <ShieldCheck size={20} className="text-softform-teal-deep" />
-              Readiness Narrative
-            </h2>
-            <StatusChip variant={bandVariant(state.credit?.fundingReadiness)}>{formatBand(state.credit?.fundingReadiness)}</StatusChip>
-          </div>
+        <SectionBlock
+          title="Readiness Narrative"
+          icon={<ShieldCheck size={20} className="text-softform-teal-500" />}
+          action={<StatusChip variant={bandVariant(state.credit?.fundingReadiness)}>{formatBand(state.credit?.fundingReadiness)}</StatusChip>}
+          containerType="card"
+          className="rounded-[28px] p-6 sm:p-8 space-y-5"
+        >
           <div className="space-y-3">
-            <p className="rounded-xl border border-white/60 bg-white/45 px-4 py-3 text-xs leading-relaxed text-softform-text-secondary">
+            <p className="rounded-xl border border-white/60 bg-white/45 px-4 py-3 text-xs leading-relaxed text-softform-text-secondary font-medium">
               {state.credit?.pdProxyBand ?? 'Readiness scorecard is unavailable. Review Credit Readiness for details.'}
             </p>
             {(state.credit?.positiveDrivers ?? []).slice(0, 2).map((item, idx) => (
@@ -376,20 +403,20 @@ export default function ReportsPage() {
               </p>
             ))}
           </div>
-        </div>
+        </SectionBlock>
       </section>
 
+      {/* Recommendations & Valuation Narratives */}
       <section className="grid gap-6 lg:grid-cols-2">
-        <div className="softform-card rounded-[28px] p-6 sm:p-8 space-y-5">
-          <div className="flex items-center justify-between border-b border-softform-navy-950/5 pb-4">
-            <h2 className="text-lg font-bold text-softform-navy-950 flex items-center gap-2">
-              <Landmark size={20} className="text-softform-teal-deep" />
-              Funding Recommendation Context
-            </h2>
-            <StatusChip variant={bandVariant(topChannel?.fitBand)}>{formatBand(topChannel?.fitBand)}</StatusChip>
-          </div>
+        <SectionBlock
+          title="Funding Recommendation Context"
+          icon={<Landmark size={20} className="text-softform-teal-500" />}
+          action={<StatusChip variant={bandVariant(topChannel?.fitBand)}>{formatBand(topChannel?.fitBand)}</StatusChip>}
+          containerType="card"
+          className="rounded-[28px] p-6 sm:p-8 space-y-5"
+        >
           <div className="space-y-3">
-            <p className="text-sm font-black text-softform-navy-950">{topChannel?.label ?? 'Funding channel unavailable'}</p>
+            <p className="text-sm font-semibold text-softform-navy-950">{topChannel?.label ?? 'Funding channel unavailable'}</p>
             <p className="text-xs leading-relaxed text-softform-text-secondary">
               {topChannel?.rationale ?? state.funding?.explanation ?? 'Open Funding Strategy for channel ranking and facility fit.'}
             </p>
@@ -400,61 +427,67 @@ export default function ReportsPage() {
               </div>
             )}
           </div>
-        </div>
+        </SectionBlock>
 
-        <div className="softform-card rounded-[28px] p-6 sm:p-8 space-y-5">
-          <div className="flex items-center justify-between border-b border-softform-navy-950/5 pb-4">
-            <h2 className="text-lg font-bold text-softform-navy-950 flex items-center gap-2">
-              <BarChart3 size={20} className="text-softform-teal-deep" />
-              Valuation Context
-            </h2>
-            <StatusChip variant="neutral">DCF / WACC</StatusChip>
-          </div>
+        <SectionBlock
+          title="Valuation Context"
+          icon={<BarChart3 size={20} className="text-softform-teal-500" />}
+          action={<StatusChip variant="neutral">DCF / WACC</StatusChip>}
+          containerType="card"
+          className="rounded-[28px] p-6 sm:p-8 space-y-5"
+        >
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-xl border border-white/60 bg-white/45 px-4 py-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">Equity value</p>
-              <p className="mt-1 text-xl font-black text-softform-navy-950 tabular-finance">{formatHKD(valuation?.dcf?.equityValue)}</p>
+              <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-softform-text-muted">Equity value</p>
+              <p className="mt-1 text-xl font-bold text-softform-navy-950 tabular-finance">{formatHKD(valuation?.dcf?.equityValue)}</p>
             </div>
             <div className="rounded-xl border border-white/60 bg-white/45 px-4 py-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">WACC</p>
-              <p className="mt-1 text-xl font-black text-softform-navy-950 tabular-finance">{formatPercent(valuation?.wacc?.wacc)}</p>
+              <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-softform-text-muted">WACC</p>
+              <p className="mt-1 text-xl font-bold text-softform-navy-950 tabular-finance">{formatPercent(valuation?.wacc?.wacc)}</p>
             </div>
           </div>
           <p className="text-xs leading-relaxed text-softform-text-secondary">
             Valuation remains indicative and assumptions-based. It supports funding narrative and CFO planning, not a formal appraisal.
           </p>
-        </div>
+        </SectionBlock>
       </section>
 
+      {/* Advisor-Ready Summary */}
       {(state.blueprint?.executiveBrief || state.macro?.headline) && (
-        <section className="softform-card rounded-[32px] p-6 sm:p-8 space-y-5">
-          <div className="flex items-center justify-between border-b border-softform-navy-950/5 pb-4">
-            <h2 className="text-lg font-bold text-softform-navy-950">Advisor-Ready Summary</h2>
+        <SectionBlock
+          title="Advisor-Ready Summary"
+          action={
             <StatusChip variant={bandVariant(state.blueprint?.blueprintStatus ?? state.macro?.summaryBand)}>
               {formatBand(state.blueprint?.blueprintStatus ?? state.macro?.summaryBand)}
             </StatusChip>
-          </div>
-          <p className="text-sm leading-relaxed text-softform-text-secondary">
+          }
+          containerType="card"
+          className="rounded-[32px] p-6 sm:p-8 space-y-5"
+        >
+          <p className="text-sm leading-relaxed text-softform-text-secondary mb-4">
             {state.blueprint?.executiveBrief ?? state.macro?.headline}
           </p>
-          {(state.blueprint?.recommendedActions ?? []).slice(0, 4).map((action) => (
-            <p key={action.actionKey} className="rounded-xl border border-white/60 bg-white/45 px-4 py-3 text-xs leading-relaxed text-softform-text-secondary">
-              <strong className="text-softform-navy-950">{action.label}:</strong> {action.rationale}
-            </p>
-          ))}
-        </section>
+          <div className="space-y-3">
+            {(state.blueprint?.recommendedActions ?? []).slice(0, 4).map((action) => (
+              <p key={action.actionKey} className="rounded-xl border border-white/60 bg-white/45 px-4 py-3 text-xs leading-relaxed text-softform-text-secondary">
+                <strong className="text-softform-navy-950">{action.label}:</strong> {action.rationale}
+              </p>
+            ))}
+          </div>
+        </SectionBlock>
       )}
 
+      {/* Navigation Footer */}
       <section className="flex flex-col sm:flex-row gap-6 items-center justify-between p-8 rounded-[36px] border border-white/70 bg-gradient-to-r from-softform-mist-100/50 to-white/50 backdrop-blur-md shadow-base-card">
         <div className="space-y-1.5 text-center sm:text-left max-w-2xl">
-          <p className="font-bold text-softform-navy-950 text-base">Refine the source analysis</p>
+          <p className="font-semibold text-softform-navy-950 text-base">Refine the source analysis</p>
           <p className="text-xs leading-relaxed text-softform-text-secondary">
             Reports are only as good as the active Data Room and Financial Health context. Review source modules before sharing externally.
           </p>
         </div>
         <Link
           to="/platform/financial-health"
-          className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-softform-navy-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-softform-navy-800 transition shadow-sm"
+          className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-softform-navy-900 px-4 py-2.5 text-xs font-semibold text-white hover:bg-softform-navy-800 transition shadow-sm"
         >
           Review Financial Health
           <ArrowRight size={14} />

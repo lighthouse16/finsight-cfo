@@ -219,6 +219,57 @@
   .platform-sidebar-scroll::-webkit-scrollbar-thumb:hover {
     background: rgba(13, 23, 38, 0.32);
   }
+
+  /* Redesigned card and section utilities */
+  .softform-metric-card {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.78), rgba(234, 247, 244, 0.70));
+    border: 1px solid rgba(255, 255, 255, 0.82);
+    box-shadow: var(--shadow-floating-panel);
+    backdrop-filter: blur(20px);
+  }
+
+  .softform-action-card {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.80), rgba(231, 240, 244, 0.70));
+    border: 1px solid rgba(255, 255, 255, 0.78);
+    border-left: 4px solid var(--navy-700);
+    box-shadow: var(--shadow-base-card);
+    backdrop-filter: blur(18px);
+    transition: all var(--duration-medium) var(--easing-out);
+  }
+
+  .softform-action-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-floating-panel);
+    border-left-color: var(--teal-500);
+  }
+
+  .softform-section-header {
+    position: relative;
+    padding-left: 0.875rem;
+  }
+
+  .softform-section-header::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.25rem;
+    bottom: 0.25rem;
+    width: 3px;
+    border-radius: 999px;
+    background-color: var(--teal-500);
+  }
+
+  .softform-score-ring {
+    transform: rotate(-90deg);
+    transform-origin: center;
+    transition: stroke-dashoffset 0.8s ease-in-out;
+  }
+
+  .softform-skeleton {
+    @apply animate-pulse;
+    background-color: rgba(13, 23, 38, 0.05);
+    border-radius: 12px;
+  }
 }
 
 
@@ -268,11 +319,35 @@
   }
 
   .hover-lift:hover {
-    transform: translateY(-4px);
+    transform: translateY(-3px);
     box-shadow: var(--shadow-floating-panel);
   }
 
   .tabular-finance {
     font-variant-numeric: tabular-nums;
+  }
+
+  .shimmer-element {
+    position: relative;
+    overflow: hidden;
+    background-color: rgba(13, 23, 38, 0.05);
+  }
+
+  .shimmer-element::after {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    transform: translateX(-100%);
+    background-image: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.45) 20%,
+      rgba(255, 255, 255, 0.75) 60%,
+      rgba(255, 255, 255, 0) 100%
+    );
+    animation: shimmer 1.6s infinite linear;
+    content: '';
   }
 }

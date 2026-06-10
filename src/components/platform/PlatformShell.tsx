@@ -1,7 +1,8 @@
 import { useState, useCallback, useEffect } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import SidebarNav from './SidebarNav'
 import TopCommandBar from './TopCommandBar'
+import { motion, AnimatePresence } from 'framer-motion'
 
 const SIDEBAR_COLLAPSED_KEY = 'finsight-sidebar-collapsed'
 
@@ -23,6 +24,7 @@ function writeCollapsedToStorage(value: boolean): void {
 }
 
 export default function PlatformShell() {
+  const location = useLocation()
   // Mobile drawer state
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
@@ -62,9 +64,19 @@ export default function PlatformShell() {
       <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <TopCommandBar onMenuToggle={handleMenuToggle} />
 
-        <div className="flex-1 overflow-y-auto px-4 pb-8 pt-2 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-5xl">
-            <Outlet />
+        <div className="flex-1 overflow-y-auto px-6 py-6 lg:px-10 xl:px-12 pb-16 softform-page">
+          <div className="mx-auto max-w-7xl">
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={location.pathname}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2, ease: 'easeInOut' }}
+              >
+                <Outlet />
+              </motion.div>
+            </AnimatePresence>
           </div>
         </div>
       </main>

@@ -151,7 +151,7 @@ export default function CinematicHero() {
         </div>
       </header>
 
-      <main className="relative z-10 mx-auto max-w-[1340px] px-5 pb-4 pt-6 lg:px-8 lg:pt-8">
+      <div className="relative z-10 mx-auto max-w-[1340px] px-5 pb-4 pt-6 lg:px-8 lg:pt-8">
         <div className="grid items-center gap-8 lg:grid-cols-[0.9fr_1.1fr] xl:gap-10">
           <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.62 }} className="max-w-[640px] py-2">
             <div className="softform-pill inline-flex items-center gap-2 rounded-full px-4 py-2">
@@ -183,7 +183,7 @@ export default function CinematicHero() {
           <HeroPanel />
         </div>
 
-      </main>
+      </div>
     </section>
   )
 }

@@ -3,7 +3,9 @@ import { Link } from 'react-router-dom'
 import { AlertTriangle, ArrowRight, RotateCw, ShieldCheck, TrendingUp } from 'lucide-react'
 import PageHeader from '../../components/platform/PageHeader'
 import StatusChip from '../../components/platform/StatusChip'
-import DemoFlowRail from '../../components/platform/DemoFlowRail'
+import SectionBlock from '../../components/platform/SectionBlock'
+import ScoreRing from '../../components/platform/ScoreRing'
+import SkeletonLoader from '../../components/platform/SkeletonLoader'
 import { getCreditScore } from '../advisory-blueprint/api/advisoryBlueprintApi'
 import { createAndFetchMockCdiData } from '../cdi/cdiApi'
 import type { CreditScoringResult, CreditScoreFactor, FundingReadinessBand, PdRiskTier } from '../advisory-blueprint/types'
@@ -90,13 +92,25 @@ export default function CreditReadinessPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[50dvh] flex-col items-center justify-center space-y-4">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-softform-mist-100 text-softform-teal-deep animate-spin">
-          <RotateCw size={24} />
+      <div className="space-y-8 pb-12">
+        {/* Header Skeleton */}
+        <div className="space-y-3">
+          <SkeletonLoader variant="text" />
         </div>
-        <p className="text-sm font-medium text-softform-text-secondary animate-pulse">
-          Loading PD proxy scorecard...
-        </p>
+
+        {/* Cockpit Skeleton */}
+        <SkeletonLoader variant="card" className="min-h-[200px]" />
+
+        {/* Double columns skeleton */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          <SkeletonLoader variant="card" className="min-h-[250px]" />
+          <SkeletonLoader variant="card" className="min-h-[250px]" />
+        </div>
+
+        {/* 6 Metric Cards Skeleton */}
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <SkeletonLoader variant="metric" count={6} />
+        </div>
       </div>
     )
   }
@@ -137,60 +151,62 @@ export default function CreditReadinessPage() {
         }
       />
 
-      <DemoFlowRail />
-
-      <section className="softform-panel rounded-[32px] p-8 space-y-6 shadow-floating-panel relative overflow-hidden bg-gradient-to-br from-white/95 via-softform-mist-50/70 to-softform-ice-100/50 border border-white">
+      {/* Hero Score Card in Premium Navy Contrast Card */}
+      <section className="softform-navy-card rounded-[32px] p-8 space-y-6 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-72 h-72 bg-softform-aqua-300/10 rounded-full blur-3xl pointer-events-none" />
         <div className="relative flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
           <div className="space-y-4 max-w-3xl">
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-softform-teal-deep">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-softform-aqua-300 animate-pulse">
               Finance-first PD proxy
             </span>
             <div>
-              <h2 className="text-3xl font-black text-softform-navy-950 tracking-tight">
+              <h2 className="text-3xl font-bold text-white tracking-tight">
                 {creditScore.companyName}
               </h2>
-              <p className="mt-2 text-sm leading-relaxed text-softform-text-secondary">
+              <p className="mt-2 text-sm leading-relaxed text-white/80">
                 {creditScore.methodologyLabel}. This page is context-only and designed to explain the drivers behind lender-readiness, not to issue a formal credit decision.
               </p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <span className="rounded-full border border-white/70 bg-white/60 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-softform-navy-950">
+            <div className="flex flex-wrap gap-2 pt-1">
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-white/80">
                 {readinessLabels[creditScore.fundingReadiness]}
               </span>
-              <span className="rounded-full border border-white/70 bg-white/60 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-softform-navy-950">
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-white/80">
                 {creditScore.pdProxyBand}
               </span>
-              <span className="rounded-full border border-white/70 bg-white/60 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-softform-navy-950">
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-white/80">
                 CDI {formatBand(cdiConsent?.status ?? 'not requested')}
               </span>
             </div>
           </div>
 
-          <div className="flex flex-col items-center justify-center rounded-[28px] bg-softform-mist-100/65 border border-softform-aqua-300/30 p-8 shadow-soft-inner min-w-[190px]">
-            <span className="text-6xl font-black text-softform-teal-deep tracking-tight tabular-finance">
-              {creditScore.compositeScore}
-            </span>
-            <span className="mt-1 text-[10px] uppercase tracking-[0.16em] font-bold text-softform-text-muted">
-              {creditScore.scoreScale}
-            </span>
-            <span className="mt-4 rounded-full bg-softform-navy-950 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-white">
+          <div className="flex flex-col items-center justify-center rounded-[28px] bg-white/5 border border-white/10 p-6 backdrop-blur-md min-w-[200px] shrink-0">
+            <ScoreRing
+              score={creditScore.compositeScore}
+              size={96}
+              showText={true}
+              label={creditScore.scoreScale}
+              textColor="text-white"
+            />
+            <span className="mt-3 rounded-full bg-white text-softform-navy-950 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.1em]">
               {tierLabels[creditScore.riskTier]}
             </span>
           </div>
         </div>
       </section>
 
+      {/* Positive and Risk Drivers */}
       <section className="grid gap-6 lg:grid-cols-2">
-        <div className="softform-card rounded-[28px] p-6 sm:p-8 space-y-4">
-          <div className="flex items-center gap-2.5">
-            <ShieldCheck size={20} className="text-softform-teal-deep" />
-            <h2 className="text-lg font-bold text-softform-navy-950">Positive Drivers</h2>
-          </div>
+        <SectionBlock
+          title="Positive Drivers"
+          icon={<ShieldCheck size={20} className="text-softform-teal-500" />}
+          containerType="card"
+          className="rounded-[28px] p-6 sm:p-8 space-y-4"
+        >
           {creditScore.positiveDrivers.length > 0 ? (
             <ul className="space-y-3">
               {creditScore.positiveDrivers.slice(0, 5).map((driver, idx) => (
-                <li key={idx} className="flex items-start gap-2 text-sm text-softform-text-secondary">
+                <li key={idx} className="flex items-start gap-2.5 text-sm text-softform-text-secondary">
                   <span className="mt-1 h-2 w-2 rounded-full bg-softform-teal-deep shrink-0" />
                   <span>{driver}</span>
                 </li>
@@ -199,17 +215,18 @@ export default function CreditReadinessPage() {
           ) : (
             <p className="text-sm text-softform-text-secondary">No strong positive drivers detected yet.</p>
           )}
-        </div>
+        </SectionBlock>
 
-        <div className="softform-card rounded-[28px] p-6 sm:p-8 space-y-4">
-          <div className="flex items-center gap-2.5">
-            <AlertTriangle size={20} className="text-softform-amber-500" />
-            <h2 className="text-lg font-bold text-softform-navy-950">Risk Drivers</h2>
-          </div>
+        <SectionBlock
+          title="Risk Drivers"
+          icon={<AlertTriangle size={20} className="text-softform-amber-500" />}
+          containerType="card"
+          className="rounded-[28px] p-6 sm:p-8 space-y-4"
+        >
           {creditScore.riskDrivers.length > 0 ? (
             <ul className="space-y-3">
               {creditScore.riskDrivers.slice(0, 5).map((driver, idx) => (
-                <li key={idx} className="flex items-start gap-2 text-sm text-softform-text-secondary">
+                <li key={idx} className="flex items-start gap-2.5 text-sm text-softform-text-secondary">
                   <span className="mt-1 h-2 w-2 rounded-full bg-softform-amber-500 shrink-0" />
                   <span>{driver}</span>
                 </li>
@@ -218,108 +235,124 @@ export default function CreditReadinessPage() {
           ) : (
             <p className="text-sm text-softform-text-secondary">No major risk drivers detected under current assumptions.</p>
           )}
-        </div>
+        </SectionBlock>
       </section>
 
+      {/* CDI Overlay Section */}
       {cdiData && (
-        <section className="softform-card rounded-[32px] p-6 sm:p-8 space-y-6">
-          <div className="flex items-center justify-between border-b border-softform-navy-950/5 pb-4">
-            <h2 className="text-lg font-bold text-softform-navy-950 flex items-center gap-2">
-              <ShieldCheck size={20} className="text-softform-teal-deep" />
-              Consent-Based CDI Overlay
-            </h2>
-            <StatusChip variant="signal">{formatBand(cdiData.creditBureauSignal.bureauBand)}</StatusChip>
-          </div>
-
+        <SectionBlock
+          title="Consent-Based CDI Overlay"
+          icon={<ShieldCheck size={20} className="text-softform-teal-500" />}
+          action={<StatusChip variant="signal">{formatBand(cdiData.creditBureauSignal.bureauBand)}</StatusChip>}
+          containerType="card"
+          className="rounded-[32px] p-6 sm:p-8 space-y-6"
+        >
           <div className="grid gap-4 lg:grid-cols-4">
             <div className="rounded-[18px] border border-white/60 bg-white/45 p-4">
-              <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">Net cash-flow trend</p>
-              <p className="mt-1 text-lg font-black text-softform-navy-950">{formatBand(cdiData.cashflowSignal.netCashflowTrend)}</p>
+              <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-softform-text-muted">Net cash-flow trend</p>
+              <p className="mt-1 text-lg font-bold text-softform-navy-950">{formatBand(cdiData.cashflowSignal.netCashflowTrend)}</p>
             </div>
             <div className="rounded-[18px] border border-white/60 bg-white/45 p-4">
-              <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">Eligible invoices</p>
-              <p className="mt-1 text-lg font-black text-softform-navy-950 tabular-finance">{formatHKD(cdiData.receivablesSignal.eligibleInvoiceValue)}</p>
+              <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-softform-text-muted">Eligible invoices</p>
+              <p className="mt-1 text-lg font-bold text-softform-navy-950 tabular-finance">{formatHKD(cdiData.receivablesSignal.eligibleInvoiceValue)}</p>
             </div>
             <div className="rounded-[18px] border border-white/60 bg-white/45 p-4">
-              <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">Buyer concentration</p>
-              <p className="mt-1 text-lg font-black text-softform-navy-950 tabular-finance">{formatPercent(cdiData.receivablesSignal.topBuyerConcentration)}</p>
+              <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-softform-text-muted">Buyer concentration</p>
+              <p className="mt-1 text-lg font-bold text-softform-navy-950 tabular-finance">{formatPercent(cdiData.receivablesSignal.topBuyerConcentration)}</p>
             </div>
             <div className="rounded-[18px] border border-white/60 bg-white/45 p-4">
-              <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">Delinquencies 12m</p>
-              <p className="mt-1 text-lg font-black text-softform-navy-950 tabular-finance">{cdiData.creditBureauSignal.repaymentDelinquencyCount12m}</p>
+              <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-softform-text-muted">Delinquencies 12m</p>
+              <p className="mt-1 text-lg font-bold text-softform-navy-950 tabular-finance">{cdiData.creditBureauSignal.repaymentDelinquencyCount12m}</p>
             </div>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-4 lg:grid-cols-2 pt-2">
             <div className="rounded-[22px] border border-white/60 bg-white/45 p-5 space-y-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-teal-deep">CDI supports</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-softform-teal-deep">CDI supports</p>
               {cdiData.fundingImplications.slice(0, 3).map((item) => (
                 <p key={item} className="text-xs leading-relaxed text-softform-text-secondary">
-                  <strong className="text-softform-navy-950">Signal:</strong> {item}
+                  <strong className="text-softform-navy-950 font-semibold">Signal:</strong> {item}
                 </p>
               ))}
             </div>
             <div className="rounded-[22px] border border-white/60 bg-white/45 p-5 space-y-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-amber-500">CDI watch items</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-softform-amber-500">CDI watch items</p>
               {cdiData.riskImplications.slice(0, 3).map((item) => (
                 <p key={item} className="text-xs leading-relaxed text-softform-text-secondary">
-                  <strong className="text-softform-navy-950">Watch:</strong> {item}
+                  <strong className="text-softform-navy-950 font-semibold">Watch:</strong> {item}
                 </p>
               ))}
             </div>
           </div>
-        </section>
+        </SectionBlock>
       )}
 
-      <section className="softform-card rounded-[32px] p-6 sm:p-8 space-y-6">
-        <div className="flex items-center justify-between border-b border-softform-navy-950/5 pb-4">
-          <h2 className="text-lg font-bold text-softform-navy-950 flex items-center gap-2">
-            <TrendingUp size={20} className="text-softform-teal-deep" />
-            Score Factor Breakdown
-          </h2>
-          <StatusChip variant="neutral">Explainable Scorecard</StatusChip>
-        </div>
-
+      {/* Score Factor Breakdown */}
+      <SectionBlock
+        title="Score Factor Breakdown"
+        icon={<TrendingUp size={20} className="text-softform-teal-500" />}
+        action={<StatusChip variant="neutral">Explainable Scorecard</StatusChip>}
+        containerType="card"
+        className="rounded-[32px] p-6 sm:p-8 space-y-6"
+      >
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {creditScore.factors.map((factor) => (
-            <div key={factor.key} className="rounded-[22px] bg-white/45 border border-white/60 p-5 shadow-sm hover-lift space-y-4">
-              <div className="flex items-start justify-between gap-3">
-                <h3 className="text-sm font-black text-softform-navy-950 leading-snug">{factor.label}</h3>
-                <span className={`shrink-0 rounded px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${factorTone(factor)}`}>
-                  {formatBand(factor.band)}
-                </span>
-              </div>
-              <div className="space-y-1.5 text-xs text-softform-text-secondary">
-                <div className="flex justify-between border-b border-softform-navy-950/5 pb-1">
-                  <span className="font-semibold text-softform-navy-950/80">Raw score</span>
-                  <span className="tabular-finance font-bold text-softform-navy-950">{factor.rawScore}</span>
-                </div>
-                <div className="flex justify-between border-b border-softform-navy-950/5 pb-1">
-                  <span className="font-semibold text-softform-navy-950/80">Weight</span>
-                  <span className="tabular-finance font-bold text-softform-navy-950">{Math.round(factor.weight * 100)}%</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-semibold text-softform-navy-950/80">Weighted</span>
-                  <span className="tabular-finance font-bold text-softform-navy-950">{factor.weightedScore.toFixed(2)}</span>
-                </div>
-              </div>
-              <p className="text-xs leading-relaxed text-softform-text-secondary">{factor.message}</p>
-              <p className="text-[10px] leading-relaxed text-softform-text-muted border-t border-softform-navy-950/5 pt-3">
-                <strong>Evidence:</strong> {factor.evidence}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
+          {creditScore.factors.map((factor) => {
+            const rawScore = factor.rawScore
+            const barColor = rawScore >= 75 ? 'bg-emerald-500' : rawScore >= 55 ? 'bg-amber-500' : 'bg-red-500'
+            return (
+              <div key={factor.key} className="rounded-[22px] bg-white/45 border border-white/60 p-5 shadow-sm hover-lift space-y-4 flex flex-col justify-between">
+                <div className="space-y-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <h3 className="text-sm font-semibold text-softform-navy-950 leading-snug">{factor.label}</h3>
+                    <span className={`shrink-0 rounded px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider ${factorTone(factor)}`}>
+                      {formatBand(factor.band)}
+                    </span>
+                  </div>
 
+                  {/* Score progress bar */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[10px] font-medium text-softform-text-secondary">
+                      <span>Score</span>
+                      <span className="font-semibold">{rawScore} / 100</span>
+                    </div>
+                    <div className="w-full h-2 bg-softform-text-muted/15 rounded-full overflow-hidden">
+                      <div className={`h-full ${barColor}`} style={{ width: `${rawScore}%` }} />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5 text-xs text-softform-text-secondary border-t border-softform-navy-950/5 pt-3">
+                    <div className="flex justify-between">
+                      <span className="font-medium text-softform-navy-950/80">Weight</span>
+                      <span className="tabular-finance font-semibold text-softform-navy-950">{Math.round(factor.weight * 100)}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium text-softform-navy-950/80">Weighted Score</span>
+                      <span className="tabular-finance font-semibold text-softform-navy-950">{factor.weightedScore.toFixed(2)}</span>
+                    </div>
+                  </div>
+                  <p className="text-xs leading-relaxed text-softform-text-secondary">{factor.message}</p>
+                </div>
+                <p className="text-[10px] leading-relaxed text-softform-text-muted border-t border-softform-navy-950/5 pt-3 mt-2">
+                  <strong className="font-semibold text-softform-navy-950">Evidence:</strong> {factor.evidence}
+                </p>
+              </div>
+            )
+          })}
+        </div>
+      </SectionBlock>
+
+      {/* Constraints & Next Data */}
       {(creditScore.hardConstraints.length > 0 || creditScore.nextDataNeeded.length > 0) && (
         <section className="grid gap-6 lg:grid-cols-2">
           {creditScore.hardConstraints.length > 0 && (
             <div className="softform-card rounded-[28px] p-6 sm:p-8 space-y-4 border border-softform-amber-300/20">
-              <h2 className="text-lg font-bold text-softform-navy-950">Hard Constraints</h2>
+              <h2 className="text-lg font-semibold text-softform-navy-950 flex items-center gap-2">
+                <AlertTriangle size={18} className="text-softform-amber-500" />
+                Hard Constraints
+              </h2>
               <ul className="space-y-3">
                 {creditScore.hardConstraints.map((item, idx) => (
-                  <li key={idx} className="flex items-start gap-2 text-sm text-softform-text-secondary">
+                  <li key={idx} className="flex items-start gap-2.5 text-sm text-softform-text-secondary">
                     <AlertTriangle size={14} className="mt-0.5 text-softform-amber-500 shrink-0" />
                     <span>{item}</span>
                   </li>
@@ -329,7 +362,10 @@ export default function CreditReadinessPage() {
           )}
 
           <div className="softform-card rounded-[28px] p-6 sm:p-8 space-y-4">
-            <h2 className="text-lg font-bold text-softform-navy-950">Next Data Needed</h2>
+            <h2 className="text-lg font-semibold text-softform-navy-950 flex items-center gap-2">
+              <ShieldCheck size={18} className="text-softform-teal-500" />
+              Next Data Needed
+            </h2>
             <div className="grid gap-2">
               {creditScore.nextDataNeeded.slice(0, 6).map((item, idx) => (
                 <div key={idx} className="rounded-xl border border-white/60 bg-white/45 px-4 py-3 text-xs font-semibold text-softform-text-secondary shadow-sm">
@@ -341,16 +377,17 @@ export default function CreditReadinessPage() {
         </section>
       )}
 
+      {/* Continue CTA */}
       <section className="flex flex-col sm:flex-row gap-6 items-center justify-between p-8 rounded-[36px] border border-white/70 bg-gradient-to-r from-softform-mist-100/50 to-white/50 backdrop-blur-md shadow-base-card">
         <div className="space-y-1.5 text-center sm:text-left max-w-2xl">
-          <p className="font-bold text-softform-navy-950 text-base">Move from scorecard to advisory action</p>
+          <p className="font-semibold text-softform-navy-950 text-base">Move from scorecard to advisory action</p>
           <p className="text-xs leading-relaxed text-softform-text-secondary">
             Use the Advisory Blueprint to convert this PD proxy context into facility options, stress interpretation, and next actions.
           </p>
         </div>
         <Link
           to="/platform/advisory-blueprint"
-          className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-softform-navy-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-softform-navy-800 transition shadow-sm"
+          className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-softform-navy-900 px-4 py-2.5 text-xs font-semibold text-white hover:bg-softform-navy-800 transition shadow-sm"
         >
           Open Advisory Blueprint
           <ArrowRight size={14} />

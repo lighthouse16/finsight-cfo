@@ -1,4 +1,4 @@
-import { Menu, Search } from 'lucide-react'
+import { Menu, Search, Bell } from 'lucide-react'
 
 type TopCommandBarProps = {
   onMenuToggle: () => void
@@ -26,10 +26,10 @@ export default function TopCommandBar({ onMenuToggle }: TopCommandBarProps) {
         </div>
 
         {/* Search placeholder */}
-        <div className="relative mx-auto hidden max-w-sm flex-1 md:block">
+        <div className="group relative mx-auto hidden max-w-sm flex-1 md:block">
           <Search
             size={15}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-softform-text-muted"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-softform-text-muted opacity-60"
           />
           <input
             id="workspace-search"
@@ -38,16 +38,44 @@ export default function TopCommandBar({ onMenuToggle }: TopCommandBarProps) {
             placeholder="Search workspace…"
             disabled
             aria-label="Search workspace"
-            className="w-full rounded-xl border border-white/50 bg-white/40 py-2 pl-9 pr-4 text-sm text-softform-text-primary placeholder:text-softform-text-muted/60 focus-visible:outline-none disabled:cursor-default"
+            className="w-full rounded-xl border border-white/50 bg-white/40 py-2 pl-9 pr-4 text-sm text-softform-text-primary placeholder:text-softform-text-muted/60 opacity-60 focus-visible:outline-none disabled:cursor-default"
           />
+          <span
+            role="tooltip"
+            className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-softform-navy-950 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-white opacity-0 shadow-md transition-opacity duration-200 group-hover:opacity-100"
+          >
+            Search coming soon
+          </span>
+        </div>
+
+        {/* Notification bell */}
+        <div className="group relative ml-auto sm:ml-0">
+          <button
+            type="button"
+            disabled
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/50 bg-white/30 text-softform-text-muted opacity-60 transition hover:bg-white/50 hover:text-softform-navy-950 disabled:cursor-default"
+            aria-label="Notifications"
+          >
+            <Bell size={16} />
+          </button>
+          <span
+            role="tooltip"
+            className="pointer-events-none absolute right-0 top-full z-50 mt-2 whitespace-nowrap rounded-lg bg-softform-navy-950 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-white opacity-0 shadow-md transition-opacity duration-200 group-hover:opacity-100"
+          >
+            Notifications coming soon
+          </span>
         </div>
 
         {/* Avatar placeholder */}
-        <div
-          className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[linear-gradient(145deg,#0d1726,#1c324b)] text-[11px] font-bold text-white/90"
-          aria-label="User menu placeholder"
-        >
-          U
+        <div className="relative shrink-0">
+          <button
+            type="button"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-[linear-gradient(145deg,#0d1726,#1c324b)] text-[11px] font-bold text-white/90 shadow-sm ring-2 ring-white/80 transition hover:ring-softform-teal-500/50"
+            aria-label="User menu placeholder"
+          >
+            U
+          </button>
+          <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-softform-emerald-soft ring-2 ring-white" aria-hidden="true" />
         </div>
       </div>
     </header>

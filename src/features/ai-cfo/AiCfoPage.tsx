@@ -13,7 +13,9 @@ import {
 } from 'lucide-react'
 import PageHeader from '../../components/platform/PageHeader'
 import StatusChip from '../../components/platform/StatusChip'
-import DemoFlowRail from '../../components/platform/DemoFlowRail'
+import SectionBlock from '../../components/platform/SectionBlock'
+import MetricDisplay from '../../components/platform/MetricDisplay'
+import SkeletonLoader from '../../components/platform/SkeletonLoader'
 import { getFinancialHealthAnalysis } from '../financial-health/financialHealthApi'
 import { getAdvisoryBlueprint, getCreditScore } from '../advisory-blueprint/api/advisoryBlueprintApi'
 import { getFundingChannelRanking, getRedFlagsMacroSummary } from '../market-watch/api/marketWatchApi'
@@ -210,11 +212,25 @@ export default function AiCfoPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[50dvh] flex-col items-center justify-center space-y-4">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-softform-mist-100 text-softform-teal-deep animate-spin">
-          <RotateCw size={24} />
+      <div className="space-y-8 pb-12">
+        {/* Header Skeleton */}
+        <div className="space-y-3">
+          <SkeletonLoader variant="text" />
         </div>
-        <p className="text-sm font-medium text-softform-text-secondary animate-pulse">Loading AI CFO context...</p>
+
+        {/* Cockpit Skeleton */}
+        <SkeletonLoader variant="card" className="min-h-[200px]" />
+
+        {/* 4 Metric Cards Skeleton */}
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <SkeletonLoader variant="metric" count={4} />
+        </div>
+
+        {/* Double columns skeleton */}
+        <div className="grid gap-6 lg:grid-cols-[0.75fr_1.25fr]">
+          <SkeletonLoader variant="card" className="min-h-[350px]" />
+          <SkeletonLoader variant="card" className="min-h-[350px]" />
+        </div>
       </div>
     )
   }
@@ -255,113 +271,127 @@ export default function AiCfoPage() {
         chip={<StatusChip variant="neutral">Context assistant</StatusChip>}
       />
 
-      <DemoFlowRail />
-
-      <section className="softform-panel rounded-[32px] p-8 space-y-6 shadow-floating-panel relative overflow-hidden bg-gradient-to-br from-white/95 via-softform-mist-50/70 to-softform-ice-100/50 border border-white">
+      {/* Digital CFO Assistant Hero Section in Premium Navy Contrast Card */}
+      <section className="softform-navy-card rounded-[32px] p-8 space-y-6 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-72 h-72 bg-softform-aqua-300/10 rounded-full blur-3xl pointer-events-none" />
         <div className="relative grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
           <div className="space-y-4">
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-softform-teal-deep">Digital CFO assistant</span>
-            <h2 className="text-3xl font-black text-softform-navy-950 tracking-tight">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-softform-aqua-300 animate-pulse">Digital CFO assistant</span>
+            <h2 className="text-3xl font-semibold text-white tracking-tight">
               {financial?.snapshot.companyName ?? 'Workspace Company'} · ask your CFO workspace
             </h2>
-            <p className="text-sm leading-relaxed text-softform-text-secondary max-w-3xl">
+            <p className="text-sm leading-relaxed text-white/80 max-w-3xl">
               This demo assistant uses deterministic context templates instead of an external LLM call. It is designed to show how the product can answer across the CFO workflow while keeping sources visible.
             </p>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <Link to="/platform/reports" className="rounded-[22px] border border-softform-aqua-300/25 bg-softform-mist-100/70 p-4 shadow-soft-inner hover-lift">
-              <FileText size={18} className="text-softform-teal-deep" />
-              <p className="mt-3 text-sm font-black text-softform-navy-950">Reports</p>
-              <p className="mt-1 text-xs text-softform-text-secondary">Open CFO snapshot.</p>
+            <Link to="/platform/reports" className="rounded-[22px] border border-white/10 bg-white/5 p-4 shadow-soft-inner hover-lift">
+              <FileText size={18} className="text-softform-aqua-300 animate-pulse" />
+              <p className="mt-3 text-sm font-semibold text-white">Reports</p>
+              <p className="mt-1 text-xs text-white/70">Open CFO snapshot.</p>
             </Link>
-            <Link to="/platform/advisory-blueprint" className="rounded-[22px] border border-softform-aqua-300/25 bg-softform-mist-100/70 p-4 shadow-soft-inner hover-lift">
-              <Sparkles size={18} className="text-softform-teal-deep" />
-              <p className="mt-3 text-sm font-black text-softform-navy-950">Blueprint</p>
-              <p className="mt-1 text-xs text-softform-text-secondary">Open advisor brief.</p>
+            <Link to="/platform/advisory-blueprint" className="rounded-[22px] border border-white/10 bg-white/5 p-4 shadow-soft-inner hover-lift">
+              <Sparkles size={18} className="text-softform-aqua-300 animate-pulse" />
+              <p className="mt-3 text-sm font-semibold text-white">Blueprint</p>
+              <p className="mt-1 text-xs text-white/70">Open advisor brief.</p>
             </Link>
           </div>
         </div>
       </section>
 
+      {/* Metric cards context grid */}
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-[22px] border border-white/60 bg-white/55 p-5 shadow-sm">
-          <ShieldCheck size={20} className="text-softform-teal-deep" />
-          <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">Readiness</p>
-          <p className="mt-2 text-2xl font-black text-softform-navy-950 tabular-finance">{credit?.compositeScore ?? 'N/A'}</p>
-          <p className="mt-1 text-xs text-softform-text-secondary">{formatBand(credit?.fundingReadiness)}</p>
+        <div className="softform-metric-card rounded-[22px] p-5 hover-lift">
+          <MetricDisplay
+            label="Readiness"
+            value={credit?.compositeScore ?? 'N/A'}
+            description={formatBand(credit?.fundingReadiness)}
+            icon={<ShieldCheck size={16} className="text-softform-teal-500" />}
+          />
         </div>
-        <div className="rounded-[22px] border border-white/60 bg-white/55 p-5 shadow-sm">
-          <Landmark size={20} className="text-softform-teal-deep" />
-          <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">Top channel</p>
-          <p className="mt-2 text-lg font-black text-softform-navy-950">{topChannel?.label ?? 'N/A'}</p>
-          <p className="mt-1 text-xs text-softform-text-secondary">{formatBand(topChannel?.fitBand)}</p>
+        <div className="softform-metric-card rounded-[22px] p-5 hover-lift">
+          <MetricDisplay
+            label="Top channel"
+            value={topChannel?.label ?? 'N/A'}
+            description={formatBand(topChannel?.fitBand)}
+            icon={<Landmark size={16} className="text-softform-teal-500" />}
+          />
         </div>
-        <div className="rounded-[22px] border border-white/60 bg-white/55 p-5 shadow-sm">
-          <BotMessageSquare size={20} className="text-softform-teal-deep" />
-          <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">Financial band</p>
-          <p className="mt-2 text-lg font-black text-softform-navy-950">{formatBand(financial?.summary?.overallBand)}</p>
-          <p className="mt-1 text-xs text-softform-text-secondary">Revenue {formatHKD(financial?.snapshot.incomeStatement.revenue)}</p>
+        <div className="softform-metric-card rounded-[22px] p-5 hover-lift">
+          <MetricDisplay
+            label="Financial band"
+            value={formatBand(financial?.summary?.overallBand)}
+            description={`Revenue ${formatHKD(financial?.snapshot.incomeStatement.revenue)}`}
+            icon={<BotMessageSquare size={16} className="text-softform-teal-500" />}
+          />
         </div>
-        <div className="rounded-[22px] border border-white/60 bg-white/55 p-5 shadow-sm">
-          <Sparkles size={20} className="text-softform-teal-deep" />
-          <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">Valuation EV</p>
-          <p className="mt-2 text-lg font-black text-softform-navy-950 tabular-finance">{formatHKD(valuation?.dcf?.enterpriseValue)}</p>
-          <p className="mt-1 text-xs text-softform-text-secondary">WACC {formatPercent(valuation?.wacc?.wacc)}</p>
+        <div className="softform-metric-card rounded-[22px] p-5 hover-lift">
+          <MetricDisplay
+            label="Valuation EV"
+            value={formatHKD(valuation?.dcf?.enterpriseValue)}
+            description={`WACC ${formatPercent(valuation?.wacc?.wacc)}`}
+            icon={<Sparkles size={16} className="text-softform-teal-500" />}
+          />
         </div>
       </section>
 
+      {/* Suggested questions & Chat */}
       <section className="grid gap-6 lg:grid-cols-[0.75fr_1.25fr]">
-        <div className="softform-card rounded-[28px] p-6 sm:p-8 space-y-5">
-          <div className="flex items-center justify-between border-b border-softform-navy-950/5 pb-4">
-            <h2 className="text-lg font-bold text-softform-navy-950">Suggested questions</h2>
-            <StatusChip variant="neutral">Prompts</StatusChip>
-          </div>
+        <SectionBlock
+          title="Suggested questions"
+          action={<StatusChip variant="neutral">Prompts</StatusChip>}
+          containerType="card"
+          className="rounded-[28px] p-6 sm:p-8 space-y-5"
+        >
           <div className="space-y-3">
             {quickPrompts.map((prompt) => (
               <button
                 key={prompt}
                 type="button"
                 onClick={() => submitQuestion(prompt)}
-                className="group w-full rounded-xl border border-white/60 bg-white/45 px-4 py-3 text-left text-xs font-semibold text-softform-navy-950 hover:bg-white/70 transition"
+                className="softform-action-card group w-full rounded-xl px-4 py-3 text-left hover-lift"
               >
-                <span>{prompt}</span>
-                <ArrowRight size={14} className="float-right mt-0.5 text-softform-teal-deep transition group-hover:translate-x-1" />
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold text-softform-navy-950">{prompt}</span>
+                  <ArrowRight size={14} className="mt-0.5 text-softform-teal-deep transition group-hover:translate-x-1 shrink-0" />
+                </div>
               </button>
             ))}
           </div>
-          <p className="text-[11px] leading-relaxed text-softform-text-muted">
+          <p className="text-[11px] leading-relaxed text-softform-text-muted mt-4">
             Demo note: answers are generated locally from current app context, not from a production LLM service.
           </p>
-        </div>
+        </SectionBlock>
 
-        <div className="softform-card rounded-[28px] p-0 overflow-hidden">
-          <div className="border-b border-softform-navy-950/5 px-6 py-4 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-softform-navy-950 flex items-center gap-2">
-              <BotMessageSquare size={20} className="text-softform-teal-deep" />
-              Conversation
-            </h2>
-            <StatusChip variant="signal">Workspace loaded</StatusChip>
-          </div>
+        <div className="softform-card rounded-[28px] p-0 overflow-hidden flex flex-col justify-between h-full min-h-[500px]">
+          <div>
+            <div className="border-b border-softform-navy-950/5 px-6 py-4 flex items-center justify-between bg-white/30">
+              <h2 className="text-lg font-semibold text-softform-navy-950 flex items-center gap-2">
+                <BotMessageSquare size={20} className="text-softform-teal-500 animate-pulse" />
+                Conversation
+              </h2>
+              <StatusChip variant="signal">Workspace loaded</StatusChip>
+            </div>
 
-          <div className="max-h-[560px] overflow-y-auto px-6 py-5 space-y-4 bg-white/25">
-            {messages.map((message) => (
-              <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[86%] rounded-[22px] px-4 py-3 shadow-sm ${message.role === 'user' ? 'bg-softform-navy-900 text-white' : 'bg-white/75 text-softform-text-secondary border border-white/70'}`}>
-                  <p className={`text-sm leading-relaxed ${message.role === 'user' ? 'text-white' : 'text-softform-text-secondary'}`}>{message.content}</p>
-                  {message.sources && message.sources.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                      {message.sources.map((source) => (
-                        <span key={source} className="rounded-full bg-softform-mist-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-softform-teal-deep">
-                          {source}
-                        </span>
-                      ))}
-                    </div>
-                  )}
+            <div className="max-h-[560px] overflow-y-auto px-6 py-5 space-y-4 bg-white/25">
+              {messages.map((message) => (
+                <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[86%] rounded-[24px] px-5 py-4 ${message.role === 'user' ? 'softform-navy-card text-white' : 'softform-panel text-softform-text-secondary border border-white/75 shadow-sm'}`}>
+                    <p className={`text-sm leading-relaxed ${message.role === 'user' ? 'text-white' : 'text-softform-navy-950 font-normal'}`}>{message.content}</p>
+                    {message.sources && message.sources.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-1.5 border-t border-softform-navy-950/5 pt-2">
+                        {message.sources.map((source) => (
+                          <span key={source} className="rounded-full bg-softform-mist-100 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-softform-teal-deep">
+                            {source}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
 
           <form onSubmit={onSubmit} className="border-t border-softform-navy-950/5 p-4 bg-white/70">
@@ -374,7 +404,7 @@ export default function AiCfoPage() {
               />
               <button
                 type="submit"
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-softform-navy-900 px-4 py-3 text-xs font-bold text-white shadow-sm hover:bg-softform-navy-800 transition"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-softform-navy-900 px-4 py-3 text-xs font-semibold text-white shadow-sm hover:bg-softform-navy-800 transition"
               >
                 <Send size={15} />
                 Ask

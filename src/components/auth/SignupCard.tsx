@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
+import { motion } from 'framer-motion'
 
 export default function SignupCard() {
   const navigate = useNavigate()
@@ -53,7 +54,12 @@ export default function SignupCard() {
   }
 
   return (
-    <article className="softform-panel w-full max-w-[500px] rounded-[30px] p-5 shadow-floating-panel sm:p-6">
+    <motion.article 
+      className="softform-panel w-full max-w-[500px] rounded-[30px] p-5 shadow-floating-panel sm:p-6"
+      initial={{ opacity: 0, scale: 0.96, y: 15 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      transition={{ duration: 0.45, ease: [0.33, 1, 0.68, 1] }}
+    >
       <div className="mb-5 text-center">
         <div className="mx-auto inline-flex items-center rounded-full bg-white/68 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-softform-teal-deep ring-1 ring-white/80">
           Account setup
@@ -78,7 +84,7 @@ export default function SignupCard() {
               if (errors.company) setErrors({ ...errors, company: undefined })
             }}
             className={`mt-1.5 block w-full rounded-2xl border-0 bg-white/74 px-4 py-3 text-softform-navy-950 shadow-[inset_0_1px_3px_rgba(8,17,31,0.05)] ring-1 ring-inset transition-all focus:ring-2 focus:ring-inset sm:text-sm ${
-              errors.company ? 'ring-red-300 focus:ring-red-500' : 'ring-softform-navy-950/10 focus:ring-softform-teal-500'
+              errors.company ? 'ring-red-300 focus:ring-red-500 focus:shadow-[0_0_15px_rgba(239,68,68,0.15)]' : 'ring-softform-navy-950/10 focus:ring-softform-teal-500 focus:shadow-[0_0_15px_rgba(32,169,154,0.15)]'
             }`}
             aria-invalid={errors.company ? 'true' : 'false'}
             aria-describedby={errors.company ? 'signup-company-error' : undefined}
@@ -101,7 +107,7 @@ export default function SignupCard() {
               if (errors.email) setErrors({ ...errors, email: undefined })
             }}
             className={`mt-1.5 block w-full rounded-2xl border-0 bg-white/74 px-4 py-3 text-softform-navy-950 shadow-[inset_0_1px_3px_rgba(8,17,31,0.05)] ring-1 ring-inset transition-all focus:ring-2 focus:ring-inset sm:text-sm ${
-              errors.email ? 'ring-red-300 focus:ring-red-500' : 'ring-softform-navy-950/10 focus:ring-softform-teal-500'
+              errors.email ? 'ring-red-300 focus:ring-red-500 focus:shadow-[0_0_15px_rgba(239,68,68,0.15)]' : 'ring-softform-navy-950/10 focus:ring-softform-teal-500 focus:shadow-[0_0_15px_rgba(32,169,154,0.15)]'
             }`}
             aria-invalid={errors.email ? 'true' : 'false'}
             aria-describedby={errors.email ? 'signup-email-error' : undefined}
@@ -125,7 +131,7 @@ export default function SignupCard() {
                 if (errors.password) setErrors({ ...errors, password: undefined })
               }}
               className={`block w-full rounded-2xl border-0 bg-white/74 py-3 pl-4 pr-11 text-softform-navy-950 shadow-[inset_0_1px_3px_rgba(8,17,31,0.05)] ring-1 ring-inset transition-all focus:ring-2 focus:ring-inset sm:text-sm ${
-                errors.password ? 'ring-red-300 focus:ring-red-500' : 'ring-softform-navy-950/10 focus:ring-softform-teal-500'
+                errors.password ? 'ring-red-300 focus:ring-red-500 focus:shadow-[0_0_15px_rgba(239,68,68,0.15)]' : 'ring-softform-navy-950/10 focus:ring-softform-teal-500 focus:shadow-[0_0_15px_rgba(32,169,154,0.15)]'
               }`}
               aria-invalid={errors.password ? 'true' : 'false'}
               aria-describedby={errors.password ? 'signup-password-error' : 'signup-password-help'}
@@ -188,6 +194,6 @@ export default function SignupCard() {
           Sign in
         </Link>
       </p>
-    </article>
+    </motion.article>
   )
 }

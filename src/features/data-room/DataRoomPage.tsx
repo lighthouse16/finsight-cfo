@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 import PageHeader from '../../components/platform/PageHeader'
 import StatusChip from '../../components/platform/StatusChip'
-import DemoFlowRail from '../../components/platform/DemoFlowRail'
+import MetricDisplay from '../../components/platform/MetricDisplay'
 import SourceInfoTooltip from '../market-watch/components/SourceInfoTooltip'
 import {
   activateDataRoomWorkspacePreviewContext,
@@ -464,45 +464,43 @@ export default function DataRoomPage() {
         )}
       </AnimatePresence>
 
-      {/* 2. Demo Flow Rail */}
-      <DemoFlowRail />
 
       {/* 3. Data Readiness Overview */}
       <section className="grid gap-4 sm:grid-cols-4">
-        <div className="softform-card rounded-[22px] p-5 space-y-2 hover-lift">
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted/90">
-            Required Records
-          </p>
-          <p className="text-2xl font-black text-softform-navy-950 tabular-finance">{totalRequired}</p>
-          <p className="text-xs text-softform-text-secondary">Specified in advisory parameters</p>
+        <div className="softform-metric-card rounded-[22px] p-5 hover-lift">
+          <MetricDisplay
+            label="Required Records"
+            value={totalRequired}
+            description="Specified in parameters"
+          />
         </div>
-        <div className="softform-card rounded-[22px] p-5 space-y-2 hover-lift">
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted/90">
-            Connected Records
-          </p>
-          <p className="text-2xl font-black text-softform-teal-deep tabular-finance">{connectedRequired}</p>
-          <p className="text-xs text-softform-text-secondary">Currently active in demo mode</p>
+        <div className="softform-metric-card rounded-[22px] p-5 hover-lift">
+          <MetricDisplay
+            label="Connected Records"
+            value={connectedRequired}
+            description="Active in demo mode"
+          />
         </div>
-        <div className="softform-card rounded-[22px] p-5 space-y-2 hover-lift">
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted/90">
-            Missing Records
-          </p>
-          <p className="text-2xl font-black text-softform-amber-500 tabular-finance">{missingRequired}</p>
-          <p className="text-xs text-softform-text-secondary">Required for full calibration</p>
+        <div className="softform-metric-card rounded-[22px] p-5 hover-lift">
+          <MetricDisplay
+            label="Missing Records"
+            value={missingRequired}
+            description="Required for calibration"
+          />
         </div>
-        <div className="softform-card rounded-[22px] p-5 space-y-2 hover-lift">
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted/90">
-            Production Readiness
-          </p>
-          <p className="text-2xl font-black text-softform-navy-950 tabular-finance">{readinessPercentage}%</p>
-          <p className="text-xs text-softform-text-secondary">Demo to Production threshold</p>
+        <div className="softform-metric-card rounded-[22px] p-5 hover-lift">
+          <MetricDisplay
+            label="Production Readiness"
+            value={`${readinessPercentage}%`}
+            description="Demo to Production threshold"
+          />
         </div>
       </section>
 
       {/* 3. Required Records Checklist */}
       <section className="softform-card rounded-[32px] p-6 sm:p-8 space-y-6">
         <div className="flex items-center justify-between border-b border-softform-navy-950/5 pb-4">
-          <h2 className="text-lg font-bold text-softform-navy-950">Integration Status</h2>
+          <h2 className="text-lg font-semibold text-softform-navy-950">Integration Status</h2>
           <span className="text-xs font-medium text-softform-text-muted">
             {isLoadingReadiness ? 'Loading readiness contract' : 'Required records checklist'}
           </span>
@@ -511,7 +509,7 @@ export default function DataRoomPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-softform-navy-950/10 text-[10px] font-bold uppercase tracking-[0.16em] text-softform-text-muted/80">
+              <tr className="border-b border-softform-navy-950/10 text-[10px] font-medium uppercase tracking-[0.16em] text-softform-text-muted/80">
                 <th className="pb-4 pl-3 w-8"></th>
                 <th className="pb-4">Record Name</th>
                 <th className="pb-4 hidden md:table-cell">Category</th>
@@ -558,7 +556,7 @@ export default function DataRoomPage() {
                       )}
                     </td>
                     <td className="py-4 space-y-1">
-                      <div className="font-bold text-softform-navy-950 text-sm flex items-center gap-2">
+                      <div className="font-semibold text-softform-navy-950 text-sm flex items-center gap-2">
                         <FileText size={14} className="text-softform-text-muted/70 shrink-0" />
                         {rec.name}
                       </div>
@@ -582,7 +580,7 @@ export default function DataRoomPage() {
                                 ) : (
                                   <CheckSquare size={12} className="text-softform-teal-deep" />
                                 )}
-                                <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-softform-text-muted">
+                                <span className="text-[10px] font-medium uppercase tracking-[0.1em] text-softform-text-muted">
                                   {uploadState.result.uploadedFile.status === 'unsupported_type'
                                     ? 'Unsupported file'
                                     : 'Metadata received'}
@@ -595,7 +593,7 @@ export default function DataRoomPage() {
                               </p>
                               {uploadState.parsePreview && (
                                 <div className="rounded-lg bg-softform-mist-100/50 px-2.5 py-2 text-[11px] text-softform-text-secondary">
-                                  <span className="font-bold text-softform-navy-950">
+                                  <span className="font-semibold text-softform-navy-950">
                                     Structured preview:
                                   </span>{' '}
                                   {uploadState.parsePreview.preview.parsedRecords.length} fields read ·{' '}
@@ -613,7 +611,7 @@ export default function DataRoomPage() {
                             <div className="rounded-xl border border-softform-amber-500/20 bg-softform-cream/30 p-3 space-y-1">
                               <div className="flex items-center gap-1.5">
                                 <AlertCircle size={12} className="text-softform-amber-500" />
-                                <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-softform-text-muted">
+                                <span className="text-[10px] font-medium uppercase tracking-[0.1em] text-softform-text-muted">
                                   Unavailable
                                 </span>
                               </div>
@@ -633,7 +631,7 @@ export default function DataRoomPage() {
                         {rec.requiredFor.map((rf) => (
                           <span
                             key={rf}
-                            className="inline-block rounded bg-softform-mist-100/60 px-2 py-0.5 text-[10px] text-softform-teal-deep font-bold border border-softform-aqua-300/20 uppercase tracking-[0.08em]"
+                            className="inline-block rounded bg-softform-mist-100/60 px-2 py-0.5 text-[10px] text-softform-teal-deep font-medium border border-softform-aqua-300/20 uppercase tracking-[0.08em]"
                           >
                             {rf}
                           </span>
@@ -651,7 +649,7 @@ export default function DataRoomPage() {
                           type="button"
                           onClick={() => handleUploadClick(rec.id)}
                           disabled={uploadState?.uploading}
-                          className="inline-flex items-center gap-1.5 rounded-xl bg-softform-navy-900 border-softform-navy-950/10 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-softform-navy-800 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 shadow-sm"
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-softform-navy-900 border-softform-navy-950/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-softform-navy-800 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 shadow-sm"
                         >
                           {uploadState?.uploading ? (
                             <Loader2 size={12} className="animate-spin" />
@@ -664,7 +662,7 @@ export default function DataRoomPage() {
                         <button
                           type="button"
                           onClick={() => handleActionClick(rec.name, rec.actionLabel)}
-                          className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition border shadow-sm ${
+                          className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition border shadow-sm ${
                             rec.actionLabel === 'Review'
                               ? 'bg-white/80 border-white/60 text-softform-navy-950 hover:bg-white hover:-translate-y-0.5'
                               : 'bg-white/40 border-white/30 text-softform-text-muted cursor-not-allowed'
@@ -689,7 +687,7 @@ export default function DataRoomPage() {
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <ShieldCheck size={16} className="text-softform-teal-deep" />
-              <h2 className="text-lg font-bold text-softform-navy-950">Financial Snapshot Preview</h2>
+              <h2 className="text-lg font-semibold text-softform-navy-950">Financial Snapshot Preview</h2>
             </div>
             <p className="text-xs text-softform-text-muted leading-relaxed">
               Preview-only ingestion from structured files. The main financial and advisory analysis remains unchanged.
@@ -706,7 +704,7 @@ export default function DataRoomPage() {
               <button
                 type="button"
                 onClick={handleClearPreviewSession}
-                className="rounded-xl border border-white/70 bg-white/50 px-3 py-1.5 text-xs font-bold text-softform-text-secondary shadow-sm transition hover:bg-white hover:text-softform-navy-950 focus:outline-none focus:ring-2 focus:ring-softform-aqua-300/60"
+                className="rounded-xl border border-white/70 bg-white/50 px-3 py-1.5 text-xs font-semibold text-softform-text-secondary shadow-sm transition hover:bg-white hover:text-softform-navy-950 focus:outline-none focus:ring-2 focus:ring-softform-aqua-300/60"
               >
                 Clear preview session
               </button>
@@ -716,37 +714,37 @@ export default function DataRoomPage() {
 
         <div className="grid gap-4 md:grid-cols-4">
           <div className="rounded-[22px] border border-white/60 bg-white/40 p-4 space-y-1.5">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted/90">
+            <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-softform-text-muted/90">
               Parsed Statements
             </p>
-            <p className="text-2xl font-black text-softform-navy-950 tabular-finance">
+            <p className="text-2xl font-bold text-softform-navy-950 tabular-finance">
               {snapshotRecordSets.length}/{REQUIRED_SNAPSHOT_RECORD_KEYS.length}
             </p>
             <p className="text-xs text-softform-text-secondary">Required structured files uploaded</p>
           </div>
           <div className="rounded-[22px] border border-white/60 bg-white/40 p-4 space-y-1.5">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted/90">
+            <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-softform-text-muted/90">
               Integrity Checks
             </p>
-            <p className="text-2xl font-black text-softform-teal-deep tabular-finance">
+            <p className="text-2xl font-bold text-softform-teal-deep tabular-finance">
               {passedIntegrityCount}/{snapshotPreview.result?.integrityChecks.length ?? 0}
             </p>
             <p className="text-xs text-softform-text-secondary">Passed in preview response</p>
           </div>
           <div className="rounded-[22px] border border-white/60 bg-white/40 p-4 space-y-1.5">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted/90">
+            <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-softform-text-muted/90">
               Review Signals
             </p>
-            <p className="text-2xl font-black text-softform-amber-500 tabular-finance">
+            <p className="text-2xl font-bold text-softform-amber-500 tabular-finance">
               {failedIntegrityCount + warningIntegrityCount}
             </p>
             <p className="text-xs text-softform-text-secondary">Failures or backend warnings</p>
           </div>
           <div className="rounded-[22px] border border-white/60 bg-white/40 p-4 space-y-1.5">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted/90">
+            <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-softform-text-muted/90">
               Ratios Returned
             </p>
-            <p className="text-2xl font-black text-softform-navy-950 tabular-finance">
+            <p className="text-2xl font-bold text-softform-navy-950 tabular-finance">
               {snapshotPreview.result?.ratios ? Object.keys(snapshotPreview.result.ratios).length : 0}
             </p>
             <p className="text-xs text-softform-text-secondary">Core ratio preview metrics</p>
@@ -769,7 +767,7 @@ export default function DataRoomPage() {
 
         {displayedMissingRequiredStatements.length > 0 && !snapshotPreview.error && (
           <div className="rounded-2xl border border-softform-navy-950/5 bg-white/35 px-4 py-3 text-xs text-softform-text-secondary">
-            <span className="font-bold text-softform-navy-950">Missing required statements:</span>{' '}
+            <span className="font-semibold text-softform-navy-950">Missing required statements:</span>{' '}
             {displayedMissingRequiredStatements.map((recordKey) => SNAPSHOT_RECORD_LABELS[recordKey] ?? recordKey).join(', ')}
           </div>
         )}
@@ -779,13 +777,13 @@ export default function DataRoomPage() {
             <div className="rounded-[22px] border border-white/60 bg-white/40 p-5 space-y-3">
               <div className="flex items-center gap-2">
                 <Activity size={14} className="text-softform-teal-deep" />
-                <h3 className="text-sm font-bold text-softform-navy-950">Integrity Check Preview</h3>
+                <h3 className="text-sm font-semibold text-softform-navy-950">Integrity Check Preview</h3>
               </div>
               <div className="space-y-2">
                 {snapshotPreview.result.integrityChecks.slice(0, 4).map((check) => (
                   <div key={check.checkName} className="rounded-xl bg-white/45 px-3 py-2 text-xs">
                     <div className="flex items-center justify-between gap-3">
-                      <span className="font-bold text-softform-navy-950">{check.checkName}</span>
+                      <span className="font-semibold text-softform-navy-950">{check.checkName}</span>
                       <StatusChip variant={check.passed ? 'signal' : 'caution'}>
                         {check.passed ? 'Passed' : 'Review'}
                       </StatusChip>
@@ -797,16 +795,16 @@ export default function DataRoomPage() {
             </div>
 
             <div className="rounded-[22px] border border-white/60 bg-white/40 p-5 space-y-3">
-              <h3 className="text-sm font-bold text-softform-navy-950">Core Ratio Preview</h3>
+              <h3 className="text-sm font-semibold text-softform-navy-950">Core Ratio Preview</h3>
               <div className="grid gap-2 sm:grid-cols-2">
                 {CORE_RATIO_KEYS.map((ratioKey) => {
                   const ratio = snapshotPreview.result?.ratios?.[ratioKey]
                   return (
                     <div key={ratioKey} className="rounded-xl bg-white/45 px-3 py-2">
-                      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-softform-text-muted">
+                      <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-softform-text-muted">
                         {ratio?.label ?? ratioKey}
                       </p>
-                      <p className="mt-1 text-lg font-black text-softform-navy-950 tabular-finance">
+                      <p className="mt-1 text-lg font-bold text-softform-navy-950 tabular-finance">
                         {formatRatioValue(ratio?.value, ratioKey)}
                       </p>
                       {ratio?.warning && (
@@ -826,7 +824,7 @@ export default function DataRoomPage() {
         <div className="rounded-[22px] border border-softform-aqua-300/25 bg-softform-mist-100/35 p-4 space-y-3">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
-              <p className="text-sm font-bold text-softform-navy-950">Temporary Workspace Context</p>
+              <p className="text-sm font-semibold text-softform-navy-950">Temporary Workspace Context</p>
               <p className="text-xs text-softform-text-secondary leading-relaxed">
                 Preview context does not update production analysis. Market Watch and Advisory Blueprint will show preview provenance only until backend workspace persistence is added.
               </p>
@@ -841,7 +839,7 @@ export default function DataRoomPage() {
                 type="button"
                 onClick={handleActivateWorkspaceContext}
                 disabled={!snapshotPreview.result?.snapshotPreview}
-                className="rounded-xl bg-softform-navy-900 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-softform-navy-800 disabled:cursor-not-allowed disabled:opacity-45"
+                className="rounded-xl bg-softform-navy-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-softform-navy-800 disabled:cursor-not-allowed disabled:opacity-45"
               >
                 Use preview for workspace context
               </button>
@@ -849,7 +847,7 @@ export default function DataRoomPage() {
                 <button
                   type="button"
                   onClick={handleResetWorkspaceContext}
-                  className="rounded-xl border border-white/70 bg-white/60 px-4 py-2 text-xs font-bold text-softform-text-secondary shadow-sm transition hover:bg-white hover:text-softform-navy-950 focus:outline-none focus:ring-2 focus:ring-softform-aqua-300/60"
+                  className="rounded-xl border border-white/70 bg-white/60 px-4 py-2 text-xs font-semibold text-softform-text-secondary shadow-sm transition hover:bg-white hover:text-softform-navy-950 focus:outline-none focus:ring-2 focus:ring-softform-aqua-300/60"
                 >
                   Reset workspace context
                 </button>
@@ -858,9 +856,9 @@ export default function DataRoomPage() {
           </div>
           {workspaceContext && (
             <div className="grid gap-2 text-[11px] text-softform-text-secondary sm:grid-cols-3">
-              <span><strong className="text-softform-navy-950">Company:</strong> {workspaceContext.companyName}</span>
-              <span><strong className="text-softform-navy-950">Period:</strong> {workspaceContext.reportingPeriod}</span>
-              <span><strong className="text-softform-navy-950">Ratios:</strong> {workspaceContext.snapshotPreviewSummary.ratioKeys.length}</span>
+              <span><span className="font-semibold text-softform-navy-950">Company:</span> {workspaceContext.companyName}</span>
+              <span><span className="font-semibold text-softform-navy-950">Period:</span> {workspaceContext.reportingPeriod}</span>
+              <span><span className="font-semibold text-softform-navy-950">Ratios:</span> {workspaceContext.snapshotPreviewSummary.ratioKeys.length}</span>
             </div>
           )}
           {workspaceContextError && (
@@ -874,7 +872,7 @@ export default function DataRoomPage() {
       {/* 5. Analysis Dependency Map */}
       <section className="softform-card rounded-[32px] p-6 sm:p-8 space-y-6">
         <div className="border-b border-softform-navy-950/5 pb-4">
-          <h2 className="text-lg font-bold text-softform-navy-950">Analysis Dependency Mapping</h2>
+          <h2 className="text-lg font-semibold text-softform-navy-950">Analysis Dependency Mapping</h2>
           <p className="text-xs text-softform-text-muted mt-1">
             Understanding how integrated documents feed the advisory models
           </p>
@@ -886,12 +884,12 @@ export default function DataRoomPage() {
               key={feed.recordGroup}
               className="p-5 rounded-[22px] bg-white/40 border border-white/60 shadow-sm space-y-4 hover-lift"
             >
-              <h3 className="font-bold text-softform-navy-950 text-sm leading-snug">
+              <h3 className="font-semibold text-softform-navy-950 text-sm leading-snug">
                 {feed.recordGroup}
               </h3>
               <div className="h-[1px] bg-softform-navy-950/5" />
               <div className="space-y-2">
-                <span className="text-[9px] font-bold text-softform-text-muted/90 uppercase tracking-[0.14em]">
+                <span className="text-[9px] font-medium text-softform-text-muted/90 uppercase tracking-[0.14em]">
                   Feeds Engine Outcomes
                 </span>
                 <ul className="space-y-2 pt-1">
@@ -910,18 +908,18 @@ export default function DataRoomPage() {
 
       {/* 5. Demo vs Production State */}
       <section className="softform-card rounded-[32px] p-6 sm:p-8 space-y-5">
-        <h2 className="text-base font-bold text-softform-navy-950">Active Workspace Environment</h2>
+        <h2 className="text-base font-semibold text-softform-navy-950">Active Workspace Environment</h2>
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="p-5 rounded-[22px] bg-white/40 border border-white/60 text-xs space-y-2 hover-lift">
-            <span className="font-bold text-softform-navy-950 block">Analysis Context</span>
+            <span className="font-medium text-softform-navy-950 block">Analysis Context</span>
             <span className="text-softform-teal-deep font-semibold">Demo financial analysis active</span>
           </div>
           <div className="p-5 rounded-[22px] bg-white/40 border border-white/60 text-xs space-y-2 hover-lift">
-            <span className="font-bold text-softform-navy-950 block">Market Indicators</span>
+            <span className="font-medium text-softform-navy-950 block">Market Indicators</span>
             <span className="text-softform-teal-deep font-semibold">Provider-backed market data active</span>
           </div>
           <div className="p-5 rounded-[22px] bg-white/40 border border-white/60 text-xs space-y-2 hover-lift">
-            <span className="font-bold text-softform-navy-950 block">Requirement Level</span>
+            <span className="font-medium text-softform-navy-950 block">Requirement Level</span>
             <span className="text-softform-amber-500 font-semibold">Company records required for production mode</span>
           </div>
         </div>
@@ -930,7 +928,7 @@ export default function DataRoomPage() {
       {/* 6. Link to Advisory Blueprint & Market Watch */}
       <section className="flex flex-col sm:flex-row gap-6 items-center justify-between p-8 rounded-[36px] border border-white/70 bg-gradient-to-r from-softform-mist-100/50 to-white/50 backdrop-blur-md shadow-base-card">
         <div className="space-y-1.5 text-center sm:text-left max-w-2xl">
-          <h3 className="font-bold text-softform-navy-950 text-base">Explore Workspace Modules</h3>
+          <h3 className="font-semibold text-softform-navy-950 text-base">Explore Workspace Modules</h3>
           <p className="text-xs leading-relaxed text-softform-text-secondary">
             After previewing records here, review context-only market signals and the advisory readiness brief.
           </p>
@@ -938,14 +936,14 @@ export default function DataRoomPage() {
         <div className="flex gap-3.5 shrink-0 w-full sm:w-auto justify-center sm:justify-end">
           <Link
             to="/platform/market-watch"
-            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/80 bg-white/60 px-4 py-2.5 text-xs font-bold text-softform-navy-950 hover:bg-white transition shadow-sm"
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/80 bg-white/60 px-4 py-2.5 text-xs font-semibold text-softform-navy-950 hover:bg-white transition shadow-sm"
           >
             <TrendingUp size={14} className="text-softform-teal-deep" />
             Review Market Watch
           </Link>
           <Link
             to="/platform/advisory-blueprint"
-            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-softform-navy-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-softform-navy-800 transition shadow-sm"
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-softform-navy-900 px-4 py-2.5 text-xs font-semibold text-white hover:bg-softform-navy-800 transition shadow-sm"
           >
             <Compass size={14} className="text-softform-teal-deep" />
             View Advisory Blueprint

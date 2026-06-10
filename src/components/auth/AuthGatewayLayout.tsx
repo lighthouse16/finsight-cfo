@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { motion } from 'framer-motion'
 
 interface AuthGatewayLayoutProps {
   children: ReactNode
@@ -8,8 +9,33 @@ export default function AuthGatewayLayout({ children }: AuthGatewayLayoutProps) 
   return (
     <main className="softform-page relative flex min-h-dvh overflow-hidden text-softform-text-primary">
       <div className="pointer-events-none absolute inset-0" aria-hidden="true">
-        <div className="softform-ambient left-[12%] top-[10%] h-72 w-72 bg-softform-teal-300/18" />
-        <div className="softform-ambient bottom-[4%] right-[12%] h-80 w-80 bg-softform-amber-300/14" />
+        <motion.div 
+          className="softform-ambient left-[12%] top-[10%] h-72 w-72 bg-softform-teal-300/18"
+          animate={{
+            scale: [1, 1.15, 1],
+            x: [0, 15, 0],
+            y: [0, -20, 0]
+          }}
+          transition={{
+            duration: 12,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        />
+        <motion.div 
+          className="softform-ambient bottom-[4%] right-[12%] h-80 w-80 bg-softform-amber-300/14"
+          animate={{
+            scale: [1, 1.2, 1],
+            x: [0, -25, 0],
+            y: [0, 15, 0]
+          }}
+          transition={{
+            duration: 16,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: 1
+          }}
+        />
         <div className="absolute left-1/2 top-[14%] h-px w-[min(520px,70vw)] -translate-x-1/2 bg-gradient-to-r from-transparent via-softform-teal-500/20 to-transparent" />
       </div>
 

@@ -51,7 +51,7 @@ export default function FintechFooter() {
                 <li key={link.label}>
                   <a
                     href={link.href}
-                    className="text-white/70 hover:text-white transition-colors text-sm"
+                    className="text-white/70 hover:text-white transition-all duration-200 hover:translate-x-1 inline-block text-sm"
                   >
                     {link.label}
                   </a>
@@ -68,7 +68,7 @@ export default function FintechFooter() {
                 <li key={link.label}>
                   <a
                     href={link.href}
-                    className="text-white/70 hover:text-white transition-colors text-sm"
+                    className="text-white/70 hover:text-white transition-all duration-200 hover:translate-x-1 inline-block text-sm"
                   >
                     {link.label}
                   </a>
@@ -101,9 +101,9 @@ export default function FintechFooter() {
                   key={social.label}
                   href={social.href}
                   aria-label={social.label}
-                  className="w-10 h-10 bg-white/8 rounded-2xl flex items-center justify-center hover:bg-white/14 transition-colors shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+                  className="w-10 h-10 bg-white/12 rounded-2xl flex items-center justify-center hover:bg-white/20 hover:-translate-y-0.5 transition-all duration-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
                 >
-                  <social.icon className="w-5 h-5 text-white/70" />
+                  <social.icon className="w-5 h-5 text-white/85" />
                 </a>
               ))}
             </div>

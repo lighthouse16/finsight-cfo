@@ -19,6 +19,8 @@ import clsx from 'clsx'
 import { type ElementType, useState, useRef, useEffect } from 'react'
 import { useReducedMotion } from '../../hooks/useReducedMotion'
 
+import { motion } from 'framer-motion'
+
 type NavItem = {
   label: string
   path: string
@@ -188,13 +190,13 @@ export default function SidebarNav({
             {navGroups.map((group, groupIndex) => (
               <div
                 key={group.label}
-                className={clsx(groupIndex > 0 && 'mt-1')}
+                className={clsx(groupIndex > 0 && 'mt-3.5')}
               >
                 {/* Group separator line — visible in both states, label only when expanded */}
                 {groupIndex > 0 && (
                   <div
                     className={clsx(
-                      'mb-1 mt-1',
+                      'mb-2 mt-1',
                       // Expanded: faint line + label; collapsed desktop: just a faint line
                       collapsed
                         ? 'mx-2 border-t border-white/40 lg:mx-1'
@@ -207,7 +209,7 @@ export default function SidebarNav({
                 {/* Group label — hidden on desktop when collapsed */}
                 <p
                   className={clsx(
-                    'mb-1 px-3.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-softform-text-muted/70',
+                    'mb-1.5 px-3.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-softform-text-muted/70',
                     // On desktop collapsed state, hide label text entirely
                     collapsed ? 'pt-1.5 lg:hidden' : 'pt-1.5',
                   )}
@@ -226,29 +228,41 @@ export default function SidebarNav({
                         aria-label={item.label}
                         className={({ isActive }) =>
                           clsx(
-                            'group flex items-center rounded-2xl text-[13.5px] font-medium transition-all duration-200',
+                            'group relative flex items-center rounded-2xl text-[13.5px] font-medium transition-all duration-200',
                             collapsed
                               ? 'gap-3 px-3.5 py-2.5 lg:justify-center lg:gap-0 lg:px-2 lg:py-3'
                               : 'gap-3 px-3.5 py-2.5',
                             isActive
-                              ? 'bg-white/70 text-softform-navy-950 shadow-[0_4px_16px_rgba(8,17,31,0.08),inset_0_1px_0_rgba(255,255,255,0.9)]'
+                              ? 'text-softform-navy-950 font-semibold'
                               : 'text-softform-text-secondary hover:bg-white/40 hover:text-softform-navy-900',
                           )
                         }
                       >
                         {({ isActive }) => (
                           <>
+                            {isActive && !reducedMotion && (
+                              <motion.div
+                                layoutId="activeSidebarPill"
+                                className="absolute inset-0 -z-10 rounded-2xl bg-white/82 border-l-2 border-softform-teal-500 shadow-[0_4px_16px_rgba(8,17,31,0.08),inset_0_1px_0_rgba(255,255,255,0.9)]"
+                                transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                              />
+                            )}
+                            {isActive && reducedMotion && (
+                              <div
+                                className="absolute inset-0 -z-10 rounded-2xl bg-white/82 border-l-2 border-softform-teal-500 shadow-[0_4px_16px_rgba(8,17,31,0.08),inset_0_1px_0_rgba(255,255,255,0.9)]"
+                              />
+                            )}
                             <item.icon
                               size={18}
                               strokeWidth={isActive ? 2 : 1.5}
                               className={clsx(
-                                'shrink-0 transition-colors',
+                                'shrink-0 transition-colors z-10',
                                 isActive
                                   ? 'text-softform-teal-deep'
                                   : 'text-softform-text-muted group-hover:text-softform-text-secondary',
                               )}
                             />
-                            <span className={clsx('truncate', collapsed ? 'lg:hidden' : '')}>
+                            <span className={clsx('truncate z-10', collapsed ? 'lg:hidden' : '')}>
                               {item.label}
                             </span>
                           </>

@@ -13,9 +13,13 @@ export default function NotFoundPage() {
         subtitle={`The path "${location.pathname}" does not match any available workspace route.`}
       />
 
-      <div className="softform-card rounded-[32px] p-8 sm:p-10">
-        <div className="mx-auto flex max-w-lg flex-col items-center text-center">
-          <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-[20px] bg-softform-cream/60 text-softform-amber-500/60">
+      <div className="softform-panel relative overflow-hidden rounded-[32px] p-8 sm:p-10 shadow-floating-panel bg-gradient-to-br from-white/95 via-softform-mist-50/70 to-softform-ice-100/50 border border-white">
+        {/* Ambient glow backgrounds */}
+        <div className="absolute -top-12 -left-12 w-48 h-48 bg-softform-aqua-300/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-12 -right-12 w-48 h-48 bg-softform-amber-300/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="mx-auto flex max-w-lg flex-col items-center text-center relative z-10">
+          <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-[20px] bg-softform-cream/60 text-softform-amber-500/60 animate-pulse ring-4 ring-softform-amber-300/10 shadow-soft-inner">
             <MapPinOff size={28} strokeWidth={1.5} />
           </div>
 

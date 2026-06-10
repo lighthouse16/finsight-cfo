@@ -52,7 +52,7 @@ export default function CreditReadinessInlineSummary() {
         <div className="flex items-start gap-3">
           <AlertTriangle size={18} className="mt-0.5 shrink-0 text-softform-amber-500" />
           <div>
-            <p className="text-sm font-bold text-softform-navy-950">Readiness context unavailable</p>
+            <p className="text-sm font-semibold text-softform-navy-950">Readiness context unavailable</p>
             <p className="mt-1 text-xs leading-relaxed text-softform-text-secondary">
               Advisory Blueprint can still load, but the scorecard summary could not be fetched from the backend.
             </p>
@@ -76,11 +76,11 @@ export default function CreditReadinessInlineSummary() {
           </div>
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="text-sm font-black text-softform-navy-950">Credit Readiness Signal</p>
+              <p className="text-sm font-semibold text-softform-navy-950">Credit Readiness Signal</p>
               <StatusChip variant={chipVariantForTier(scorecard.riskTier)} className="text-[9px] px-2 py-0.5">
                 {tierLabels[scorecard.riskTier]}
               </StatusChip>
-              <span className="rounded-full border border-white/70 bg-white/60 px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-softform-navy-950">
+              <span className="rounded-full border border-white/70 bg-white/60 px-2.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.12em] text-softform-navy-950">
                 {readinessLabels[scorecard.fundingReadiness]}
               </span>
             </div>
@@ -90,12 +90,12 @@ export default function CreditReadinessInlineSummary() {
             <div className="grid gap-2 sm:grid-cols-2">
               {topPositiveDriver && (
                 <p className="rounded-xl bg-white/45 px-3 py-2 text-[11px] leading-relaxed text-softform-text-secondary border border-white/60">
-                  <strong className="text-softform-navy-950">Positive:</strong> {topPositiveDriver}
+                  <strong className="text-softform-navy-950 font-semibold">Positive:</strong> {topPositiveDriver}
                 </p>
               )}
               {topRiskDriver && (
                 <p className="rounded-xl bg-white/45 px-3 py-2 text-[11px] leading-relaxed text-softform-text-secondary border border-white/60">
-                  <strong className="text-softform-navy-950">Watch:</strong> {topRiskDriver}
+                  <strong className="text-softform-navy-950 font-semibold">Watch:</strong> {topRiskDriver}
                 </p>
               )}
             </div>
@@ -104,12 +104,12 @@ export default function CreditReadinessInlineSummary() {
 
         <div className="flex items-center justify-between gap-4 lg:min-w-[250px] lg:justify-end">
           <div className="rounded-[22px] bg-softform-mist-100/70 border border-softform-aqua-300/25 px-5 py-4 text-center shadow-soft-inner">
-            <p className="text-3xl font-black text-softform-teal-deep tabular-finance">{scorecard.compositeScore}</p>
-            <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">Scorecard</p>
+            <p className="text-3xl font-bold text-softform-teal-deep tabular-finance">{scorecard.compositeScore}</p>
+            <p className="mt-1 text-[9px] font-medium uppercase tracking-[0.14em] text-softform-text-muted">Scorecard</p>
           </div>
           <Link
             to="/platform/credit-readiness"
-            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-softform-navy-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-softform-navy-800 transition shadow-sm"
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-softform-navy-900 px-4 py-2.5 text-xs font-semibold text-white hover:bg-softform-navy-800 transition shadow-sm"
           >
             View Score
             <ArrowRight size={14} />
