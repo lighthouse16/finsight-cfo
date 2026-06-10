@@ -5,7 +5,9 @@ import PageHeader from '../../components/platform/PageHeader'
 import StatusChip from '../../components/platform/StatusChip'
 import DemoFlowRail from '../../components/platform/DemoFlowRail'
 import { getCreditScore } from '../advisory-blueprint/api/advisoryBlueprintApi'
+import { createAndFetchMockCdiData } from '../cdi/cdiApi'
 import type { CreditScoringResult, CreditScoreFactor, FundingReadinessBand, PdRiskTier } from '../advisory-blueprint/types'
+import type { CdiConsentSession, CdiMockDataResponse } from '../cdi/cdiApi'
 
 const readinessLabels: Record<FundingReadinessBand, string> = {
   ready_context: 'Ready context',
@@ -21,6 +23,17 @@ const tierLabels: Record<PdRiskTier, string> = {
   elevated: 'Elevated risk',
   high: 'High risk',
   unavailable: 'Unavailable',
+}
+
+function formatHKD(value?: number | null) {
+  if (value === undefined || value === null) return 'N/A'
+  if (value >= 1_000_000) return `HKD ${(value / 1_000_000).toFixed(2)}M`
+  return `HKD ${value.toLocaleString()}`
+}
+
+function formatPercent(value?: number | null) {
+  if (value === undefined || value === null) return 'N/A'
+  return `${(value * 100).toFixed(1)}%`
 }
 
 function formatBand(value?: string | null) {
@@ -42,6 +55,8 @@ function factorTone(factor: CreditScoreFactor) {
 
 export default function CreditReadinessPage() {
   const [creditScore, setCreditScore] = useState<CreditScoringResult | null>(null)
+  const [cdiConsent, setCdiConsent] = useState<CdiConsentSession | null>(null)
+  const [cdiData, setCdiData] = useState<CdiMockDataResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -50,7 +65,17 @@ export default function CreditReadinessPage() {
     setError(null)
     try {
       const score = await getCreditScore()
+      const cdiContext = await createAndFetchMockCdiData({
+        companyId: score.companyId,
+        companyName: score.companyName,
+      }).catch((e) => {
+        console.warn('Mock CDI overlay unavailable for credit readiness', e)
+        return null
+      })
+
       setCreditScore(score)
+      setCdiConsent(cdiContext?.consent ?? null)
+      setCdiData(cdiContext?.data ?? null)
     } catch (e) {
       console.error('Credit score load failed', e)
       setError('Credit readiness score is currently unavailable. Please check the backend connection.')
@@ -104,7 +129,7 @@ export default function CreditReadinessPage() {
     <div className="space-y-8 pb-12">
       <PageHeader
         title="Credit Readiness"
-        subtitle="Explainable SME PD proxy scorecard built from liquidity, leverage, coverage, receivables, FCFF, and stress signals."
+        subtitle="Explainable SME PD proxy scorecard built from liquidity, leverage, coverage, receivables, FCFF, stress, and consent-based CDI signals."
         chip={
           <StatusChip variant={chipVariantForTier(creditScore.riskTier)}>
             {tierLabels[creditScore.riskTier]}
@@ -135,6 +160,9 @@ export default function CreditReadinessPage() {
               </span>
               <span className="rounded-full border border-white/70 bg-white/60 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-softform-navy-950">
                 {creditScore.pdProxyBand}
+              </span>
+              <span className="rounded-full border border-white/70 bg-white/60 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-softform-navy-950">
+                CDI {formatBand(cdiConsent?.status ?? 'not requested')}
               </span>
             </div>
           </div>
@@ -192,6 +220,56 @@ export default function CreditReadinessPage() {
           )}
         </div>
       </section>
+
+      {cdiData && (
+        <section className="softform-card rounded-[32px] p-6 sm:p-8 space-y-6">
+          <div className="flex items-center justify-between border-b border-softform-navy-950/5 pb-4">
+            <h2 className="text-lg font-bold text-softform-navy-950 flex items-center gap-2">
+              <ShieldCheck size={20} className="text-softform-teal-deep" />
+              Consent-Based CDI Overlay
+            </h2>
+            <StatusChip variant="signal">{formatBand(cdiData.creditBureauSignal.bureauBand)}</StatusChip>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-4">
+            <div className="rounded-[18px] border border-white/60 bg-white/45 p-4">
+              <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">Net cash-flow trend</p>
+              <p className="mt-1 text-lg font-black text-softform-navy-950">{formatBand(cdiData.cashflowSignal.netCashflowTrend)}</p>
+            </div>
+            <div className="rounded-[18px] border border-white/60 bg-white/45 p-4">
+              <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">Eligible invoices</p>
+              <p className="mt-1 text-lg font-black text-softform-navy-950 tabular-finance">{formatHKD(cdiData.receivablesSignal.eligibleInvoiceValue)}</p>
+            </div>
+            <div className="rounded-[18px] border border-white/60 bg-white/45 p-4">
+              <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">Buyer concentration</p>
+              <p className="mt-1 text-lg font-black text-softform-navy-950 tabular-finance">{formatPercent(cdiData.receivablesSignal.topBuyerConcentration)}</p>
+            </div>
+            <div className="rounded-[18px] border border-white/60 bg-white/45 p-4">
+              <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">Delinquencies 12m</p>
+              <p className="mt-1 text-lg font-black text-softform-navy-950 tabular-finance">{cdiData.creditBureauSignal.repaymentDelinquencyCount12m}</p>
+            </div>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-[22px] border border-white/60 bg-white/45 p-5 space-y-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-teal-deep">CDI supports</p>
+              {cdiData.fundingImplications.slice(0, 3).map((item) => (
+                <p key={item} className="text-xs leading-relaxed text-softform-text-secondary">
+                  <strong className="text-softform-navy-950">Signal:</strong> {item}
+                </p>
+              ))}
+            </div>
+            <div className="rounded-[22px] border border-white/60 bg-white/45 p-5 space-y-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-amber-500">CDI watch items</p>
+              {cdiData.riskImplications.slice(0, 3).map((item) => (
+                <p key={item} className="text-xs leading-relaxed text-softform-text-secondary">
+                  <strong className="text-softform-navy-950">Watch:</strong> {item}
+                </p>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="softform-card rounded-[32px] p-6 sm:p-8 space-y-6">
         <div className="flex items-center justify-between border-b border-softform-navy-950/5 pb-4">
