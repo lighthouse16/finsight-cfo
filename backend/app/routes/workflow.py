@@ -16,6 +16,13 @@ from app.services.advisory.blueprint_engine import build_advisory_blueprint
 router = APIRouter()
 
 
+CDI_TRUST_BRIDGE_DISCLAIMER = (
+    "Mock CDI trust-bridge context is generated for BOCHK challenge demonstration only. "
+    "It is not real CDI, CCRA, bureau, bank transaction, tax, MPF, or customer data. "
+    "Production use requires explicit consent, audit logging, secure exchange, and PDPO/PIPL-aligned controls."
+)
+
+
 def _active_or_demo_analysis():
     """Build analysis from active Data Room preview context, otherwise demo data."""
     context = get_active_workspace_preview_context()
@@ -41,6 +48,55 @@ def _active_or_demo_analysis():
         *context.warnings,
     ]
     return _build_financial_analysis_response(snapshot, warnings), "active_data_room_preview", warnings
+
+
+def _build_mock_trust_bridge_context(analysis) -> dict[str, Any]:
+    """Build a deterministic CDI-style trust bridge for the workflow response."""
+    company_id = analysis.snapshot.company_id
+    company_name = analysis.snapshot.company_name
+    return {
+        "consent": {
+            "consentId": f"workflow_mock_cdi_{company_id}",
+            "companyId": company_id,
+            "companyName": company_name,
+            "status": "authorized",
+            "requestedScopes": [
+                "bank_transactions",
+                "trade_receivables",
+                "credit_bureau_summary",
+            ],
+            "source": "workflow_mock_cdi_consent_gateway",
+        },
+        "cashflowSignal": {
+            "averageMonthlyInflow": 1_280_000,
+            "averageMonthlyOutflow": 1_075_000,
+            "netCashflowTrend": "stable",
+            "volatilityBand": "moderate",
+            "bouncedPaymentCount6m": 0,
+        },
+        "receivablesSignal": {
+            "verifiedInvoiceValue": 2_450_000,
+            "eligibleInvoiceValue": 1_715_000,
+            "topBuyerConcentration": 0.28,
+            "averageDaysToCollect": 47.5,
+            "digitalCollateralBand": "strong",
+        },
+        "creditBureauSignal": {
+            "repaymentDelinquencyCount12m": 0,
+            "bureauBand": "clear",
+            "tradeReferenceCount": 8,
+        },
+        "fundingImplications": [
+            "Verified invoice pool can support receivables-backed working-capital discussion.",
+            "Stable bank-transaction inflows improve cash-flow verification for lender review.",
+            "Clear mock bureau band reduces context-only red flags in the funding narrative.",
+        ],
+        "riskImplications": [
+            "Moderate cash-flow volatility still requires stress testing under higher HIBOR assumptions.",
+            "Top buyer concentration should be reviewed before setting advance rates.",
+        ],
+        "disclaimer": CDI_TRUST_BRIDGE_DISCLAIMER,
+    }
 
 
 def _stage(
@@ -86,6 +142,7 @@ def run_bochk_workflow() -> dict[str, Any]:
         stress_tests,
         facility_structuring,
     )
+    trust_bridge_context = _build_mock_trust_bridge_context(analysis)
 
     failed_integrity = [check for check in analysis.integrity_checks if not check.passed]
     valuation = analysis.valuation
@@ -156,12 +213,18 @@ def run_bochk_workflow() -> dict[str, Any]:
         ),
         _stage(
             7,
-            "Credit score, PD proxy, and funding decision context",
+            "Credit score, PD proxy, trust bridge, and funding decision context",
             "completed",
-            ["FinancialAnalysisResponse", "valuation", "stress overlay", "hard-gate precheck"],
-            ["CreditScoringResult", "FundingReadinessBand", "facility candidates", "advisory blueprint"],
-            f"Composite score={credit_score.composite_score}; tier={credit_score.risk_tier}; readiness={credit_score.funding_readiness}.",
-            credit_score.hard_constraints + credit_score.warnings,
+            ["FinancialAnalysisResponse", "valuation", "stress overlay", "hard-gate precheck", "mock CDI consent signals"],
+            [
+                "CreditScoringResult",
+                "FundingReadinessBand",
+                "facility candidates",
+                "advisory blueprint",
+                "trustBridgeContext",
+            ],
+            f"Composite score={credit_score.composite_score}; tier={credit_score.risk_tier}; readiness={credit_score.funding_readiness}; CDI bureau band={trust_bridge_context['creditBureauSignal']['bureauBand']}.",
+            credit_score.hard_constraints + credit_score.warnings + trust_bridge_context["riskImplications"],
         ),
     ]
 
@@ -191,6 +254,7 @@ def run_bochk_workflow() -> dict[str, Any]:
             "stressTests": stress_tests,
             "facilityStructuring": facility_structuring,
             "advisoryBlueprint": blueprint,
+            "trustBridgeContext": trust_bridge_context,
         },
-        "disclaimer": "Workflow runner is for BOCHK challenge demonstration only. It is not a production credit approval, underwriting, valuation, or regulatory PD workflow.",
+        "disclaimer": "Workflow runner is for BOCHK challenge demonstration only. It is not a production credit approval, underwriting, valuation, CDI, or regulatory PD workflow.",
     }
