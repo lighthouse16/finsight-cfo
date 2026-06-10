@@ -6,13 +6,20 @@ import StatusChip from '../../components/platform/StatusChip'
 import DemoFlowRail from '../../components/platform/DemoFlowRail'
 import { getCreditScore, getAdvisoryFacilityStructures } from '../advisory-blueprint/api/advisoryBlueprintApi'
 import { getCrossBorderFundingContext, getFundingChannelRanking } from '../market-watch/api/marketWatchApi'
+import { createAndFetchMockCdiData } from '../cdi/cdiApi'
 import type { CreditScoringResult, FacilityStructuringResponse } from '../advisory-blueprint/types'
 import type { CrossBorderFundingContextResponse, FundingChannelItem, FundingChannelRankingResponse } from '../market-watch/types'
+import type { CdiConsentSession, CdiMockDataResponse } from '../cdi/cdiApi'
 
 function formatHKD(value?: number | null) {
   if (value === undefined || value === null) return 'N/A'
   if (value >= 1_000_000) return `HKD ${(value / 1_000_000).toFixed(2)}M`
   return `HKD ${value.toLocaleString()}`
+}
+
+function formatPercent(value?: number | null) {
+  if (value === undefined || value === null) return 'N/A'
+  return `${(value * 100).toFixed(1)}%`
 }
 
 function formatBand(value?: string | null) {
@@ -21,8 +28,8 @@ function formatBand(value?: string | null) {
 }
 
 function fitTone(value?: string) {
-  if (value === 'strong_fit' || value === 'strong') return 'bg-emerald-500/10 text-emerald-700'
-  if (value === 'moderate_fit' || value === 'adequate') return 'bg-softform-mist-100 text-softform-teal-deep'
+  if (value === 'strong_fit' || value === 'strong' || value === 'clear') return 'bg-emerald-500/10 text-emerald-700'
+  if (value === 'moderate_fit' || value === 'adequate' || value === 'moderate') return 'bg-softform-mist-100 text-softform-teal-deep'
   return 'bg-softform-cream text-softform-amber-500'
 }
 
@@ -38,6 +45,8 @@ export default function FundingStrategyPage() {
   const [ranking, setRanking] = useState<FundingChannelRankingResponse | null>(null)
   const [crossBorder, setCrossBorder] = useState<CrossBorderFundingContextResponse | null>(null)
   const [facilities, setFacilities] = useState<FacilityStructuringResponse | null>(null)
+  const [cdiConsent, setCdiConsent] = useState<CdiConsentSession | null>(null)
+  const [cdiData, setCdiData] = useState<CdiMockDataResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -63,10 +72,21 @@ export default function FundingStrategyPage() {
           return null
         }),
       ])
+
+      const cdiContext = await createAndFetchMockCdiData({
+        companyId: score?.companyId ?? 'demo-company',
+        companyName: score?.companyName ?? 'Demo Trading Limited',
+      }).catch((e) => {
+        console.warn('Mock CDI context unavailable', e)
+        return null
+      })
+
       setCreditScore(score)
       setRanking(channelRanking)
       setCrossBorder(crossBorderContext)
       setFacilities(facilityContext)
+      setCdiConsent(cdiContext?.consent ?? null)
+      setCdiData(cdiContext?.data ?? null)
     } catch (e) {
       console.error('Funding strategy load failed', e)
       setError('Funding Strategy is currently unavailable. Please check the backend connection.')
@@ -119,7 +139,7 @@ export default function FundingStrategyPage() {
     <div className="space-y-8 pb-12">
       <PageHeader
         title="Funding Strategy"
-        subtitle="Compare channel fit, facility structures, rate context, and cross-border considerations from the finance workflow."
+        subtitle="Compare channel fit, facility structures, rate context, consent-based CDI signals, and cross-border considerations from the finance workflow."
         chip={
           <StatusChip variant={statusVariant(creditScore)}>
             {creditScore ? formatBand(creditScore.fundingReadiness) : 'Context only'}
@@ -138,7 +158,7 @@ export default function FundingStrategyPage() {
               {topChannel ? topChannel.label : 'Funding channel context'}
             </h2>
             <p className="text-sm leading-relaxed text-softform-text-secondary max-w-3xl">
-              {ranking?.explanation ?? 'Funding Strategy combines readiness scorecard context, channel ranking, cross-border funding context, and facility structures.'}
+              {ranking?.explanation ?? 'Funding Strategy combines readiness scorecard context, channel ranking, cross-border funding context, consent-based CDI signals, and facility structures.'}
             </p>
             {topChannel && (
               <div className="flex flex-wrap gap-2">
@@ -162,12 +182,62 @@ export default function FundingStrategyPage() {
               <p className="mt-1 text-sm font-black text-softform-navy-950">{formatBand(ranking?.rankingBand)}</p>
             </div>
             <div className="rounded-[22px] border border-softform-aqua-300/25 bg-softform-mist-100/70 p-4 shadow-soft-inner">
-              <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">Cross-border</p>
-              <p className="mt-1 text-sm font-black text-softform-navy-950">{formatBand(crossBorder?.crossBorderReviewBand)}</p>
+              <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">CDI trust bridge</p>
+              <p className="mt-1 text-sm font-black text-softform-navy-950">{formatBand(cdiData?.receivablesSignal.digitalCollateralBand)}</p>
             </div>
           </div>
         </div>
       </section>
+
+      {cdiData && (
+        <section className="softform-card rounded-[32px] p-6 sm:p-8 space-y-6">
+          <div className="flex items-center justify-between border-b border-softform-navy-950/5 pb-4">
+            <h2 className="text-lg font-bold text-softform-navy-950 flex items-center gap-2">
+              <ShieldCheck size={20} className="text-softform-teal-deep" />
+              CDI Trust Bridge & Digital Collateral
+            </h2>
+            <StatusChip variant="signal">{formatBand(cdiConsent?.status ?? 'authorized')}</StatusChip>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-4">
+            <div className="rounded-[18px] border border-white/60 bg-white/45 p-4">
+              <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">Eligible invoices</p>
+              <p className="mt-1 text-lg font-black text-softform-navy-950 tabular-finance">{formatHKD(cdiData.receivablesSignal.eligibleInvoiceValue)}</p>
+            </div>
+            <div className="rounded-[18px] border border-white/60 bg-white/45 p-4">
+              <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">Verified pool</p>
+              <p className="mt-1 text-lg font-black text-softform-navy-950 tabular-finance">{formatHKD(cdiData.receivablesSignal.verifiedInvoiceValue)}</p>
+            </div>
+            <div className="rounded-[18px] border border-white/60 bg-white/45 p-4">
+              <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">Buyer concentration</p>
+              <p className="mt-1 text-lg font-black text-softform-navy-950 tabular-finance">{formatPercent(cdiData.receivablesSignal.topBuyerConcentration)}</p>
+            </div>
+            <div className="rounded-[18px] border border-white/60 bg-white/45 p-4">
+              <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">Bureau band</p>
+              <p className="mt-1 text-lg font-black text-softform-navy-950">{formatBand(cdiData.creditBureauSignal.bureauBand)}</p>
+            </div>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-[22px] border border-white/60 bg-white/45 p-5 space-y-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-teal-deep">Funding implications</p>
+              {cdiData.fundingImplications.map((item) => (
+                <p key={item} className="text-xs leading-relaxed text-softform-text-secondary">
+                  <strong className="text-softform-navy-950">Signal:</strong> {item}
+                </p>
+              ))}
+            </div>
+            <div className="rounded-[22px] border border-white/60 bg-white/45 p-5 space-y-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-amber-500">Risk implications</p>
+              {cdiData.riskImplications.map((item) => (
+                <p key={item} className="text-xs leading-relaxed text-softform-text-secondary">
+                  <strong className="text-softform-navy-950">Watch:</strong> {item}
+                </p>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {ranking && ranking.channels.length > 0 && (
         <section className="softform-card rounded-[32px] p-6 sm:p-8 space-y-6">
