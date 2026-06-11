@@ -27,6 +27,12 @@ from app.services.analysis_runtime_service import (
     get_workspace_run_latest_generic as service_get_workspace_run_latest_generic,
     get_workspace_run_by_id as service_get_workspace_run_by_id,
 )
+from app.services.workspace_service import (
+    create_workspace as service_create_workspace,
+    list_workspaces as service_list_workspaces,
+    get_workspace as service_get_workspace,
+    delete_workspace as service_delete_workspace,
+)
 
 from app.models.workspace import CompanyWorkspace, UploadedFileRecord, FinancialSnapshot, AnalysisRun
 from app.models.financials import CompanyFinancialSnapshot
@@ -304,30 +310,20 @@ async def create_workspace(
     repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     audit_repo: AuditEventRepository = Depends(get_audit_event_repository_dependency),
 ):
-    company_name = company_name.strip()
-    if not company_name:
-        raise HTTPException(status_code=422, detail="CompanyName is required")
-    workspace_id = f"workspace_{uuid.uuid4().hex[:12]}"
-    metadata = {}
-    if currency:
-        metadata["currency"] = currency
-    if reportingPeriod:
-        metadata["reportingPeriod"] = reportingPeriod
-    workspace = repo.create_workspace(workspace_id, company_name, metadata=metadata)
-    await record_audit_event_best_effort(
+    return await service_create_workspace(
+        company_name=company_name,
+        currency=currency,
+        reporting_period=reportingPeriod,
+        workspace_repo=repo,
         audit_repo=audit_repo,
         settings=settings,
-        workspace_id=workspace_id,
-        action="workspace.created",
-        description=f"Workspace '{company_name}' was created."
     )
-    return workspace
 
 @router.get("", response_model=List[CompanyWorkspace])
 async def list_workspaces(
     repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
 ):
-    return repo.list_workspaces()
+    return service_list_workspaces(workspace_repo=repo)
 
 @router.get("/config")
 async def get_workspaces_config():
@@ -493,10 +489,7 @@ async def get_workspace(
     workspace_id: str,
     repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
 ):
-    workspace = repo.get_workspace(workspace_id)
-    if not workspace:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-    return workspace
+    return service_get_workspace(workspace_id=workspace_id, workspace_repo=repo)
 
 @router.post("/{workspace_id}/files", response_model=UploadedFileRecord)
 async def upload_workspace_file(
@@ -694,31 +687,13 @@ async def delete_workspace(
     file_repo: FileMetadataRepository = Depends(get_file_metadata_repository_dependency),
     audit_repo: AuditEventRepository = Depends(get_audit_event_repository_dependency),
 ):
-    workspace = workspace_repo.get_workspace(workspace_id)
-    if not workspace:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-        
-    # 1. Cascade physical files and file metadata
-    cascade_delete_workspace_files(
+    return await service_delete_workspace(
         workspace_id=workspace_id,
+        workspace_repo=workspace_repo,
         file_repo=file_repo,
-        settings=settings,
-    )
-    
-    # 2. Cascade workspace metadata, snapshots, runs, audits
-    success = workspace_repo.delete_workspace(workspace_id)
-    if not success:
-        raise HTTPException(status_code=500, detail="Failed to delete workspace")
-        
-    await record_audit_event_best_effort(
         audit_repo=audit_repo,
         settings=settings,
-        workspace_id=workspace_id,
-        action="workspace.deleted",
-        description=f"Workspace '{workspace_id}' was deleted."
     )
-        
-    return {"status": "success", "message": f"Workspace {workspace_id} deleted successfully"}
 
 
 @router.post("/{workspace_id}/analysis/financial-health/run", response_model=AnalysisRun)

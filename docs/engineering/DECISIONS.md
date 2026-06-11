@@ -170,6 +170,8 @@ This document records key architectural and design decisions for FinSight CFO.
 - **Decision**: Extract analysis stage run triggers (supporting sync and async execution flow), run list querying, run details querying, and latest run (both stage-specific and generic) handlers from `routes/workspaces.py` into `backend/app/services/analysis_runtime_service.py`. The service orchestrates persistence mapping and logs audit trails in database mode without modifying financial calculations or snapshot logic.
 - **Consequences**: Successfully isolates all analysis run routing logic, reduces the route layer complexity, and preserves current database-mode persistence and local-mode default behavior.
 
-
-
-
+## ADR-027: Extract workspace CRUD service
+- **Status**: Approved
+- **Context**: Phase 5 of the workspace route service extraction plan involves isolating workspace CRUD operations (create, list, get, delete) from the workspaces router into a dedicated service.
+- **Decision**: Extract workspace CRUD orchestration logic from `routes/workspaces.py` into `backend/app/services/workspace_service.py`. The service accepts repository and audit repo dependencies, validates inputs, invokes the workspace and file repository operations, and records audit events, while avoiding DB session creation.
+- **Consequences**: Further simplifies the workspaces route layer, separates HTTP delivery concerns from backend business orchestration, and guarantees zero runtime or response schema deviations.
