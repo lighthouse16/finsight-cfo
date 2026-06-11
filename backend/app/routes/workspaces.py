@@ -6,6 +6,13 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.persistence.interfaces import WorkspaceRepository, FileMetadataRepository, AnalysisRunRepository, ReportRepository, AuditEventRepository
 from app.services.audit_service import record_audit_event_best_effort
+from app.services.report_service import (
+    create_report as service_create_report,
+    get_report as service_get_report,
+    list_reports as service_list_reports,
+    update_report as service_update_report,
+    delete_report as service_delete_report,
+)
 
 from app.models.workspace import CompanyWorkspace, UploadedFileRecord, FinancialSnapshot, AnalysisRun
 from app.models.financials import CompanyFinancialSnapshot
@@ -1304,29 +1311,14 @@ async def create_workspace_report(
     report_repo: ReportRepository = Depends(get_report_repository_dependency),
     audit_repo: AuditEventRepository = Depends(get_audit_event_repository_dependency),
 ):
-    workspace = workspace_repo.get_workspace(workspace_id)
-    if not workspace:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-    
-    try:
-        report = report_repo.save_report(
-            workspace_id=workspace_id,
-            report_type=payload.reportType,
-            title=payload.title,
-            report_payload=payload.reportPayload,
-            storage_uri=payload.storageUri,
-            metadata=payload.metadata,
-        )
-        await record_audit_event_best_effort(
-            audit_repo=audit_repo,
-            settings=settings,
-            workspace_id=workspace_id,
-            action="report.created",
-            description=f"Report '{payload.title}' was created."
-        )
-        return report
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    return await service_create_report(
+        workspace_id=workspace_id,
+        payload=payload,
+        workspace_repo=workspace_repo,
+        report_repo=report_repo,
+        audit_repo=audit_repo,
+        settings=settings,
+    )
 
 
 @router.get("/{workspace_id}/reports/{report_id}", response_model=WorkspaceReport)
@@ -1336,14 +1328,12 @@ async def get_workspace_report_by_id(
     workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     report_repo: ReportRepository = Depends(get_report_repository_dependency),
 ):
-    workspace = workspace_repo.get_workspace(workspace_id)
-    if not workspace:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-    
-    report = report_repo.get_report(report_id)
-    if not report or report.get("workspaceId") != workspace_id:
-        raise HTTPException(status_code=404, detail="Report not found in this workspace")
-    return report
+    return await service_get_report(
+        workspace_id=workspace_id,
+        report_id=report_id,
+        workspace_repo=workspace_repo,
+        report_repo=report_repo,
+    )
 
 
 @router.get("/{workspace_id}/reports", response_model=List[WorkspaceReport])
@@ -1353,12 +1343,12 @@ async def list_workspace_reports(
     workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     report_repo: ReportRepository = Depends(get_report_repository_dependency),
 ):
-    workspace = workspace_repo.get_workspace(workspace_id)
-    if not workspace:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-    
-    reports = report_repo.list_reports(workspace_id, report_type=type)
-    return reports
+    return await service_list_reports(
+        workspace_id=workspace_id,
+        report_type=type,
+        workspace_repo=workspace_repo,
+        report_repo=report_repo,
+    )
 
 
 @router.patch("/{workspace_id}/reports/{report_id}", response_model=WorkspaceReport)
@@ -1370,31 +1360,15 @@ async def update_workspace_report_status(
     report_repo: ReportRepository = Depends(get_report_repository_dependency),
     audit_repo: AuditEventRepository = Depends(get_audit_event_repository_dependency),
 ):
-    workspace = workspace_repo.get_workspace(workspace_id)
-    if not workspace:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-    
-    report = report_repo.get_report(report_id)
-    if not report or report.get("workspaceId") != workspace_id:
-        raise HTTPException(status_code=404, detail="Report not found in this workspace")
-    
-    try:
-        updated = report_repo.update_report_status(
-            report_id=report_id,
-            status=payload.status,
-            storage_uri=payload.storageUri,
-            metadata=payload.metadata,
-        )
-        await record_audit_event_best_effort(
-            audit_repo=audit_repo,
-            settings=settings,
-            workspace_id=workspace_id,
-            action="report.updated",
-            description=f"Report '{report_id}' was updated to status '{payload.status}'."
-        )
-        return updated
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    return await service_update_report(
+        workspace_id=workspace_id,
+        report_id=report_id,
+        payload=payload,
+        workspace_repo=workspace_repo,
+        report_repo=report_repo,
+        audit_repo=audit_repo,
+        settings=settings,
+    )
 
 
 @router.delete("/{workspace_id}/reports/{report_id}")
@@ -1405,22 +1379,11 @@ async def delete_workspace_report(
     report_repo: ReportRepository = Depends(get_report_repository_dependency),
     audit_repo: AuditEventRepository = Depends(get_audit_event_repository_dependency),
 ):
-    workspace = workspace_repo.get_workspace(workspace_id)
-    if not workspace:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-    
-    report = report_repo.get_report(report_id)
-    if not report or report.get("workspaceId") != workspace_id:
-        raise HTTPException(status_code=404, detail="Report not found in this workspace")
-    
-    success = report_repo.delete_report(report_id)
-    if not success:
-        raise HTTPException(status_code=400, detail="Failed to delete report")
-    await record_audit_event_best_effort(
+    return await service_delete_report(
+        workspace_id=workspace_id,
+        report_id=report_id,
+        workspace_repo=workspace_repo,
+        report_repo=report_repo,
         audit_repo=audit_repo,
         settings=settings,
-        workspace_id=workspace_id,
-        action="report.deleted",
-        description=f"Report '{report_id}' was deleted."
     )
-    return {"status": "success", "message": "Report deleted successfully"}

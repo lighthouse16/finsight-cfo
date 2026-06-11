@@ -53,7 +53,7 @@ To minimize risk, extraction must be completed in sequential, isolated phases:
 
 * **Phase 1: Extract Audit Helper** [COMPLETED]
   * Move best-effort route-level logging checks and DB checks into `backend/app/services/audit_service.py`.
-* **Phase 2: Extract Report Service**
+* **Phase 2: Extract Report Service** [COMPLETED]
   * Move report CRUD operations and validations into `backend/app/services/report_service.py`.
 * **Phase 3: Extract File Metadata Service**
   * Move file save/delete logic and repository registrations into `backend/app/services/file_metadata_service.py`.

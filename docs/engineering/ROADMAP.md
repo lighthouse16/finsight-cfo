@@ -54,6 +54,8 @@ This document outlines the high-level roadmap for transitioning FinSight CFO fro
     - Plan and document the service extraction boundaries to clean up workspaces.py before further refactoring.
 19. **Extract Audit Helper Service (Phase 1)** [COMPLETED]
     - Extract best-effort audit event logging helper from workspaces router into a dedicated audit service.
+20. **Extract Report Service (Phase 2)** [COMPLETED]
+    - Extract report CRUD orchestration logic from workspaces router into a dedicated report service.
 
 ---
 
