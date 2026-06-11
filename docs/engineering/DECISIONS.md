@@ -206,3 +206,10 @@ This document records key architectural and design decisions for FinSight CFO.
 - Decision: Add API endpoints `GET /api/workspaces/{workspace_id}/jobs` and `GET /api/workspaces/{workspace_id}/jobs/{job_id}` in `backend/app/routes/jobs.py` and register them under the `/api/workspaces` prefix. Ensure local mode returns a 501 HTTP exception cleanly without initializing DB connection pools. Ensure all raw file bytes are sanitized from returned JSON payloads.
 - Consequences: Exposes read-only job visibility so future retry/progress/worker work can be validated end-to-end.
 
+## ADR-033: Add retry and progress semantics before worker runtime harness
+- Status: Approved
+- Context: In Phase E of the background processing rollout, we need to implement service-layer retry, attempts, and progress semantics for jobs, without implementing a worker daemon, queue, scheduler, or DB schema changes.
+- Decision: Add helper functions `increment_job_attempt`, `can_retry_job`, `mark_job_progress`, and `prepare_job_retry` in `job_service.py`. Enforce bounded progress metrics, type checking, and binary safety validations. Integrate these helpers inside `report_worker_service.py` to trace processing attempts and record milestone progress (5%, 50%, 100%) during generation.
+- Consequences: Safely establishes retry rules and progress tracking capability at the service layer, preparing for clean error recovery and status monitoring when running Celery/Redis workers in future phases.
+
+

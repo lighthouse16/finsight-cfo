@@ -102,9 +102,11 @@ We propose the following six-step rollout plan:
   * Exposed read-only job status and workspace-level job list API endpoints.
   * Ensured local mode returns 501 cleanly to prevent database side-effects.
   * Kept background execution/workers/daemons/queues deferred.
-* **Phase E: Retry, Idempotency & Progress Semantics**
-  * Introduce an exponential backoff retry loop tracking the `attempts` column.
-  * Ensure report compilations and snapshots write actions are idempotent.
+* **Phase E: Retry, Idempotency & Progress Semantics** [COMPLETED]
+  * Introduce attempts count tracking and progress metadata helpers at the service layer.
+  * Define retry eligibility rules (failed status, attempts < max_attempts).
+  * Wire report worker prototype to increment attempts and record progress milestones (5%, 50%, 100%).
+  * Keep automatic retry/backoff and worker daemon runtime deferred.
 * **Phase F: Process Supervision & Celery Setup**
   * Integrate Redis and Celery.
   * Separate the web container from the worker container in deployment configurations.

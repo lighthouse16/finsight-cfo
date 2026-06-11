@@ -6,6 +6,8 @@ from app.services.job_service import (
     mark_job_completed,
     mark_job_failed,
     _check_no_file_bytes,
+    increment_job_attempt,
+    mark_job_progress,
 )
 
 def process_report_generation_job(
@@ -46,6 +48,12 @@ def process_report_generation_job(
     _check_no_file_bytes(payload)
     _check_no_file_bytes(metadata)
 
+    # Increment attempt count
+    job = increment_job_attempt(job_id=job_id, job_repo=job_repository)
+
+    # Mark progress: 5 percent - starting
+    mark_job_progress(job_id=job_id, percent=5, stage="starting", message="Starting report generation job", job_repo=job_repository)
+
     # 6. Mark job running
     job = mark_job_running(job_id=job_id, job_repo=job_repository)
 
@@ -66,7 +74,7 @@ def process_report_generation_job(
     if report_payload is None:
         # If payload does not nest report_payload, fall back to treating the payload itself as report_payload
         report_payload = payload
-
+ 
     storage_uri = (
         payload.get("storage_uri")
         or payload.get("storageUri")
@@ -76,6 +84,9 @@ def process_report_generation_job(
     title = metadata.get("title") or f"Report {report_type}"
 
     try:
+        # Mark progress: 50 percent - generating/persisting report
+        mark_job_progress(job_id=job_id, percent=50, stage="generating", message="Generating and persisting report data", job_repo=job_repository)
+
         # 7. Call report repository to create the report
         report = report_repository.save_report(
             workspace_id=workspace_id,
@@ -86,9 +97,18 @@ def process_report_generation_job(
             metadata=metadata,
         )
     except Exception as e:
+        err_msg = str(e)
+        try:
+            # Include progress state in metadata if safe
+            mark_job_progress(job_id=job_id, percent=50, stage="failed", message=f"Generation failed: {err_msg}", job_repo=job_repository)
+        except Exception:
+            pass
         # 9. If report creation fails, mark job failed and re-raise
-        mark_job_failed(job_id=job_id, error_message=str(e), job_repo=job_repository)
+        mark_job_failed(job_id=job_id, error_message=err_msg, job_repo=job_repository)
         raise e
+
+    # Mark progress: 100 percent - completed
+    mark_job_progress(job_id=job_id, percent=100, stage="completed", message="Report generated successfully", job_repo=job_repository)
 
     # 8. Mark job completed with result_payload containing report_id and report metadata
     result_payload = {
@@ -109,3 +129,4 @@ def process_report_generation_job(
         "report_name": result_payload["report_name"],
         "storage_uri": result_payload["storage_uri"],
     }
+

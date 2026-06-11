@@ -220,3 +220,76 @@ def test_sanitize_payload():
         "list_field": ["<binary data>", 42]
     }
 
+def test_job_routes_metadata_exposure(db_session, monkeypatch):
+    """
+    Assert that job status route response exposes progress metadata and attempts count,
+    and that routes remain read-only (they do not mutate attempts or progress).
+    """
+    monkeypatch.setattr(settings, "PERSISTENCE_BACKEND", "database")
+
+    def override_get_db_session():
+        set_active_db_session(db_session)
+        try:
+            yield db_session
+        finally:
+            set_active_db_session(None)
+
+    app.dependency_overrides[get_db_session_optional] = override_get_db_session
+    client = TestClient(app)
+
+    try:
+        from app.db.models import Organization, Workspace as DbWorkspace, Job as DbJob
+
+        # Setup Organizations
+        org = Organization(id="org_test", name="Test Org")
+        db_session.add(org)
+        
+        # Setup Workspaces
+        ws1 = DbWorkspace(id="ws_1", organization_id="org_test", name="Workspace One", status="active")
+        db_session.add(ws1)
+        db_session.commit()
+
+        # Add job with attempts and progress metadata
+        job_metadata = {
+            "attempts": 2,
+            "max_attempts": 3,
+            "progress": {
+                "percent": 50,
+                "stage": "generating",
+                "message": "Generating chunks"
+            }
+        }
+        job1 = DbJob(
+            id="job_ws1_report",
+            workspace_id="ws_1",
+            organization_id="org_test",
+            task_name="report.generation",
+            status="failed",
+            attempts=2,
+            arguments={"report_type": "financial_health"},
+            job_metadata=job_metadata,
+            result_payload={}
+        )
+        db_session.add(job1)
+        db_session.commit()
+
+        # GET the job
+        res = client.get("/api/workspaces/ws_1/jobs/job_ws1_report")
+        assert res.status_code == 200
+        data = res.json()
+        
+        # Check attempts and progress metadata are exposed
+        assert data["metadata"]["attempts"] == 2
+        assert data["metadata"]["progress"]["percent"] == 50
+        assert data["metadata"]["progress"]["stage"] == "generating"
+        assert data["metadata"]["progress"]["message"] == "Generating chunks"
+
+        # Check route operations are read-only and do not mutate attempts/progress
+        db_job = db_session.query(DbJob).filter_by(id="job_ws1_report").first()
+        assert db_job.attempts == 2
+        assert db_job.job_metadata["attempts"] == 2
+
+    finally:
+        app.dependency_overrides.clear()
+
+
