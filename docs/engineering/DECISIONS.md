@@ -62,3 +62,10 @@ This document records key architectural and design decisions for FinSight CFO.
 - **Decision**: Implement `DatabaseWorkspaceRepository` implementing the `WorkspaceRepository` contract, and update the repository factory to return it only when `PERSISTENCE_BACKEND="database"` and an active SQLAlchemy `db_session` is explicitly provided.
 - **Consequences**: Enables parallel testing of the database persistence layer using in-memory SQLite without changing runtime application routes, ensuring full backward compatibility and safe incremental deployment.
 
+## ADR-009: Store file bytes outside the database and persist only file metadata/version pointers in DB
+- **Status**: Approved
+- **Context**: Relational databases are poorly suited for storing large file binaries (like uploaded CSVs or Excel spreadsheets), which causes substantial database inflation and slower transactional operations.
+- **Decision**: Persist only logical file metadata (e.g., workspace association, status) and file version pointers (e.g., storage URI, size, SHA256 checksum) in the database. Keep physical file bytes in localized disks (for local dev) or cloud object storage (e.g., S3 in production).
+- **Consequences**: Keeps the database lean, allows direct-upload capabilities, simplifies logical file histories/versioning, and separates metadata queries from binary file content reading.
+
+
