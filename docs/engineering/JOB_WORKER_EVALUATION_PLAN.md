@@ -88,9 +88,9 @@ Three primary architectural choices exist for implementing the background proces
 
 We propose the following six-step rollout plan:
 
-* **Phase A: Job Route Contract and Repository Guardrails**
-  * Establish API route schemas and contracts for listing and getting job statuses.
-  * Implement mock repositories for local mode testing.
+* **Phase A: Job Route Contract and Repository Guardrails** [COMPLETED]
+  * Establish API route schemas, contracts for listing/getting job statuses, and the service facade layer.
+  * Implement mock repositories and service unit tests.
 * **Phase B: Synchronous Job Facade**
   * Wire the routes to repository adapters but execute workloads *synchronously* inline.
   * Establishes the end-to-end API and DB persistence flow before making execution async.
