@@ -36,6 +36,8 @@ This document outlines the high-level roadmap for transitioning FinSight CFO fro
    - Redirect analysis diagnostic results storage from filesystem JSON files to run artifact DB payloads.
 10. **Add Database Audit Event Adapter & Migration Alignment** [COMPLETED]
     - Store system and workspace audit trails in the database, with support for organization-level auditing.
+11. **Add Database Job Adapter & Migration Alignment** [COMPLETED]
+    - Store background job executions and statuses in the database to support async tasks and status querying.
 
 ---
 

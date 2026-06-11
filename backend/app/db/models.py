@@ -218,11 +218,17 @@ class Job(Base, TimestampMixin):
     __tablename__ = "jobs"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    workspace_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=True, index=True)
+    organization_id: Mapped[str] = mapped_column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
     task_name: Mapped[str] = mapped_column(String(255), nullable=False)
     status: Mapped[str] = mapped_column(String(50), default="pending", nullable=False, index=True)
     attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     arguments: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    result_payload: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     error_log: Mapped[Optional[str]] = mapped_column(TEXT, nullable=True)
+    job_metadata: Mapped[Optional[dict]] = mapped_column("metadata", JSON, default=dict, nullable=True)
+    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
 class AiCfoSession(Base, TimestampMixin):
     __tablename__ = "ai_cfo_sessions"

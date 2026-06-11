@@ -2,9 +2,9 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
-from app.db.models import Workspace, Organization, WorkspaceFile, WorkspaceFileVersion, AnalysisRun as DbAnalysisRun, AuditEvent as DbAuditEvent
+from app.db.models import Workspace, Organization, WorkspaceFile, WorkspaceFileVersion, AnalysisRun as DbAnalysisRun, AuditEvent as DbAuditEvent, Job as DbJob
 from app.models.workspace import CompanyWorkspace
-from app.persistence.interfaces import WorkspaceRepository, FileMetadataRepository, AnalysisRunRepository, AuditEventRepository
+from app.persistence.interfaces import WorkspaceRepository, FileMetadataRepository, AnalysisRunRepository, AuditEventRepository, JobRepository
 from app.persistence.errors import PersistenceConfigurationError
 
 class DatabaseWorkspaceRepository(WorkspaceRepository):
@@ -629,4 +629,161 @@ class DatabaseAuditEventRepository(AuditEventRepository):
             .all()
         )
         return [self._to_dict(e) for e in events]
+
+
+class DatabaseJobRepository(JobRepository):
+    """
+    SQLAlchemy-backed implementation of the JobRepository.
+    Enforcement of tenant isolation and authorization is deferred to future auth/RBAC tasks.
+    """
+    def __init__(self, db_session: Session) -> None:
+        self.session = db_session
+
+    def _to_dict(self, job: DbJob) -> Dict[str, Any]:
+        return {
+            "id": job.id,
+            "workspaceId": job.workspace_id or "",
+            "organizationId": job.organization_id,
+            "jobType": job.task_name,
+            "status": job.status,
+            "payload": job.arguments or {},
+            "result": job.result_payload or {},
+            "errorMessage": job.error_log or "",
+            "metadata": job.job_metadata or {},
+            "queuedAt": job.created_at.isoformat() if job.created_at else None,
+            "startedAt": job.started_at.isoformat() if job.started_at else None,
+            "completedAt": job.completed_at.isoformat() if job.completed_at else None,
+        }
+
+    def create_job(
+        self,
+        job_type: str,
+        workspace_id: Optional[str] = None,
+        payload: Optional[Dict[str, Any]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Register a background job task execution record.
+        """
+        if workspace_id:
+            workspace = (
+                self.session.query(Workspace)
+                .filter_by(id=workspace_id)
+                .filter(Workspace.deleted_at.is_(None))
+                .filter(Workspace.status != "deleted")
+                .first()
+            )
+            if not workspace:
+                raise PersistenceConfigurationError(f"Workspace '{workspace_id}' does not exist or has been deleted.")
+            org_id = workspace.organization_id
+        else:
+            org_id = (metadata or {}).get("organization_id") or (payload or {}).get("organization_id")
+            if not org_id:
+                # Fallback to org_default only if organization org_default exists
+                default_org = self.session.query(Organization).filter_by(id="org_default").first()
+                if not default_org:
+                    raise PersistenceConfigurationError(
+                        "organization_id must be provided for system jobs when default organization does not exist."
+                    )
+                org_id = "org_default"
+
+        job_id = f"job_{uuid.uuid4().hex[:12]}"
+        
+        job = DbJob(
+            id=job_id,
+            workspace_id=workspace_id,
+            organization_id=org_id,
+            task_name=job_type,
+            status="pending",
+            attempts=0,
+            arguments=payload or {},
+            result_payload={},
+            error_log=None,
+            job_metadata=metadata or {},
+            started_at=None,
+            completed_at=None
+        )
+        self.session.add(job)
+        self.session.commit()
+        return self._to_dict(job)
+
+    def get_job(self, job_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get job execution details by ID.
+        """
+        job = self.session.query(DbJob).filter_by(id=job_id).first()
+        if not job:
+            return None
+        return self._to_dict(job)
+
+    def list_jobs(
+        self,
+        workspace_id: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: int = 100,
+    ) -> List[Dict[str, Any]]:
+        """
+        List background jobs with optional workspace/status filtering, newest first.
+        """
+        query = self.session.query(DbJob)
+        if workspace_id is not None:
+            query = query.filter_by(workspace_id=workspace_id)
+        if status is not None:
+            query = query.filter_by(status=status)
+            
+        jobs = query.order_by(DbJob.created_at.desc()).limit(limit).all()
+        return [self._to_dict(j) for j in jobs]
+
+    def update_job_status(
+        self,
+        job_id: str,
+        status: str,
+        result_payload: Optional[Dict[str, Any]] = None,
+        error_message: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Update active status of a background job.
+        """
+        job = self.session.query(DbJob).filter_by(id=job_id).first()
+        if not job:
+            raise PersistenceConfigurationError(f"Job '{job_id}' does not exist.")
+            
+        job.status = status
+        if result_payload is not None:
+            job.result_payload = result_payload
+        if error_message is not None:
+            job.error_log = error_message
+        if metadata is not None:
+            job.job_metadata = {**(job.job_metadata or {}), **metadata}
+            
+        if status == "running" and job.started_at is None:
+            job.started_at = datetime.now(timezone.utc)
+        elif status in ("completed", "failed", "cancelled"):
+            if job.completed_at is None:
+                job.completed_at = datetime.now(timezone.utc)
+            if job.started_at is None:
+                job.started_at = job.created_at or datetime.now(timezone.utc)
+                
+        self.session.commit()
+        return self._to_dict(job)
+
+    def mark_job_started(self, job_id: str) -> Dict[str, Any]:
+        """
+        Mark job execution as active/started.
+        """
+        return self.update_job_status(job_id, "running")
+
+    def mark_job_completed(self, job_id: str, result_payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """
+        Mark job execution as successfully completed.
+        """
+        return self.update_job_status(job_id, "completed", result_payload=result_payload)
+
+    def mark_job_failed(self, job_id: str, error_message: str) -> Dict[str, Any]:
+        """
+        Mark job execution as failed with an error message.
+        """
+        return self.update_job_status(job_id, "failed", error_message=error_message)
+
 

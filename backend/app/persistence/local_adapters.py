@@ -174,14 +174,44 @@ class LocalAuditEventRepository(AuditEventRepository):
         return []
 
 class LocalJobRepository(JobRepository):
-    def create_job(self, task_name: str, arguments: Optional[Dict[str, Any]] = None) -> Any:
+    def create_job(
+        self,
+        job_type: str,
+        workspace_id: Optional[str] = None,
+        payload: Optional[Dict[str, Any]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         raise NotImplementedError("LocalJobRepository.create_job is not implemented.")
 
-    def get_job(self, job_id: str) -> Optional[Any]:
+    def get_job(self, job_id: str) -> Optional[Dict[str, Any]]:
         raise NotImplementedError("LocalJobRepository.get_job is not implemented.")
 
-    def update_job_status(self, job_id: str, status: str, error_log: Optional[str] = None) -> Any:
+    def list_jobs(
+        self,
+        workspace_id: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: int = 100,
+    ) -> List[Dict[str, Any]]:
+        raise NotImplementedError("LocalJobRepository.list_jobs is not implemented.")
+
+    def update_job_status(
+        self,
+        job_id: str,
+        status: str,
+        result_payload: Optional[Dict[str, Any]] = None,
+        error_message: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         raise NotImplementedError("LocalJobRepository.update_job_status is not implemented.")
+
+    def mark_job_started(self, job_id: str) -> Dict[str, Any]:
+        raise NotImplementedError("LocalJobRepository.mark_job_started is not implemented.")
+
+    def mark_job_completed(self, job_id: str, result_payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        raise NotImplementedError("LocalJobRepository.mark_job_completed is not implemented.")
+
+    def mark_job_failed(self, job_id: str, error_message: str) -> Dict[str, Any]:
+        raise NotImplementedError("LocalJobRepository.mark_job_failed is not implemented.")
 
 class LocalReportRepository(ReportRepository):
     def save_report(self, report: Any) -> Any:
