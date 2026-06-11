@@ -222,18 +222,37 @@ def test_advisory_blueprint_run_persistence():
 
 
 def test_workflow_run_persistence():
-    """8. Test workflow_run persistence with subRunIds."""
+    """8. Test workflow_run persistence with subRunIds and coverageSummary."""
     ws_id = _setup_active_workspace()
-    
+
     response = client.post(f"/api/workspaces/{ws_id}/analysis/workflow/run")
     assert response.status_code == 200
     run_data = response.json()
     assert run_data["runType"] == "workflow_run"
-    assert "subRunIds" in run_data["results"]
-    assert "financial_health" in run_data["results"]["subRunIds"]
-    
+    results = run_data["results"]
+
+    # Legacy stageCoverage must remain for backward compatibility
+    assert "stageCoverage" in results
+    assert results["stageCoverage"]["totalStages"] >= 1
+    assert results["stageCoverage"]["completedStages"] >= 1
+    assert "totalStages" in results["stageCoverage"]
+    assert "completedStages" in results["stageCoverage"]
+    assert "reviewStages" in results["stageCoverage"]
+    assert "unavailableStages" in results["stageCoverage"]
+
+    # New coverageSummary with product-appropriate naming
+    assert "coverageSummary" in results
+    cs = results["coverageSummary"]
+    assert cs["totalAnalyses"] >= 1
+    assert cs["completedAnalyses"] >= 1
+    assert cs["missingAnalyses"] == 0
+    assert cs["unavailableAnalyses"] == 0
+
+    assert "subRunIds" in results
+    assert "financial_health" in results["subRunIds"]
+
     # Verify subruns are persisted as individual AnalysisRuns
-    fh_run_id = run_data["results"]["subRunIds"]["financial_health"]
+    fh_run_id = results["subRunIds"]["financial_health"]
     stored_fh = WorkspaceStore.get_run(fh_run_id)
     assert stored_fh is not None
     assert stored_fh.run_type == "financial_health"

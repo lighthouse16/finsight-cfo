@@ -403,6 +403,18 @@ async def execute_workflow_run(workspace_id: str, snapshot_id: Optional[str] = N
         "unavailableStages": 0
     }
     
+    # Product-appropriate analysis coverage summary alongside legacy stage wording
+    total_analyses = len(sub_runs)
+    completed_analyses = len([rid for rid in sub_runs.values() if rid])
+    missing_analyses = total_analyses - completed_analyses
+    unavailable_analyses = 0
+    coverage_summary = {
+        "totalAnalyses": total_analyses,
+        "completedAnalyses": completed_analyses,
+        "missingAnalyses": missing_analyses,
+        "unavailableAnalyses": unavailable_analyses,
+    }
+    
     duration_ms = int((time.time() - start_time) * 1000)
     run_id = f"run_wf_{uuid.uuid4().hex[:8]}"
     
@@ -411,6 +423,7 @@ async def execute_workflow_run(workspace_id: str, snapshot_id: Optional[str] = N
     results = {
         "statusSummary": "all_stages_completed",
         "stageCoverage": stage_coverage,
+        "coverageSummary": coverage_summary,
         "subRunIds": sub_runs,
         "subRunTypes": list(sub_runs.keys()),
         "missingStages": [],
