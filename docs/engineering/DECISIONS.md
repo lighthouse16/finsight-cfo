@@ -55,3 +55,10 @@ This document records key architectural and design decisions for FinSight CFO.
 - **Context**: Moving workspaces and snapshot storage directly to the database without abstraction interfaces leads to massive coupling and risks breaking local offline operations.
 - **Decision**: Define persistence repository contracts as Protocol classes (WorkspaceRepository, FinancialSnapshotRepository, etc.) and create a factory layer that returns Local Workspace Adapters by default.
 - **Consequences**: Safely isolates the database development track from the main runtime application, ensuring that local persistence remains the default and backend services are prepared to accept new adapters without contract disruptions.
+
+## ADR-008: Implement database adapters behind persistence factory without switching runtime defaults
+- **Status**: Approved
+- **Context**: The database adapter must be introduced and tested without affecting the existing default local file storage runtime behavior or API handlers.
+- **Decision**: Implement `DatabaseWorkspaceRepository` implementing the `WorkspaceRepository` contract, and update the repository factory to return it only when `PERSISTENCE_BACKEND="database"` and an active SQLAlchemy `db_session` is explicitly provided.
+- **Consequences**: Enables parallel testing of the database persistence layer using in-memory SQLite without changing runtime application routes, ensuring full backward compatibility and safe incremental deployment.
+

@@ -57,6 +57,7 @@ class Workspace(Base, TimestampMixin, SoftDeleteMixin):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     status: Mapped[str] = mapped_column(String(50), default="active", nullable=False)
     created_by_user_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    workspace_metadata: Mapped[Optional[dict]] = mapped_column("metadata", JSON, default=dict, nullable=True)
 
     # Relationships
     organization: Mapped["Organization"] = relationship("Organization", back_populates="workspaces")
