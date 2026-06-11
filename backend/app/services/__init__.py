@@ -39,6 +39,10 @@ from app.services.job_service import (
 from app.services.report_generation_job_service import (
     generate_report_with_job,
 )
+from app.services.report_worker_service import (
+    process_report_generation_job,
+)
+
 
 
 

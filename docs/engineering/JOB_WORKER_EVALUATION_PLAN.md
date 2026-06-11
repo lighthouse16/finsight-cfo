@@ -94,9 +94,10 @@ We propose the following six-step rollout plan:
 * **Phase B: Synchronous Job Facade** [COMPLETED]
   * Create a synchronous report generation job facade wrapping report persistence with job lifecycle records.
   * Establish unit tests validating success and failure state mappings.
-* **Phase C: Background Worker Prototype**
-  * Offload Report Generation to `FastAPI.BackgroundTasks` or an in-process worker thread.
-  * Test async status updates (`pending` -> `running` -> `completed`).
+* **Phase C: Background Worker Prototype** [COMPLETED]
+  * Created a service-only report worker prototype (`process_report_generation_job`) processing exactly one job.
+  * Verified status transitions (`pending` -> `running` -> `completed`/`failed`) using mock repositories.
+  * Deferred daemon, queues, background execution, and routing to future phases.
 * **Phase D: Retry, Idempotency & Progress Semantics**
   * Introduce an exponential backoff retry loop tracking the `attempts` column.
   * Ensure report compilations and snapshots write actions are idempotent.

@@ -21,7 +21,9 @@ This test matrix outlines the validation suites, current coverage status, and re
 | **Database / Local** | Job/Worker Plan Guardrails | Unit / Docs / Architecture | High (Plan assertion tests) | None | Yes | Platform Team / T-124 |
 | **Database / Local** | Job Service Facade | Unit | High (Lifecycle & payload validations) | None | Yes | Platform Team / T-125 |
 | **Database / Local** | Report Gen Job Facade | Unit / Integration | High (Success/failure workflows & byte checks) | None | Yes | Platform Team / T-126 |
+| **Database / Local** | Report Worker Prototype | Unit | High (Validation, error propagation, idempotency) | None | Yes | Platform Team / T-127 |
 | **Database** | Reports | Unit / Integration / Route | High (Adapter + Route tests) | None | Yes | Backend Team / T-110 |
+
 | **Database** | Integration Health Check | Route / Guardrail | High (Smoke + Side-effect tests) | None | Yes | Backend Team / T-116 |
 | **Local / Database** | Route Contract Guardrails | Route / API | High (Method/path checks) | None | Yes | Backend Team / T-118 |
 | **Database** | Migration Upgrade | DB Integration | High (Alembic `head`) | Postgres syntax check | Yes | DB Admin / T-102 |
