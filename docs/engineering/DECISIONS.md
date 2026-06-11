@@ -122,3 +122,10 @@ This document records key architectural and design decisions for FinSight CFO.
 - **Decision**: Integrate workspace analysis run routes with `AnalysisRunRepository` factory dependencies. In database mode, runs are saved to the relational database and read from it, bypassing local `runs.json` writes. A thread-safe global `_active_db_session` provides workspace/snapshot querying capabilities during local calculation engine runs in database mode.
 - **Consequences**: Safely persists and retrieves analysis run metadata in the database without altering core ratio, valuation, and advisory engines, maintaining backward-compatible response schemas.
 
+## ADR-019: Route report persistence through repository factory while preserving local storage by default
+- **Status**: Approved
+- **Context**: Workspace reports contain corporate financial metadata and payloads. We need to route report persistence through the repository factory in DB mode while keeping local JSON-based file storage as the default.
+- **Decision**: Integrate workspace report routes with `ReportRepository` factory dependencies in `backend/app/routes/workspaces.py`. In database mode, reports are saved to and read from the relational database, bypassing local `reports.json` writes. CamelCase API compatibility and response shapes are strictly preserved.
+- **Consequences**: Safely persists and retrieves workspace report metadata and payloads in the database, preserving local-first default behavior with zero DB engine/session initialization when running in local mode.
+
+

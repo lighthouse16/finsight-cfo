@@ -10,7 +10,7 @@ This test matrix outlines the validation suites, current coverage status, and re
 | **Local** | Data Room Upload | Integration / Manual | High (Mocked store) | None | Yes | QA Team / T-105 |
 | **Local** | Sample Reset | Manual / Script | High (Utility check) | None | Yes | Dev Team / T-104 |
 | **Local** | Analysis Run | Integration | High (Advisory tests) | None | Yes | Dev Team / T-107 |
-| **Local** | Reports | Manual | None (Stubbed) | UI download assertions | Yes | Dev Team / T-110 |
+| **Local** | Reports | Integration / Route | High (Route tests) | None | Yes | Dev Team / T-110 |
 | **Local** | AI CFO | Integration / UI | High (Session mocks) | Multi-turn persistence | No | AI Team |
 | **Local** | Market Data Fallback | Integration | High (Fixtures) | None | Yes | Dev Team |
 | **Database** | Workspace CRUD | Unit / Integration / Route | High (Adapter + Route tests) | None | Yes | Backend Team / T-112 |
@@ -18,7 +18,7 @@ This test matrix outlines the validation suites, current coverage status, and re
 | **Database** | Analysis Runs | Unit / Integration / Route | High (Adapter + Route tests) | None | Yes | Backend Team / T-114 |
 | **Database** | Audit Events | Unit / Integration | High (Org filters) | None | Yes | Backend Team / T-108 |
 | **Database** | Jobs | Unit / Integration | High (Status flows) | Real Celery tasks | No | Platform Team / T-109 |
-| **Database** | Reports | Unit / Integration | High (Soft delete) | PDF export wire | Yes | Backend Team / T-110 |
+| **Database** | Reports | Unit / Integration / Route | High (Adapter + Route tests) | None | Yes | Backend Team / T-110 |
 | **Database** | Migration Upgrade | DB Integration | High (Alembic `head`) | Postgres syntax check | Yes | DB Admin / T-102 |
 | **Database** | Migration Downgrade | DB Integration | High (Alembic `base`) | Postgres batch drops | Yes | DB Admin / T-102 |
 | **Database** | Empty DB Bootstrap | Integration | High (Startup check) | Seed script tests | Yes | Platform Team / T-106 |

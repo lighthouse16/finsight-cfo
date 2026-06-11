@@ -242,6 +242,30 @@ class LocalJobRepository(JobRepository):
         raise NotImplementedError("LocalJobRepository.mark_job_failed is not implemented.")
 
 class LocalReportRepository(ReportRepository):
+    def __init__(self) -> None:
+        from app.storage.workspace_store import STORAGE_DIR
+        import os
+        self.reports_file = os.path.join(STORAGE_DIR, "reports.json")
+
+    def _read_json(self) -> List[Dict[str, Any]]:
+        import json
+        import os
+        if not os.path.exists(self.reports_file):
+            return []
+        try:
+            with open(self.reports_file, "r", encoding="utf-8") as f:
+                content = f.read().strip()
+                if not content:
+                    return []
+                return json.loads(content)
+        except Exception:
+            return []
+
+    def _write_json(self, data: List[Dict[str, Any]]) -> None:
+        import json
+        with open(self.reports_file, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+
     def save_report(
         self,
         workspace_id: str,
@@ -251,15 +275,45 @@ class LocalReportRepository(ReportRepository):
         storage_uri: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        raise NotImplementedError("LocalReportRepository.save_report is not implemented.")
+        reports = self._read_json()
+        report_id = f"rep_{uuid.uuid4().hex[:12]}"
+        now_str = datetime.now(timezone.utc).isoformat()
+        new_report = {
+            "id": report_id,
+            "workspaceId": workspace_id,
+            "organizationId": "org_default",
+            "reportType": report_type,
+            "title": title,
+            "status": "completed",
+            "reportPayload": report_payload or {},
+            "storageUri": storage_uri,
+            "metadata": metadata or {},
+            "createdAt": now_str,
+            "updatedAt": now_str,
+        }
+        reports.append(new_report)
+        self._write_json(reports)
+        return new_report
 
     def get_report(self, report_id: str) -> Optional[Dict[str, Any]]:
-        raise NotImplementedError("LocalReportRepository.get_report is not implemented.")
+        reports = self._read_json()
+        for r in reports:
+            if r.get("id") == report_id and r.get("status") != "deleted":
+                return r
+        return None
 
     def list_reports(
         self, workspace_id: str, report_type: Optional[str] = None, limit: int = 100
     ) -> List[Dict[str, Any]]:
-        raise NotImplementedError("LocalReportRepository.list_reports is not implemented.")
+        reports = self._read_json()
+        workspace_reports = [
+            r for r in reports 
+            if r.get("workspaceId") == workspace_id and r.get("status") != "deleted"
+        ]
+        if report_type:
+            workspace_reports = [r for r in workspace_reports if r.get("reportType") == report_type]
+        workspace_reports.sort(key=lambda x: x.get("createdAt", ""), reverse=True)
+        return workspace_reports[:limit]
 
     def update_report_status(
         self,
@@ -268,7 +322,25 @@ class LocalReportRepository(ReportRepository):
         storage_uri: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        raise NotImplementedError("LocalReportRepository.update_report_status is not implemented.")
+        reports = self._read_json()
+        for r in reports:
+            if r.get("id") == report_id and r.get("status") != "deleted":
+                r["status"] = status
+                if storage_uri is not None:
+                    r["storageUri"] = storage_uri
+                if metadata is not None:
+                    r["metadata"] = {**(r.get("metadata") or {}), **metadata}
+                r["updatedAt"] = datetime.now(timezone.utc).isoformat()
+                self._write_json(reports)
+                return r
+        raise ValueError(f"Report '{report_id}' does not exist or has been deleted.")
 
     def delete_report(self, report_id: str) -> bool:
-        raise NotImplementedError("LocalReportRepository.delete_report is not implemented.")
+        reports = self._read_json()
+        for r in reports:
+            if r.get("id") == report_id and r.get("status") != "deleted":
+                r["status"] = "deleted"
+                r["updatedAt"] = datetime.now(timezone.utc).isoformat()
+                self._write_json(reports)
+                return True
+        return False
