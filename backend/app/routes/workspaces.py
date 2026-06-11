@@ -3,7 +3,8 @@ from datetime import datetime, timezone
 from typing import List, Optional
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, Depends
 from sqlalchemy.orm import Session
-from app.persistence.interfaces import WorkspaceRepository, FileMetadataRepository, AnalysisRunRepository, ReportRepository
+from app.core.config import settings
+from app.persistence.interfaces import WorkspaceRepository, FileMetadataRepository, AnalysisRunRepository, ReportRepository, AuditEventRepository
 
 from app.models.workspace import CompanyWorkspace, UploadedFileRecord, FinancialSnapshot, AnalysisRun
 from app.models.financials import CompanyFinancialSnapshot
@@ -90,6 +91,80 @@ def _db_safe_get_workspace(cls, workspace_id: str):
 
 WorkspaceStore.get_workspace = classmethod(_db_safe_get_workspace)
 
+_original_log_audit_event = WorkspaceStore.log_audit_event
+_original_get_audit_events = WorkspaceStore.get_audit_events
+
+def _db_safe_log_audit_event(cls, workspace_id: str, event_type: str, description: str):
+    from app.core.config import settings
+    if settings.normalized_persistence_backend == "database":
+        session = _active_db_session
+        close_session = False
+        if session is None:
+            from app.db.session import SessionLocal
+            if SessionLocal is not None:
+                session = SessionLocal()
+                close_session = True
+        
+        if session:
+            try:
+                from app.persistence.database_adapters import DatabaseAuditEventRepository
+                repo = DatabaseAuditEventRepository(session)
+                res = repo.append_event(
+                    workspace_id=workspace_id,
+                    event_type=event_type,
+                    description=description
+                )
+                from app.models.workspace import AuditEvent as PydanticAuditEvent
+                return PydanticAuditEvent(
+                    id=res["id"],
+                    workspaceId=res["workspaceId"],
+                    eventType=res["eventType"],
+                    description=res["description"],
+                    timestamp=res["timestamp"]
+                )
+            finally:
+                if close_session:
+                    session.close()
+        return None
+    else:
+        return _original_log_audit_event(workspace_id, event_type, description)
+
+def _db_safe_get_audit_events(cls, workspace_id: str):
+    from app.core.config import settings
+    if settings.normalized_persistence_backend == "database":
+        session = _active_db_session
+        close_session = False
+        if session is None:
+            from app.db.session import SessionLocal
+            if SessionLocal is not None:
+                session = SessionLocal()
+                close_session = True
+        
+        if session:
+            try:
+                from app.persistence.database_adapters import DatabaseAuditEventRepository
+                repo = DatabaseAuditEventRepository(session)
+                events = repo.list_events(workspace_id=workspace_id)
+                from app.models.workspace import AuditEvent as PydanticAuditEvent
+                return [
+                    PydanticAuditEvent(
+                        id=e["id"],
+                        workspaceId=e["workspaceId"],
+                        eventType=e["eventType"],
+                        description=e["description"],
+                        timestamp=e["timestamp"]
+                    ) for e in events
+                ]
+            finally:
+                if close_session:
+                    session.close()
+        return []
+    else:
+        return _original_get_audit_events(workspace_id)
+
+WorkspaceStore.log_audit_event = classmethod(_db_safe_log_audit_event)
+WorkspaceStore.get_audit_events = classmethod(_db_safe_get_audit_events)
+
 
 router = APIRouter()
 
@@ -144,6 +219,13 @@ def get_report_repository_dependency(
     from app.persistence.factory import get_report_repository
     return get_report_repository(settings, db_session=db_session)
 
+def get_audit_event_repository_dependency(
+    db_session: Optional[Session] = Depends(get_db_session_optional)
+) -> AuditEventRepository:
+    from app.core.config import settings
+    from app.persistence.factory import get_audit_event_repository
+    return get_audit_event_repository(settings, db_session=db_session)
+
 from pydantic import BaseModel, Field
 from typing import Dict, Any
 
@@ -193,7 +275,7 @@ def _db_save_run(run_dto: AnalysisRun, run_repo: AnalysisRunRepository, workspac
         "warnings": run_dto.warnings,
         "errors": run_dto.errors
     }
-    return run_repo.save_run(
+    res = run_repo.save_run(
         workspace_id=workspace_id,
         run_type=run_dto.run_type,
         status=run_dto.status,
@@ -203,6 +285,18 @@ def _db_save_run(run_dto: AnalysisRun, run_repo: AnalysisRunRepository, workspac
         error_message="; ".join(run_dto.errors) if run_dto.errors else None,
         metadata=meta
     )
+    try:
+        from app.persistence.factory import get_audit_event_repository
+        from app.core.config import settings
+        audit_repo = get_audit_event_repository(settings, db_session=run_repo.session)
+        audit_repo.append_event(
+            workspace_id=workspace_id,
+            event_type="analysis.run.created",
+            description=f"Analysis run of type '{run_dto.run_type}' was saved."
+        )
+    except Exception:
+        pass
+    return res
 
 # Map record keys to display labels
 RECORD_KEY_LABELS = {
@@ -219,6 +313,7 @@ async def create_workspace(
     currency: Optional[str] = Form(None),
     reportingPeriod: Optional[str] = Form(None, alias="reportingPeriod"),
     repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
+    audit_repo: AuditEventRepository = Depends(get_audit_event_repository_dependency),
 ):
     company_name = company_name.strip()
     if not company_name:
@@ -230,6 +325,15 @@ async def create_workspace(
     if reportingPeriod:
         metadata["reportingPeriod"] = reportingPeriod
     workspace = repo.create_workspace(workspace_id, company_name, metadata=metadata)
+    if settings.normalized_persistence_backend == "database":
+        try:
+            audit_repo.append_event(
+                workspace_id=workspace_id,
+                event_type="workspace.created",
+                description=f"Workspace '{company_name}' was created."
+            )
+        except Exception:
+            pass
     return workspace
 
 @router.get("", response_model=List[CompanyWorkspace])
@@ -414,6 +518,7 @@ async def upload_workspace_file(
     file: UploadFile = File(...),
     workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     file_repo: FileMetadataRepository = Depends(get_file_metadata_repository_dependency),
+    audit_repo: AuditEventRepository = Depends(get_audit_event_repository_dependency),
 ):
     workspace = workspace_repo.get_workspace(workspace_id)
     if not workspace:
@@ -455,6 +560,15 @@ async def upload_workspace_file(
             file_size_bytes=len(file_bytes),
             storage_uri=file_path,
         )
+        if settings.normalized_persistence_backend == "database":
+            try:
+                audit_repo.append_event(
+                    workspace_id=workspace_id,
+                    event_type="file.uploaded",
+                    description=f"File '{file.filename}' uploaded to key '{record_key}'."
+                )
+            except Exception:
+                pass
         return UploadedFileRecord.model_validate(res_dict)
     else:
         record = FileStore.save_file(
@@ -631,6 +745,7 @@ async def delete_workspace_file(
     file_id: str,
     workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     file_repo: FileMetadataRepository = Depends(get_file_metadata_repository_dependency),
+    audit_repo: AuditEventRepository = Depends(get_audit_event_repository_dependency),
 ):
     workspace = workspace_repo.get_workspace(workspace_id)
     if not workspace:
@@ -653,6 +768,15 @@ async def delete_workspace_file(
         success = file_repo.delete_file_record(file_id)
         if not success:
             raise HTTPException(status_code=500, detail="Failed to delete file")
+        if settings.normalized_persistence_backend == "database":
+            try:
+                audit_repo.append_event(
+                    workspace_id=workspace_id,
+                    event_type="file.deleted",
+                    description=f"File '{file_id}' deleted."
+                )
+            except Exception:
+                pass
     else:
         file_record = FileStore.get_file_record(file_id)
         if not file_record or file_record.workspace_id != workspace_id:
@@ -669,6 +793,7 @@ async def delete_workspace(
     workspace_id: str,
     workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     file_repo: FileMetadataRepository = Depends(get_file_metadata_repository_dependency),
+    audit_repo: AuditEventRepository = Depends(get_audit_event_repository_dependency),
 ):
     workspace = workspace_repo.get_workspace(workspace_id)
     if not workspace:
@@ -703,6 +828,16 @@ async def delete_workspace(
     success = workspace_repo.delete_workspace(workspace_id)
     if not success:
         raise HTTPException(status_code=500, detail="Failed to delete workspace")
+        
+    if settings.normalized_persistence_backend == "database":
+        try:
+            audit_repo.append_event(
+                workspace_id=workspace_id,
+                event_type="workspace.deleted",
+                description=f"Workspace '{workspace_id}' was deleted."
+            )
+        except Exception:
+            pass
         
     return {"status": "success", "message": f"Workspace {workspace_id} deleted successfully"}
 
@@ -1158,6 +1293,7 @@ async def create_workspace_report(
     payload: ReportCreate,
     workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     report_repo: ReportRepository = Depends(get_report_repository_dependency),
+    audit_repo: AuditEventRepository = Depends(get_audit_event_repository_dependency),
 ):
     workspace = workspace_repo.get_workspace(workspace_id)
     if not workspace:
@@ -1172,6 +1308,15 @@ async def create_workspace_report(
             storage_uri=payload.storageUri,
             metadata=payload.metadata,
         )
+        if settings.normalized_persistence_backend == "database":
+            try:
+                audit_repo.append_event(
+                    workspace_id=workspace_id,
+                    event_type="report.created",
+                    description=f"Report '{payload.title}' was created."
+                )
+            except Exception:
+                pass
         return report
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -1216,6 +1361,7 @@ async def update_workspace_report_status(
     payload: ReportStatusUpdate,
     workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     report_repo: ReportRepository = Depends(get_report_repository_dependency),
+    audit_repo: AuditEventRepository = Depends(get_audit_event_repository_dependency),
 ):
     workspace = workspace_repo.get_workspace(workspace_id)
     if not workspace:
@@ -1232,6 +1378,15 @@ async def update_workspace_report_status(
             storage_uri=payload.storageUri,
             metadata=payload.metadata,
         )
+        if settings.normalized_persistence_backend == "database":
+            try:
+                audit_repo.append_event(
+                    workspace_id=workspace_id,
+                    event_type="report.updated",
+                    description=f"Report '{report_id}' was updated to status '{payload.status}'."
+                )
+            except Exception:
+                pass
         return updated
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -1243,6 +1398,7 @@ async def delete_workspace_report(
     report_id: str,
     workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     report_repo: ReportRepository = Depends(get_report_repository_dependency),
+    audit_repo: AuditEventRepository = Depends(get_audit_event_repository_dependency),
 ):
     workspace = workspace_repo.get_workspace(workspace_id)
     if not workspace:
@@ -1255,4 +1411,13 @@ async def delete_workspace_report(
     success = report_repo.delete_report(report_id)
     if not success:
         raise HTTPException(status_code=400, detail="Failed to delete report")
+    if settings.normalized_persistence_backend == "database":
+        try:
+            audit_repo.append_event(
+                workspace_id=workspace_id,
+                event_type="report.deleted",
+                description=f"Report '{report_id}' was deleted."
+            )
+        except Exception:
+            pass
     return {"status": "success", "message": "Report deleted successfully"}
