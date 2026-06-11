@@ -92,6 +92,10 @@ Please refer to the comprehensive [DEMO.md](file:///d:/projects/finsight-cfo-v3/
 > [!WARNING]
 > **Safety Guard**: The sample workspace reset helper (`POST /api/workspaces/reset-sample`) is a development/demo utility. It is strictly disabled in production (`APP_MODE=production` or `ALLOW_DEMO_FALLBACK=false`), returning `HTTP 403 Forbidden` for security.
 
+## Commercialization note
+
+This repository is currently a challenge-ready MVP. It demonstrates the end-to-end CFO intelligence workflow but is not yet a bank-production or commercial SaaS deployment. See [docs/COMMERCIALIZATION.md](file:///d:/projects/finsight-cfo-v3/docs/COMMERCIALIZATION.md) for the production hardening roadmap.
+
 ## Finance guardrails for future development
 
 When adding features, keep the project anchored to the core finance workflow:

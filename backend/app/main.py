@@ -1,5 +1,8 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.core.config import settings
+from app.core.startup_checks import validate_startup_config
 from app.routes.market_watch import router as market_watch_router
 from app.routes.financials import router as financials_router
 from app.routes.advisory import router as advisory_router
@@ -9,19 +12,18 @@ from app.routes.cdi import router as cdi_router
 from app.routes.gap_remediation import router as gap_remediation_router
 from app.routes.workspaces import router as workspaces_router
 
-app = FastAPI(title="FinSight CFO API")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Run startup config check
+    validate_startup_config(settings)
+    yield
+
+app = FastAPI(title="FinSight CFO API", lifespan=lifespan)
 
 # Enable CORS for local frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5174",
-        "http://localhost:5175",
-        "http://127.0.0.1:5175"
-    ],
+    allow_origins=settings.parsed_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"]

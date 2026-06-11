@@ -19,7 +19,19 @@ class Settings(BaseSettings):
     ALPHA_VANTAGE_API_KEY: str = ""
     COMMODITY_PROVIDER: str = "fixture"
     MARKET_WATCH_AUTO_REFRESH_SECONDS: int = 300
-    
+
+    CORS_ALLOW_ORIGINS: str = (
+        "http://localhost:5173,http://127.0.0.1:5173,"
+        "http://localhost:5174,http://127.0.0.1:5174,"
+        "http://localhost:5175,http://127.0.0.1:5175"
+    )
+
+    @property
+    def parsed_cors_origins(self) -> list[str]:
+        if not self.CORS_ALLOW_ORIGINS:
+            return []
+        return [origin.strip() for origin in self.CORS_ALLOW_ORIGINS.split(",") if origin.strip()]
+
     class Config:
         env_file = ".env"
 
