@@ -79,7 +79,7 @@ export default function DemoFlowRail() {
         >
           <Compass size={14} className="text-softform-teal-deep animate-spin" style={{ animationDuration: '10s' }} />
           <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-teal-deep flex items-center gap-1">
-            Demo Flow
+            Workspace Flow
             {!isOverview && (
               <span className="normal-case font-medium text-softform-text-muted/80 ml-1">
                 ({isOpen ? 'click to collapse' : 'click to expand'})
@@ -91,7 +91,7 @@ export default function DemoFlowRail() {
           type="button"
           onClick={() => setIsOpen(!isOpen)}
           className="text-softform-text-muted hover:text-softform-navy-950 transition-colors p-0.5 rounded-lg hover:bg-white/40"
-          aria-label={isOpen ? 'Collapse demo flow' : 'Expand demo flow'}
+          aria-label={isOpen ? 'Collapse workspace flow' : 'Expand workspace flow'}
         >
           {isOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </button>

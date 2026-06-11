@@ -1,21 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  AlertTriangle,
-  ArrowRight,
   BarChart3,
   FileText,
   HeartPulse,
   Landmark,
-  RotateCw,
   ShieldCheck,
   TrendingUp,
+  ArrowRight,
 } from 'lucide-react'
 import PageHeader from '../../components/platform/PageHeader'
 import StatusChip from '../../components/platform/StatusChip'
 import SectionBlock from '../../components/platform/SectionBlock'
 import MetricDisplay from '../../components/platform/MetricDisplay'
-import SkeletonLoader from '../../components/platform/SkeletonLoader'
+import ServiceErrorState from '../../components/platform/ServiceErrorState'
+import NavyHeroSection from '../../components/platform/NavyHeroSection'
+import PageLoadingSkeleton from '../../components/platform/PageLoadingSkeleton'
 import { getFinancialHealthAnalysis } from '../financial-health/financialHealthApi'
 import { getCreditScore } from '../advisory-blueprint/api/advisoryBlueprintApi'
 import { getFundingChannelRanking, getRedFlagsMacroSummary } from '../market-watch/api/marketWatchApi'
@@ -23,6 +23,7 @@ import { getBochkWorkflowRun } from '../workflow/workflowApi'
 import type { CreditScoringResult } from '../advisory-blueprint/types'
 import type { FinancialAnalysisResponse, FundingChannelRankingResponse, RedFlagsMacroSummaryResponse } from '../market-watch/types'
 import type { BochkWorkflowRun } from '../workflow/workflowApi'
+import { formatHKD, formatPercent, formatBand, bandVariant, variantForBand } from '../../lib/formatters'
 
 type OverviewState = {
   financial: FinancialAnalysisResponse | null
@@ -36,33 +37,6 @@ type NextAction = {
   title: string
   body: string
   to: string
-}
-
-function formatHKD(value?: number | null) {
-  if (value === undefined || value === null || Number.isNaN(value)) return 'N/A'
-  if (Math.abs(value) >= 1_000_000) return `HKD ${(value / 1_000_000).toFixed(2)}M`
-  return `HKD ${value.toLocaleString()}`
-}
-
-function formatPercent(value?: number | null) {
-  if (value === undefined || value === null || Number.isNaN(value)) return 'N/A'
-  return `${(value * 100).toFixed(2)}%`
-}
-
-function formatBand(value?: string | null) {
-  if (!value) return 'Unavailable'
-  return value.replace(/_/g, ' ')
-}
-
-function variantForBand(value?: string | null): 'signal' | 'caution' | 'neutral' {
-  if (!value) return 'neutral'
-  if (['strong', 'adequate', 'clear', 'low', 'ready_context', 'bank_review_ready', 'working_capital_priority', 'trade_cycle_priority'].includes(value)) {
-    return 'signal'
-  }
-  if (['watch', 'constrained', 'elevated', 'stressed', 'high', 'needs_review', 'not_ready', 'risk_context_priority'].includes(value)) {
-    return 'caution'
-  }
-  return 'neutral'
 }
 
 export default function OverviewPage() {
@@ -130,49 +104,15 @@ export default function OverviewPage() {
   }, [state.financial, state.credit, topChannel])
 
   if (loading) {
-    return (
-      <div className="space-y-8 pb-12">
-        {/* Header Skeleton */}
-        <div className="space-y-3">
-          <SkeletonLoader variant="text" />
-        </div>
-
-        {/* Cockpit Skeleton */}
-        <SkeletonLoader variant="card" className="min-h-[200px]" />
-
-        {/* 4 Metric Cards Skeleton */}
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <SkeletonLoader variant="metric" count={4} />
-        </div>
-
-        {/* Action & Macro sections skeleton */}
-        <div className="grid gap-6 lg:grid-cols-2">
-          <SkeletonLoader variant="card" className="min-h-[300px]" />
-          <SkeletonLoader variant="card" className="min-h-[300px]" />
-        </div>
-      </div>
-    )
+    return <PageLoadingSkeleton layout="overview" />
   }
 
   if (error) {
     return (
-      <div className="softform-card rounded-[32px] p-8 sm:p-10 text-center">
-        <div className="mx-auto flex max-w-md flex-col items-center">
-          <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-[20px] bg-red-50 text-red-600 border border-red-100">
-            <AlertTriangle size={24} />
-          </div>
-          <p className="mb-2 text-lg font-semibold text-softform-navy-950">Service Connection Issue</p>
-          <p className="mb-6 text-sm text-softform-text-secondary leading-relaxed">{error}</p>
-          <button
-            type="button"
-            onClick={loadOverview}
-            className="inline-flex items-center gap-2 rounded-xl bg-softform-navy-900 px-5 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-softform-navy-800 transition"
-          >
-            <RotateCw size={14} />
-            Retry Connection
-          </button>
-        </div>
-      </div>
+      <ServiceErrorState
+        message={error}
+        onRetry={loadOverview}
+      />
     )
   }
 
@@ -181,35 +121,29 @@ export default function OverviewPage() {
       <PageHeader
         title="Overview"
         subtitle="Executive command center across financial health, valuation, credit readiness, funding strategy, and macro watch signals."
-        chip={<StatusChip variant={variantForBand(state.macro?.summaryBand)}>{formatBand(state.macro?.summaryBand ?? 'workspace')}</StatusChip>}
+        chip={<StatusChip variant={bandVariant(state.macro?.summaryBand)}>{formatBand(state.macro?.summaryBand ?? 'workspace')}</StatusChip>}
       />
 
       {/* Cockpit Hero Section in Premium Navy Contrast Card */}
-      <section className="softform-navy-card rounded-[32px] p-8 space-y-6 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-72 h-72 bg-softform-aqua-300/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
-          <div className="space-y-4">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-softform-aqua-300 animate-pulse">FinSight CFO cockpit</span>
-            <h2 className="text-3xl font-semibold text-white tracking-tight">
-              {state.financial?.snapshot.companyName ?? 'Workspace Company'} · CFO decision view
-            </h2>
-            <p className="text-sm leading-relaxed text-white/80 max-w-3xl">
-              {state.macro?.headline ?? 'Use this view to move from uploaded records to financial diagnostics, indicative valuation, readiness scoring, channel strategy, and advisory output.'}
-            </p>
-          </div>
-
+      <NavyHeroSection
+        eyebrow="FinSight CFO cockpit"
+        title={`${state.financial?.snapshot.companyName ?? 'Workspace Company'} · CFO decision view`}
+        description={state.macro?.headline ?? 'Use this view to move from uploaded records to financial diagnostics, indicative valuation, readiness scoring, channel strategy, and advisory output.'}
+        layoutClassName="relative grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-center"
+        aside={
           <div className="grid gap-3 sm:grid-cols-2">
             <Link to="/platform/data-room" className="rounded-[22px] border border-white/10 bg-white/5 p-4 shadow-soft-inner hover-lift">
               <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-white/50">Data mode</p>
-              <p className="mt-1 text-sm font-semibold text-white">{state.financial?.snapshot.metadata?.source ? 'Workspace preview' : 'Demo / fallback'}</p>
+              <p className="mt-1 text-sm font-semibold text-white">{state.financial?.snapshot.metadata?.source ? 'Workspace preview' : 'Context-only'}</p>
             </Link>
             <Link to="/platform/advisory-blueprint" className="rounded-[22px] border border-white/10 bg-white/5 p-4 shadow-soft-inner hover-lift">
               <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-white/50">Advisor output</p>
               <p className="mt-1 text-sm font-semibold text-white">Blueprint ready</p>
             </Link>
           </div>
-        </div>
-      </section>
+        }
+      />
+
 
       {/* KPI Metric Grid */}
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">

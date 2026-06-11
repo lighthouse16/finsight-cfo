@@ -263,7 +263,7 @@ export default function ReportsPage() {
       <PageHeader
         title="Reports"
         subtitle="CFO snapshot and lender-facing brief generated from the active workspace context."
-        chip={<StatusChip variant={isPreview ? 'signal' : 'neutral'}>{isPreview ? 'Workspace preview' : 'Demo report'}</StatusChip>}
+        chip={<StatusChip variant={isPreview ? 'signal' : 'neutral'}>{isPreview ? 'Workspace preview' : 'Workspace report'}</StatusChip>}
       />
 
       {/* CFO Report Package Hero Section in Premium Navy Contrast Card */}
@@ -283,7 +283,7 @@ export default function ReportsPage() {
                 Generated {reportDate()}
               </span>
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-white/80">
-                {isPreview ? 'Data Room sourced' : 'Demo source'}
+                {isPreview ? 'Data Room sourced' : 'Workspace source'}
               </span>
             </div>
           </div>

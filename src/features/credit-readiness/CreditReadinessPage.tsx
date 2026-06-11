@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { AlertTriangle, ArrowRight, RotateCw, ShieldCheck, TrendingUp } from 'lucide-react'
+import { ShieldCheck, TrendingUp, AlertTriangle } from 'lucide-react'
 import PageHeader from '../../components/platform/PageHeader'
 import StatusChip from '../../components/platform/StatusChip'
 import SectionBlock from '../../components/platform/SectionBlock'
 import ScoreRing from '../../components/platform/ScoreRing'
-import SkeletonLoader from '../../components/platform/SkeletonLoader'
+import ServiceErrorState from '../../components/platform/ServiceErrorState'
+import NavyHeroSection from '../../components/platform/NavyHeroSection'
+import PageLoadingSkeleton from '../../components/platform/PageLoadingSkeleton'
+import WorkflowFooter from '../../components/platform/WorkflowFooter'
 import { getCreditScore } from '../advisory-blueprint/api/advisoryBlueprintApi'
 import { createAndFetchMockCdiData } from '../cdi/cdiApi'
 import type { CreditScoringResult, CreditScoreFactor, FundingReadinessBand, PdRiskTier } from '../advisory-blueprint/types'
 import type { CdiConsentSession, CdiMockDataResponse } from '../cdi/cdiApi'
+import { formatHKD, formatPercent, formatBand } from '../../lib/formatters'
 
 const readinessLabels: Record<FundingReadinessBand, string> = {
   ready_context: 'Ready context',
@@ -25,22 +28,6 @@ const tierLabels: Record<PdRiskTier, string> = {
   elevated: 'Elevated risk',
   high: 'High risk',
   unavailable: 'Unavailable',
-}
-
-function formatHKD(value?: number | null) {
-  if (value === undefined || value === null) return 'N/A'
-  if (value >= 1_000_000) return `HKD ${(value / 1_000_000).toFixed(2)}M`
-  return `HKD ${value.toLocaleString()}`
-}
-
-function formatPercent(value?: number | null) {
-  if (value === undefined || value === null) return 'N/A'
-  return `${(value * 100).toFixed(1)}%`
-}
-
-function formatBand(value?: string | null) {
-  if (!value) return 'Unavailable'
-  return value.replace(/_/g, ' ')
 }
 
 function chipVariantForTier(tier: PdRiskTier): 'signal' | 'caution' | 'neutral' {
@@ -80,7 +67,7 @@ export default function CreditReadinessPage() {
       setCdiData(cdiContext?.data ?? null)
     } catch (e) {
       console.error('Credit score load failed', e)
-      setError('Credit readiness score is currently unavailable. Please check the backend connection.')
+      setError('Credit readiness scorecard is currently unavailable. Please check the backend connection.')
     } finally {
       setLoading(false)
     }
@@ -91,51 +78,15 @@ export default function CreditReadinessPage() {
   }, [])
 
   if (loading) {
-    return (
-      <div className="space-y-8 pb-12">
-        {/* Header Skeleton */}
-        <div className="space-y-3">
-          <SkeletonLoader variant="text" />
-        </div>
-
-        {/* Cockpit Skeleton */}
-        <SkeletonLoader variant="card" className="min-h-[200px]" />
-
-        {/* Double columns skeleton */}
-        <div className="grid gap-6 lg:grid-cols-2">
-          <SkeletonLoader variant="card" className="min-h-[250px]" />
-          <SkeletonLoader variant="card" className="min-h-[250px]" />
-        </div>
-
-        {/* 6 Metric Cards Skeleton */}
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <SkeletonLoader variant="metric" count={6} />
-        </div>
-      </div>
-    )
+    return <PageLoadingSkeleton layout="credit" />
   }
 
   if (error || !creditScore) {
     return (
-      <div className="softform-card rounded-[32px] p-8 sm:p-10 text-center">
-        <div className="mx-auto flex max-w-md flex-col items-center">
-          <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-[20px] bg-red-50 text-red-600 border border-red-100">
-            <AlertTriangle size={24} />
-          </div>
-          <p className="mb-2 text-lg font-semibold text-softform-navy-950">Service Connection Issue</p>
-          <p className="mb-6 text-sm text-softform-text-secondary leading-relaxed">
-            {error || 'Unable to connect to credit readiness services.'}
-          </p>
-          <button
-            type="button"
-            onClick={loadCreditScore}
-            className="inline-flex items-center gap-2 rounded-xl bg-softform-navy-900 px-5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-softform-navy-800 transition"
-          >
-            <RotateCw size={14} />
-            Retry Connection
-          </button>
-        </div>
-      </div>
+      <ServiceErrorState
+        message={error || 'Unable to connect to credit readiness services.'}
+        onRetry={loadCreditScore}
+      />
     )
   }
 
@@ -152,34 +103,25 @@ export default function CreditReadinessPage() {
       />
 
       {/* Hero Score Card in Premium Navy Contrast Card */}
-      <section className="softform-navy-card rounded-[32px] p-8 space-y-6 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-72 h-72 bg-softform-aqua-300/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-4 max-w-3xl">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-softform-aqua-300 animate-pulse">
-              Finance-first PD proxy
+      <NavyHeroSection
+        eyebrow="Finance-first PD proxy"
+        title={creditScore.companyName}
+        description={`${creditScore.methodologyLabel}. This page is context-only and designed to explain the drivers behind lender-readiness, not to issue a formal credit decision.`}
+        layoutClassName="relative flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between"
+        badges={
+          <div className="flex flex-wrap gap-2 pt-1">
+            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-white/80">
+              {readinessLabels[creditScore.fundingReadiness]}
             </span>
-            <div>
-              <h2 className="text-3xl font-bold text-white tracking-tight">
-                {creditScore.companyName}
-              </h2>
-              <p className="mt-2 text-sm leading-relaxed text-white/80">
-                {creditScore.methodologyLabel}. This page is context-only and designed to explain the drivers behind lender-readiness, not to issue a formal credit decision.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2 pt-1">
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-white/80">
-                {readinessLabels[creditScore.fundingReadiness]}
-              </span>
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-white/80">
-                {creditScore.pdProxyBand}
-              </span>
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-white/80">
-                CDI {formatBand(cdiConsent?.status ?? 'not requested')}
-              </span>
-            </div>
+            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-white/80">
+              {creditScore.pdProxyBand}
+            </span>
+            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-white/80">
+              CDI {formatBand(cdiConsent?.status ?? 'not requested')}
+            </span>
           </div>
-
+        }
+        aside={
           <div className="flex flex-col items-center justify-center rounded-[28px] bg-white/5 border border-white/10 p-6 backdrop-blur-md min-w-[200px] shrink-0">
             <ScoreRing
               score={creditScore.compositeScore}
@@ -188,12 +130,13 @@ export default function CreditReadinessPage() {
               label={creditScore.scoreScale}
               textColor="text-white"
             />
-            <span className="mt-3 rounded-full bg-white text-softform-navy-950 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.1em]">
+            <span className="mt-3 rounded-full bg-white text-softform-navy-950 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.15em]">
               {tierLabels[creditScore.riskTier]}
             </span>
           </div>
-        </div>
-      </section>
+        }
+      />
+
 
       {/* Positive and Risk Drivers */}
       <section className="grid gap-6 lg:grid-cols-2">
@@ -378,21 +321,12 @@ export default function CreditReadinessPage() {
       )}
 
       {/* Continue CTA */}
-      <section className="flex flex-col sm:flex-row gap-6 items-center justify-between p-8 rounded-[36px] border border-white/70 bg-gradient-to-r from-softform-mist-100/50 to-white/50 backdrop-blur-md shadow-base-card">
-        <div className="space-y-1.5 text-center sm:text-left max-w-2xl">
-          <p className="font-semibold text-softform-navy-950 text-base">Move from scorecard to advisory action</p>
-          <p className="text-xs leading-relaxed text-softform-text-secondary">
-            Use the Advisory Blueprint to convert this PD proxy context into facility options, stress interpretation, and next actions.
-          </p>
-        </div>
-        <Link
-          to="/platform/advisory-blueprint"
-          className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-softform-navy-900 px-4 py-2.5 text-xs font-semibold text-white hover:bg-softform-navy-800 transition shadow-sm"
-        >
-          Open Advisory Blueprint
-          <ArrowRight size={14} />
-        </Link>
-      </section>
+      <WorkflowFooter
+        title="Move from scorecard to advisory action"
+        description="Use the Advisory Blueprint to convert this PD proxy context into facility options, stress interpretation, and next actions."
+        linkTo="/platform/advisory-blueprint"
+        linkLabel="Open Advisory Blueprint"
+      />
 
       <footer className="pt-6 border-t border-softform-navy-950/5 text-center space-y-2">
         <p className="text-xs text-softform-text-muted">{creditScore.disclaimer}</p>

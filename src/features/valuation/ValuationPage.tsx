@@ -1,35 +1,16 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { AlertTriangle, ArrowRight, BarChart3, Calculator, RotateCw, TrendingUp } from 'lucide-react'
+import { Calculator, TrendingUp, BarChart3 } from 'lucide-react'
 import PageHeader from '../../components/platform/PageHeader'
 import StatusChip from '../../components/platform/StatusChip'
 import SectionBlock from '../../components/platform/SectionBlock'
 import MetricDisplay from '../../components/platform/MetricDisplay'
-import SkeletonLoader from '../../components/platform/SkeletonLoader'
+import ServiceErrorState from '../../components/platform/ServiceErrorState'
+import NavyHeroSection from '../../components/platform/NavyHeroSection'
+import PageLoadingSkeleton from '../../components/platform/PageLoadingSkeleton'
+import WorkflowFooter from '../../components/platform/WorkflowFooter'
 import { getFinancialHealthAnalysis } from '../financial-health/financialHealthApi'
 import type { FinancialAnalysisResponse, ValuationOutput } from '../market-watch/types'
-
-function formatHKD(value?: number | null) {
-  if (value === undefined || value === null || Number.isNaN(value)) return 'N/A'
-  if (Math.abs(value) >= 1_000_000) return `HKD ${(value / 1_000_000).toFixed(2)}M`
-  return `HKD ${value.toLocaleString()}`
-}
-
-function formatPercent(value?: number | null) {
-  if (value === undefined || value === null || Number.isNaN(value)) return 'N/A'
-  return `${(value * 100).toFixed(2)}%`
-}
-
-function formatMultiple(value?: number | null) {
-  if (value === undefined || value === null || Number.isNaN(value)) return 'N/A'
-  return `${value.toFixed(2)}x`
-}
-
-function statusVariant(status?: string | null): 'signal' | 'caution' | 'neutral' {
-  if (status === 'pass') return 'signal'
-  if (status === 'warning' || status === 'fail') return 'caution'
-  return 'neutral'
-}
+import { formatHKD, formatPercent, formatMultiple, bandVariant } from '../../lib/formatters'
 
 function assumptionNumber(valuation: ValuationOutput, key: string) {
   const value = valuation.assumptions?.[key]
@@ -60,51 +41,15 @@ export default function ValuationPage() {
   }, [])
 
   if (loading) {
-    return (
-      <div className="space-y-8 pb-12">
-        {/* Header Skeleton */}
-        <div className="space-y-3">
-          <SkeletonLoader variant="text" />
-        </div>
-
-        {/* Cockpit Skeleton */}
-        <SkeletonLoader variant="card" className="min-h-[200px]" />
-
-        {/* 4 Metric Cards Skeleton */}
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <SkeletonLoader variant="metric" count={4} />
-        </div>
-
-        {/* Double columns skeleton */}
-        <div className="grid gap-6 lg:grid-cols-2">
-          <SkeletonLoader variant="card" className="min-h-[250px]" />
-          <SkeletonLoader variant="card" className="min-h-[250px]" />
-        </div>
-      </div>
-    )
+    return <PageLoadingSkeleton layout="valuation" metricCount={4} sectionCount={2} />
   }
 
   if (error || !analysis) {
     return (
-      <div className="softform-card rounded-[32px] p-8 sm:p-10 text-center">
-        <div className="mx-auto flex max-w-md flex-col items-center">
-          <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-[20px] bg-red-50 text-red-600 border border-red-100">
-            <AlertTriangle size={24} />
-          </div>
-          <p className="mb-2 text-lg font-semibold text-softform-navy-950">Service Connection Issue</p>
-          <p className="mb-6 text-sm text-softform-text-secondary leading-relaxed">
-            {error || 'Unable to connect to valuation services.'}
-          </p>
-          <button
-            type="button"
-            onClick={loadValuation}
-            className="inline-flex items-center gap-2 rounded-xl bg-softform-navy-900 px-5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-softform-navy-800 transition"
-          >
-            <RotateCw size={14} />
-            Retry Connection
-          </button>
-        </div>
-      </div>
+      <ServiceErrorState
+        message={error || 'Unable to connect to valuation services.'}
+        onRetry={loadValuation}
+      />
     )
   }
 
@@ -131,27 +76,17 @@ export default function ValuationPage() {
         subtitle="Indicative WACC and DCF valuation view built from the active financial analysis snapshot."
         chip={
           <StatusChip variant="neutral">
-            {isPreview ? 'Preview valuation' : 'Demo valuation'}
+            {isPreview ? 'Preview valuation' : 'Context valuation'}
           </StatusChip>
         }
       />
 
       {/* Business Valuation Hero Section in Premium Navy Contrast Card */}
-      <section className="softform-navy-card rounded-[32px] p-8 space-y-6 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-72 h-72 bg-softform-aqua-300/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative grid gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
-          <div className="space-y-4">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-softform-aqua-300 animate-pulse">
-              Business valuation engine
-            </span>
-            <h2 className="text-3xl font-semibold text-white tracking-tight">
-              {snapshot.companyName} · {snapshot.reportingPeriod}
-            </h2>
-            <p className="text-sm leading-relaxed text-white/80 max-w-3xl">
-              This DCF view is assumptions-based and intended to support the CFO narrative, funding readiness, and advisory preparation. It is not a formal appraisal or investment recommendation.
-            </p>
-          </div>
-
+      <NavyHeroSection
+        eyebrow="Business valuation engine"
+        title={`${snapshot.companyName} · ${snapshot.reportingPeriod}`}
+        description="This DCF view is assumptions-based and intended to support the CFO narrative, funding readiness, and advisory preparation. It is not a formal appraisal or investment recommendation."
+        aside={
           <div className="flex flex-wrap items-center justify-around gap-6 bg-white/5 border border-white/10 rounded-[24px] p-6 backdrop-blur-md">
             <div className="space-y-2.5 w-full">
               <div className="flex justify-between border-b border-white/10 pb-1">
@@ -168,8 +103,9 @@ export default function ValuationPage() {
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        }
+      />
+
 
       {/* KPI metric grid */}
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -313,7 +249,7 @@ export default function ValuationPage() {
                     <p className="font-semibold text-softform-navy-950">{check.name}</p>
                     <p className="text-xs leading-relaxed text-softform-text-secondary">{check.message}</p>
                   </div>
-                  <StatusChip variant={statusVariant(check.status)} className="text-[9px] px-2 py-0.5 shrink-0">
+                  <StatusChip variant={bandVariant(check.status)} className="text-[9px] px-2 py-0.5 shrink-0">
                     {check.status}
                   </StatusChip>
                 </div>
@@ -327,7 +263,6 @@ export default function ValuationPage() {
       {modelWarnings.length > 0 && (
         <section className="rounded-[24px] border border-softform-amber-300/25 bg-softform-cream/35 p-5 shadow-soft-inner">
           <div className="flex items-start gap-3">
-            <AlertTriangle size={18} className="mt-0.5 shrink-0 text-softform-amber-500" />
             <div className="space-y-2">
               <p className="text-sm font-semibold text-softform-navy-950">Model Warnings</p>
               {modelWarnings.slice(0, 5).map((warning, idx) => (
@@ -339,21 +274,12 @@ export default function ValuationPage() {
       )}
 
       {/* Bottom Navigation */}
-      <section className="flex flex-col sm:flex-row gap-6 items-center justify-between p-8 rounded-[36px] border border-white/70 bg-gradient-to-r from-softform-mist-100/50 to-white/50 backdrop-blur-md shadow-base-card">
-        <div className="space-y-1.5 text-center sm:text-left max-w-2xl">
-          <p className="font-semibold text-softform-navy-950 text-base">Use valuation in the funding narrative</p>
-          <p className="text-xs leading-relaxed text-softform-text-secondary">
-            Continue to Funding Strategy to compare channel fit and facility structures using this valuation context.
-          </p>
-        </div>
-        <Link
-          to="/platform/funding-strategy"
-          className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-softform-navy-900 px-4 py-2.5 text-xs font-semibold text-white hover:bg-softform-navy-800 transition shadow-sm"
-        >
-          Open Funding Strategy
-          <ArrowRight size={14} />
-        </Link>
-      </section>
+      <WorkflowFooter
+        title="Use valuation in the funding narrative"
+        description="Continue to Funding Strategy to compare channel fit and facility structures using this valuation context."
+        linkTo="/platform/funding-strategy"
+        linkLabel="Open Funding Strategy"
+      />
     </div>
   )
 }

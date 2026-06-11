@@ -99,6 +99,7 @@ export default function DataRoomPage() {
   const [hasSavedPreviewState, setHasSavedPreviewState] = useState(false)
   const [workspaceContext, setWorkspaceContext] = useState<WorkspaceAnalysisContext | null>(null)
   const [workspaceContextError, setWorkspaceContextError] = useState<string | null>(null)
+  const [selectedCategory, setSelectedCategory] = useState<string>('All')
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
   useEffect(() => {
@@ -368,7 +369,10 @@ export default function DataRoomPage() {
     })
   }, [])
 
-  const records = readinessData?.records ?? []
+  const filteredRecords = useMemo(() => {
+    const list = readinessData?.records ?? []
+    return list.filter((rec) => selectedCategory === 'All' || rec.category === selectedCategory)
+  }, [readinessData?.records, selectedCategory])
   const dependencies = readinessData?.dependencies ?? []
   const totalRequired = readinessData?.summary.totalRequired ?? 0
   const connectedRequired = readinessData?.summary.connectedRequired ?? 0
@@ -408,7 +412,7 @@ export default function DataRoomPage() {
   const getStatusLabel = (status: string) => {
     switch (status) {
       case 'demo_available':
-        return 'Demo available'
+        return 'Available'
       case 'connected':
         return 'Connected'
       case 'missing':
@@ -478,7 +482,7 @@ export default function DataRoomPage() {
           <MetricDisplay
             label="Connected Records"
             value={connectedRequired}
-            description="Active in demo mode"
+            description="Workspace context active"
           />
         </div>
         <div className="softform-metric-card rounded-[22px] p-5 hover-lift">
@@ -499,157 +503,147 @@ export default function DataRoomPage() {
 
       {/* 3. Required Records Checklist */}
       <section className="softform-card rounded-[32px] p-6 sm:p-8 space-y-6">
-        <div className="flex items-center justify-between border-b border-softform-navy-950/5 pb-4">
-          <h2 className="text-lg font-semibold text-softform-navy-950">Integration Status</h2>
-          <span className="text-xs font-medium text-softform-text-muted">
-            {isLoadingReadiness ? 'Loading readiness contract' : 'Required records checklist'}
-          </span>
+        <div className="flex flex-col gap-4 border-b border-softform-navy-950/5 pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold text-softform-navy-950">Integration Status</h2>
+            <span className="text-xs font-medium text-softform-text-muted">
+              {isLoadingReadiness ? 'Loading readiness contract' : 'Required records checklist'}
+            </span>
+          </div>
+
+          {/* Category Filter Pills */}
+          <div className="flex flex-wrap gap-2 pt-1">
+            {['All', 'Core Financials', 'Debt & Credit', 'Commercial & Trade', 'Risk & Treasury'].map((cat) => {
+              const isActive = selectedCategory === cat
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition border shadow-sm ${
+                    isActive
+                      ? 'bg-softform-navy-900 border-softform-navy-950/10 text-white hover:bg-softform-navy-800'
+                      : 'bg-white/70 border-white/60 text-softform-text-secondary hover:bg-white/95'
+                  }`}
+                >
+                  {cat}
+                </button>
+              )
+            })}
+          </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-softform-navy-950/10 text-[10px] font-medium uppercase tracking-[0.16em] text-softform-text-muted/80">
-                <th className="pb-4 pl-3 w-8"></th>
-                <th className="pb-4">Record Name</th>
-                <th className="pb-4 hidden md:table-cell">Category</th>
-                <th className="pb-4">Dependency Fits</th>
-                <th className="pb-4 text-center">Status</th>
-                <th className="pb-4 text-right pr-3">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-softform-navy-950/5">
-              {records.map((rec) => {
-                const uploadState = uploadStates[rec.id]
-                return (
-                  <tr key={rec.id} className="group hover:bg-white/20 transition-all duration-200">
-                    {/* Hidden file input for Upload records */}
-                    {rec.actionLabel === 'Upload' && (
-                      <td colSpan={0} className="hidden">
-                        <input
-                          ref={(el) => {
-                            fileInputRefs.current[rec.id] = el
-                          }}
-                          type="file"
-                          id={`file-input-${rec.id}`}
-                          name={`file-input-${rec.id}`}
-                          accept=".pdf,.csv,.xlsx,.xls,.docx"
-                          aria-label={`Upload file for ${rec.name}`}
-                          className="sr-only"
-                          onChange={(e) => handleFileSelected(rec, e)}
-                        />
-                      </td>
-                    )}
-                    <td className="py-4 pl-3">
-                      {(rec.status === 'connected' || rec.status === 'demo_available') ? (
-                        <div className="flex h-5 w-5 items-center justify-center rounded bg-softform-teal-deep/10 text-softform-teal-deep border border-softform-teal-deep/20 shadow-sm" title="Connected for Analysis">
-                          <CheckSquare size={11} strokeWidth={2.5} />
-                        </div>
-                      ) : rec.status === 'missing' ? (
-                        <div className="flex h-5 w-5 items-center justify-center rounded border border-softform-amber-500/30 text-softform-amber-500/80 bg-softform-cream/40 shadow-inner" title="Required Document Missing">
-                          <div className="h-1.5 w-1.5 rounded-full bg-softform-amber-500" />
-                        </div>
+        <div className="flex flex-col gap-4">
+          {filteredRecords.map((rec) => {
+            const uploadState = uploadStates[rec.id]
+            const isConnected = rec.status === 'connected' || rec.status === 'demo_available'
+            const isMissing = rec.status === 'missing'
+
+            return (
+              <div
+                key={rec.id}
+                className="relative rounded-[24px] border border-white/60 bg-white/45 p-5 sm:p-6 shadow-base-card hover-lift transition-all duration-300 overflow-hidden"
+              >
+                {/* Left indicator strip */}
+                <div
+                  className={`absolute left-0 top-0 bottom-0 w-1.5 ${
+                    isConnected
+                      ? 'bg-softform-teal-500'
+                      : isMissing
+                        ? 'bg-softform-amber-500'
+                        : 'bg-softform-text-muted/30'
+                  }`}
+                />
+
+                {/* Hidden file input for Upload records */}
+                {rec.actionLabel === 'Upload' && (
+                  <input
+                    ref={(el) => {
+                      fileInputRefs.current[rec.id] = el
+                    }}
+                    type="file"
+                    id={`file-input-${rec.id}`}
+                    name={`file-input-${rec.id}`}
+                    accept=".pdf,.csv,.xlsx,.xls,.docx"
+                    aria-label={`Upload file for ${rec.name}`}
+                    className="sr-only"
+                    onChange={(e) => handleFileSelected(rec, e)}
+                  />
+                )}
+
+                <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr_1.2fr] gap-6 items-start">
+                  {/* Col 1: Icon & Info */}
+                  <div className="flex items-start gap-4">
+                    <div
+                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] border shadow-sm ${
+                        isConnected
+                          ? 'bg-softform-teal-500/10 border-softform-teal-500/20 text-softform-teal-deep'
+                          : isMissing
+                            ? 'bg-softform-amber-500/10 border-softform-amber-500/20 text-softform-amber-500'
+                            : 'bg-softform-mist-100/60 border-softform-aqua-300/10 text-softform-text-muted'
+                      }`}
+                    >
+                      {isConnected ? (
+                        <CheckSquare size={20} strokeWidth={2} />
+                      ) : isMissing ? (
+                        <AlertCircle size={20} strokeWidth={2} />
                       ) : (
-                        <div className="flex h-5 w-5 items-center justify-center rounded border border-softform-text-muted/20 text-softform-text-muted/40 bg-white/20" title="Optional Document">
-                          <div className="h-1 w-1 rounded-full bg-softform-text-muted/40" />
-                        </div>
+                        <FileText size={20} strokeWidth={2} />
                       )}
-                    </td>
-                    <td className="py-4 space-y-1">
-                      <div className="font-semibold text-softform-navy-950 text-sm flex items-center gap-2">
-                        <FileText size={14} className="text-softform-text-muted/70 shrink-0" />
-                        {rec.name}
+                    </div>
+
+                    <div className="space-y-1.5 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-semibold text-softform-navy-950 text-base leading-tight">
+                          {rec.name}
+                        </h3>
+                        <span className="inline-flex items-center rounded-md bg-white/60 px-2 py-0.5 text-[10px] font-medium text-softform-text-secondary border border-white/85 shadow-sm">
+                          {rec.category}
+                        </span>
                       </div>
-                      <p className="text-xs text-softform-text-secondary max-w-[320px] leading-relaxed">
+                      <p className="text-xs text-softform-text-secondary leading-relaxed max-w-xl">
                         {rec.purpose}
                       </p>
-                      {/* Upload result / error inline */}
-                      {uploadState && (
-                        <div className="mt-2 max-w-[400px]">
-                          {uploadState.uploading && (
-                            <div className="flex items-center gap-2 text-xs text-softform-text-secondary">
-                              <Loader2 size={12} className="animate-spin" />
-                              <span>Receiving metadata...</span>
-                            </div>
-                          )}
-                          {uploadState.result && (
-                            <div className="rounded-xl border border-softform-navy-950/5 bg-white/40 p-3 space-y-1.5">
-                              <div className="flex items-center gap-1.5">
-                                {uploadState.result.uploadedFile.status === 'unsupported_type' ? (
-                                  <AlertCircle size={12} className="text-softform-amber-500" />
-                                ) : (
-                                  <CheckSquare size={12} className="text-softform-teal-deep" />
-                                )}
-                                <span className="text-[10px] font-medium uppercase tracking-[0.1em] text-softform-text-muted">
-                                  {uploadState.result.uploadedFile.status === 'unsupported_type'
-                                    ? 'Unsupported file'
-                                    : 'Metadata received'}
-                                </span>
-                              </div>
-                              <p className="text-xs text-softform-text-secondary leading-relaxed">
-                                {uploadState.result.uploadedFile.status === 'unsupported_type'
-                                  ? 'This file type is not supported. Analysis will not be updated.'
-                                  : 'File metadata received. Analysis remains unchanged until production ingestion is connected.'}
-                              </p>
-                              {uploadState.parsePreview && (
-                                <div className="rounded-lg bg-softform-mist-100/50 px-2.5 py-2 text-[11px] text-softform-text-secondary">
-                                  <span className="font-semibold text-softform-navy-950">
-                                    Structured preview:
-                                  </span>{' '}
-                                  {uploadState.parsePreview.preview.parsedRecords.length} fields read ·{' '}
-                                  {uploadState.parsePreview.preview.missingExpectedFields.length} expected fields missing
-                                </div>
-                              )}
-                              {uploadState.result.warnings.length > 0 && (
-                                <p className="text-xs text-softform-amber-500 font-medium">
-                                  {uploadState.result.warnings[0]}
-                                </p>
-                              )}
-                            </div>
-                          )}
-                          {uploadState.error && (
-                            <div className="rounded-xl border border-softform-amber-500/20 bg-softform-cream/30 p-3 space-y-1">
-                              <div className="flex items-center gap-1.5">
-                                <AlertCircle size={12} className="text-softform-amber-500" />
-                                <span className="text-[10px] font-medium uppercase tracking-[0.1em] text-softform-text-muted">
-                                  Unavailable
-                                </span>
-                              </div>
-                              <p className="text-xs text-softform-amber-500 leading-relaxed">
-                                {uploadState.error}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                    <td className="py-4 hidden md:table-cell">
-                      <span className="text-xs font-medium text-softform-text-secondary">{rec.category}</span>
-                    </td>
-                    <td className="py-4">
-                      <div className="flex flex-wrap gap-1">
-                        {rec.requiredFor.map((rf) => (
-                          <span
-                            key={rf}
-                            className="inline-block rounded bg-softform-mist-100/60 px-2 py-0.5 text-[10px] text-softform-teal-deep font-medium border border-softform-aqua-300/20 uppercase tracking-[0.08em]"
-                          >
-                            {rf}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="py-4 text-center">
+                    </div>
+                  </div>
+
+                  {/* Col 2: Dependency Fits */}
+                  <div className="space-y-2 lg:pl-4">
+                    <span className="block text-[10px] font-medium uppercase tracking-[0.12em] text-softform-text-muted">
+                      Fits Workflow
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {rec.requiredFor.map((rf) => (
+                        <span
+                          key={rf}
+                          className="inline-block rounded-lg bg-softform-mist-100/50 px-2.5 py-1 text-[10px] text-softform-teal-deep font-semibold border border-softform-aqua-300/10 uppercase tracking-[0.05em]"
+                        >
+                          {rf}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Col 3: Status & Action Control */}
+                  <div className="flex flex-row lg:flex-col items-center lg:items-end justify-between lg:justify-start gap-4 lg:gap-3 lg:text-right w-full">
+                    <div className="space-y-1">
                       <StatusChip variant={getStatusChipVariant(rec.status)}>
                         {getStatusLabel(rec.status)}
                       </StatusChip>
-                    </td>
-                    <td className="py-4 text-right pr-3">
+                      {rec.lastUpdated && (
+                        <p className="hidden lg:block text-[10px] text-softform-text-muted/80">
+                          {rec.lastUpdated}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col items-end gap-1 shrink-0">
                       {rec.actionLabel === 'Upload' ? (
                         <button
                           type="button"
                           onClick={() => handleUploadClick(rec.id)}
                           disabled={uploadState?.uploading}
-                          className="inline-flex items-center gap-1.5 rounded-xl bg-softform-navy-900 border-softform-navy-950/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-softform-navy-800 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 shadow-sm"
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-softform-navy-900 border-softform-navy-950/10 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-softform-navy-800 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 shadow-sm"
                         >
                           {uploadState?.uploading ? (
                             <Loader2 size={12} className="animate-spin" />
@@ -662,9 +656,9 @@ export default function DataRoomPage() {
                         <button
                           type="button"
                           onClick={() => handleActionClick(rec.name, rec.actionLabel)}
-                          className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition border shadow-sm ${
+                          className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold transition border shadow-sm ${
                             rec.actionLabel === 'Review'
-                              ? 'bg-white/80 border-white/60 text-softform-navy-950 hover:bg-white hover:-translate-y-0.5'
+                              ? 'bg-white border-white/60 text-softform-navy-950 hover:bg-white hover:-translate-y-0.5'
                               : 'bg-white/40 border-white/30 text-softform-text-muted cursor-not-allowed'
                           }`}
                           disabled={rec.actionLabel === 'Coming soon'}
@@ -672,12 +666,77 @@ export default function DataRoomPage() {
                           {rec.actionLabel}
                         </button>
                       )}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+                      {rec.lastUpdated && (
+                        <p className="block lg:hidden text-[10px] text-softform-text-muted/80">
+                          {rec.lastUpdated}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Inline Upload Results / Parse Preview Drawer inside the card */}
+                {uploadState && (
+                  <div className="mt-4 pt-4 border-t border-softform-navy-950/5">
+                    {uploadState.uploading && (
+                      <div className="flex items-center gap-2 text-xs text-softform-text-secondary">
+                        <Loader2 size={12} className="animate-spin" />
+                        <span>Receiving metadata...</span>
+                      </div>
+                    )}
+                    {uploadState.result && (
+                      <div className="rounded-[18px] border border-white/60 bg-white/50 p-4 space-y-2 shadow-inner">
+                        <div className="flex items-center gap-1.5">
+                          {uploadState.result.uploadedFile.status === 'unsupported_type' ? (
+                            <AlertCircle size={14} className="text-softform-amber-500" />
+                          ) : (
+                            <CheckSquare size={14} className="text-softform-teal-deep" />
+                          )}
+                          <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-softform-text-secondary">
+                            {uploadState.result.uploadedFile.status === 'unsupported_type'
+                              ? 'Unsupported file'
+                              : 'Metadata received'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-softform-text-secondary leading-relaxed">
+                          {uploadState.result.uploadedFile.status === 'unsupported_type'
+                            ? 'This file type is not supported. Analysis will not be updated.'
+                            : 'File metadata received. Analysis remains unchanged until production ingestion is connected.'}
+                        </p>
+                        {uploadState.parsePreview && (
+                          <div className="rounded-xl bg-softform-mist-100/40 p-3 text-xs text-softform-text-secondary border border-softform-aqua-300/10">
+                            <span className="font-bold text-softform-navy-950">
+                              Structured preview:
+                            </span>{' '}
+                            {uploadState.parsePreview.preview.parsedRecords.length} fields read ·{' '}
+                            {uploadState.parsePreview.preview.missingExpectedFields.length} expected fields missing
+                          </div>
+                        )}
+                        {uploadState.result.warnings.length > 0 && (
+                          <p className="text-xs text-softform-amber-500 font-semibold">
+                            {uploadState.result.warnings[0]}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    {uploadState.error && (
+                      <div className="rounded-[18px] border border-softform-amber-500/20 bg-softform-cream/30 p-4 space-y-1">
+                        <div className="flex items-center gap-1.5">
+                          <AlertCircle size={14} className="text-softform-amber-500" />
+                          <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-softform-text-secondary">
+                            Unavailable
+                          </span>
+                        </div>
+                        <p className="text-xs text-softform-amber-500 leading-relaxed font-semibold">
+                          {uploadState.error}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       </section>
 

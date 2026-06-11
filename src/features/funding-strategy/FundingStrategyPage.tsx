@@ -1,44 +1,24 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { AlertTriangle, ArrowRight, Landmark, RotateCw, ShieldCheck, TrendingUp } from 'lucide-react'
+import { Landmark, ShieldCheck, TrendingUp } from 'lucide-react'
 import PageHeader from '../../components/platform/PageHeader'
 import StatusChip from '../../components/platform/StatusChip'
 import SectionBlock from '../../components/platform/SectionBlock'
-import SkeletonLoader from '../../components/platform/SkeletonLoader'
+import ServiceErrorState from '../../components/platform/ServiceErrorState'
+import NavyHeroSection from '../../components/platform/NavyHeroSection'
+import PageLoadingSkeleton from '../../components/platform/PageLoadingSkeleton'
+import WorkflowFooter from '../../components/platform/WorkflowFooter'
 import { getCreditScore, getAdvisoryFacilityStructures } from '../advisory-blueprint/api/advisoryBlueprintApi'
 import { getCrossBorderFundingContext, getFundingChannelRanking } from '../market-watch/api/marketWatchApi'
 import { createAndFetchMockCdiData } from '../cdi/cdiApi'
 import type { CreditScoringResult, FacilityStructuringResponse } from '../advisory-blueprint/types'
 import type { CrossBorderFundingContextResponse, FundingChannelItem, FundingChannelRankingResponse } from '../market-watch/types'
 import type { CdiConsentSession, CdiMockDataResponse } from '../cdi/cdiApi'
-
-function formatHKD(value?: number | null) {
-  if (value === undefined || value === null) return 'N/A'
-  if (value >= 1_000_000) return `HKD ${(value / 1_000_000).toFixed(2)}M`
-  return `HKD ${value.toLocaleString()}`
-}
-
-function formatPercent(value?: number | null) {
-  if (value === undefined || value === null) return 'N/A'
-  return `${(value * 100).toFixed(1)}%`
-}
-
-function formatBand(value?: string | null) {
-  if (!value) return 'Unavailable'
-  return value.replace(/_/g, ' ')
-}
+import { formatHKD, formatPercent, formatBand, bandVariant } from '../../lib/formatters'
 
 function fitTone(value?: string) {
   if (value === 'strong_fit' || value === 'strong' || value === 'clear') return 'bg-emerald-500/10 text-emerald-700'
   if (value === 'moderate_fit' || value === 'adequate' || value === 'moderate') return 'bg-softform-mist-100 text-softform-teal-deep'
   return 'bg-softform-cream text-softform-amber-500'
-}
-
-function statusVariant(score?: CreditScoringResult | null): 'signal' | 'caution' | 'neutral' {
-  if (!score) return 'neutral'
-  if (score.fundingReadiness === 'ready_context' || score.fundingReadiness === 'bank_review_ready') return 'signal'
-  if (score.fundingReadiness === 'needs_review' || score.fundingReadiness === 'not_ready') return 'caution'
-  return 'neutral'
 }
 
 export default function FundingStrategyPage() {
@@ -101,49 +81,15 @@ export default function FundingStrategyPage() {
   }, [])
 
   if (loading) {
-    return (
-      <div className="space-y-8 pb-12">
-        {/* Header Skeleton */}
-        <div className="space-y-3">
-          <SkeletonLoader variant="text" />
-        </div>
-
-        {/* Cockpit Skeleton */}
-        <SkeletonLoader variant="card" className="min-h-[200px]" />
-
-        {/* Double columns skeleton */}
-        <div className="grid gap-6 lg:grid-cols-2">
-          <SkeletonLoader variant="card" className="min-h-[250px]" />
-          <SkeletonLoader variant="card" className="min-h-[250px]" />
-        </div>
-
-        {/* 3 Cards Skeleton */}
-        <div className="grid gap-4 lg:grid-cols-3">
-          <SkeletonLoader variant="metric" count={3} />
-        </div>
-      </div>
-    )
+    return <PageLoadingSkeleton layout="funding" />
   }
 
   if (error) {
     return (
-      <div className="softform-card rounded-[32px] p-8 sm:p-10 text-center">
-        <div className="mx-auto flex max-w-md flex-col items-center">
-          <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-[20px] bg-red-50 text-red-600 border border-red-100">
-            <AlertTriangle size={24} />
-          </div>
-          <p className="mb-2 text-lg font-semibold text-softform-navy-950">Service Connection Issue</p>
-          <p className="mb-6 text-sm text-softform-text-secondary leading-relaxed">{error}</p>
-          <button
-            type="button"
-            onClick={loadStrategy}
-            className="inline-flex items-center gap-2 rounded-xl bg-softform-navy-900 px-5 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-softform-navy-800 transition"
-          >
-            <RotateCw size={14} />
-            Retry Connection
-          </button>
-        </div>
-      </div>
+      <ServiceErrorState
+        message={error}
+        onRetry={loadStrategy}
+      />
     )
   }
 
@@ -156,36 +102,28 @@ export default function FundingStrategyPage() {
         title="Funding Strategy"
         subtitle="Compare channel fit, facility structures, rate context, consent-based CDI signals, and cross-border considerations from the finance workflow."
         chip={
-          <StatusChip variant={statusVariant(creditScore)}>
+          <StatusChip variant={bandVariant(creditScore?.fundingReadiness)}>
             {creditScore ? formatBand(creditScore.fundingReadiness) : 'Context only'}
           </StatusChip>
         }
       />
 
       {/* Cockpit Strategy Bridge Hero Section in Premium Navy Contrast Card */}
-      <section className="softform-navy-card rounded-[32px] p-8 space-y-6 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-72 h-72 bg-softform-aqua-300/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative grid gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
-          <div className="space-y-4">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-softform-aqua-300 animate-pulse">Strategy bridge</span>
-            <h2 className="text-3xl font-bold text-white tracking-tight">
-              {topChannel ? topChannel.label : 'Funding channel context'}
-            </h2>
-            <p className="text-sm leading-relaxed text-white/80 max-w-3xl">
-              {ranking?.explanation ?? 'Funding Strategy combines readiness scorecard context, channel ranking, cross-border funding context, consent-based CDI signals, and facility structures.'}
-            </p>
-            {topChannel && (
-              <div className="flex flex-wrap gap-2 pt-1">
-                <span className={`rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] ${fitTone(topChannel.fitBand)}`}>
-                  {formatBand(topChannel.fitBand)}
-                </span>
-                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-white">
-                  Score {topChannel.score}
-                </span>
-              </div>
-            )}
+      <NavyHeroSection
+        eyebrow="Strategy bridge"
+        title={topChannel ? topChannel.label : 'Funding channel context'}
+        description={ranking?.explanation ?? 'Funding Strategy combines readiness scorecard context, channel ranking, cross-border funding context, consent-based CDI signals, and facility structures.'}
+        badges={topChannel && (
+          <div className="flex flex-wrap gap-2 pt-1">
+            <span className={`rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] ${fitTone(topChannel.fitBand)}`}>
+              {formatBand(topChannel.fitBand)}
+            </span>
+            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-white">
+              Score {topChannel.score}
+            </span>
           </div>
-
+        )}
+        aside={
           <div className="flex flex-wrap items-center justify-around gap-6 bg-white/5 border border-white/10 rounded-[24px] p-6 backdrop-blur-md">
             <div className="space-y-2.5 w-full">
               <div className="flex justify-between border-b border-white/10 pb-1">
@@ -193,17 +131,18 @@ export default function FundingStrategyPage() {
                 <span className="text-sm font-bold text-white tabular-finance">{creditScore?.compositeScore ?? 'N/A'}</span>
               </div>
               <div className="flex justify-between border-b border-white/10 pb-1">
-                <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-white/50">Ranking band</span>
-                <span className="text-sm font-semibold text-white">{formatBand(ranking?.rankingBand)}</span>
+                <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-white/50">Interest coverage</span>
+                <span className="text-sm font-bold text-white tabular-finance">{creditScore ? formatBand(creditScore.pdProxyBand) : 'N/A'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-white/50">CDI trust bridge</span>
-                <span className="text-sm font-semibold text-white">{formatBand(cdiData?.receivablesSignal.digitalCollateralBand)}</span>
+                <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-white/50">CDI consent</span>
+                <span className="text-sm font-bold text-white tabular-finance">{formatBand(cdiConsent?.status ?? 'unavailable')}</span>
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        }
+      />
+
 
       {/* CDI Trust Bridge */}
       {cdiData && (
@@ -381,21 +320,12 @@ export default function FundingStrategyPage() {
       )}
 
       {/* Navigation Footer */}
-      <section className="flex flex-col sm:flex-row gap-6 items-center justify-between p-8 rounded-[36px] border border-white/70 bg-gradient-to-r from-softform-mist-100/50 to-white/50 backdrop-blur-md shadow-base-card">
-        <div className="space-y-1.5 text-center sm:text-left max-w-2xl">
-          <p className="font-semibold text-softform-navy-950 text-base">Convert strategy into advisor-ready actions</p>
-          <p className="text-xs leading-relaxed text-softform-text-secondary">
-            Use Advisory Blueprint to consolidate this strategy into stress context, facility rationale, and next data requirements.
-          </p>
-        </div>
-        <Link
-          to="/platform/advisory-blueprint"
-          className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-softform-navy-900 px-4 py-2.5 text-xs font-semibold text-white hover:bg-softform-navy-800 transition shadow-sm"
-        >
-          Open Advisory Blueprint
-          <ArrowRight size={14} />
-        </Link>
-      </section>
+      <WorkflowFooter
+        title="Convert strategy into advisor-ready actions"
+        description="Use Advisory Blueprint to consolidate this strategy into stress context, facility rationale, and next data requirements."
+        linkTo="/platform/advisory-blueprint"
+        linkLabel="Open Advisory Blueprint"
+      />
     </div>
   )
 }

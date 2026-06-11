@@ -60,7 +60,7 @@ export default function CompanyStrip({ profile, dataMode }: CompanyStripProps) {
           <div className="inline-flex items-center gap-2 rounded-full bg-softform-teal-500/10 px-3 py-1.5">
             <div className="h-1.5 w-1.5 rounded-full bg-softform-teal-500" />
             <span className="text-xs font-semibold text-softform-teal-deep">
-              {dataMode === 'demo_workspace' ? 'Demo Workspace' : dataMode}
+              {dataMode === 'demo_workspace' ? 'Workspace Context' : dataMode}
             </span>
           </div>
         </div>

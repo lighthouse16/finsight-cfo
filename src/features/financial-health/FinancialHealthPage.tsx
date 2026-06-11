@@ -1,15 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { AlertTriangle, ArrowRight, CheckCircle2, RotateCw, ShieldCheck, Coins, TrendingUp } from 'lucide-react'
+import { CheckCircle2, ShieldCheck, Coins, TrendingUp, AlertTriangle } from 'lucide-react'
 import PageHeader from '../../components/platform/PageHeader'
 import StatusChip from '../../components/platform/StatusChip'
 import SectionBlock from '../../components/platform/SectionBlock'
 import MetricDisplay from '../../components/platform/MetricDisplay'
 import ScoreRing from '../../components/platform/ScoreRing'
-import SkeletonLoader from '../../components/platform/SkeletonLoader'
+import ServiceErrorState from '../../components/platform/ServiceErrorState'
+import NavyHeroSection from '../../components/platform/NavyHeroSection'
+import PageLoadingSkeleton from '../../components/platform/PageLoadingSkeleton'
+import WorkflowFooter from '../../components/platform/WorkflowFooter'
 import type { FinancialAnalysisResponse, FinancialSignal, IntegrityCheckResult, RatioMetric } from '../market-watch/types'
 import { getFinancialHealthAnalysis } from './financialHealthApi'
 import { motion } from 'framer-motion'
+import { formatNumber, formatHKD, formatBand, bandVariant } from '../../lib/formatters'
 
 type MetricCard = {
   key: string
@@ -26,28 +29,6 @@ const staggerContainer = {
 const staggerItem = {
   hidden: { opacity: 0, y: 12 },
   show: { opacity: 1, y: 0 }
-}
-
-function formatNumber(value?: number | null, digits = 2) {
-  if (value === undefined || value === null || Number.isNaN(value)) return 'N/A'
-  return value.toFixed(digits)
-}
-
-function formatHKD(value?: number | null) {
-  if (value === undefined || value === null || Number.isNaN(value)) return 'N/A'
-  if (Math.abs(value) >= 1_000_000) return `HKD ${(value / 1_000_000).toFixed(2)}M`
-  return `HKD ${value.toLocaleString()}`
-}
-
-function formatBand(value?: string | null) {
-  if (!value) return 'Unavailable'
-  return value.replace(/_/g, ' ')
-}
-
-function bandVariant(value?: string | null): 'signal' | 'caution' | 'neutral' {
-  if (value === 'strong' || value === 'adequate' || value === 'safe' || value === 'low') return 'signal'
-  if (value === 'watch' || value === 'constrained' || value === 'grey' || value === 'distress' || value === 'elevated') return 'caution'
-  return 'neutral'
 }
 
 export default function FinancialHealthPage() {
@@ -88,51 +69,15 @@ export default function FinancialHealthPage() {
   }, [analysis])
 
   if (loading) {
-    return (
-      <div className="space-y-8 pb-12">
-        {/* Header Skeleton */}
-        <div className="space-y-3">
-          <SkeletonLoader variant="text" />
-        </div>
-
-        {/* Cockpit Skeleton */}
-        <SkeletonLoader variant="card" className="min-h-[200px]" />
-
-        {/* 8 Metric Cards Skeleton */}
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <SkeletonLoader variant="metric" count={8} />
-        </div>
-
-        {/* Double section grid skeleton */}
-        <div className="grid gap-6 lg:grid-cols-2">
-          <SkeletonLoader variant="card" className="min-h-[300px]" />
-          <SkeletonLoader variant="card" className="min-h-[300px]" />
-        </div>
-      </div>
-    )
+    return <PageLoadingSkeleton layout="health" />
   }
 
   if (error || !analysis) {
     return (
-      <div className="softform-card rounded-[32px] p-8 sm:p-10 text-center">
-        <div className="mx-auto flex max-w-md flex-col items-center">
-          <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-[20px] bg-red-50 text-red-600 border border-red-100">
-            <AlertTriangle size={24} />
-          </div>
-          <p className="mb-2 text-lg font-semibold text-softform-navy-950">Service Connection Issue</p>
-          <p className="mb-6 text-sm text-softform-text-secondary leading-relaxed">
-            {error || 'Unable to connect to financial health services.'}
-          </p>
-          <button
-            type="button"
-            onClick={loadAnalysis}
-            className="inline-flex items-center gap-2 rounded-xl bg-softform-navy-900 px-5 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-softform-navy-800 transition"
-          >
-            <RotateCw size={14} />
-            Retry Connection
-          </button>
-        </div>
-      </div>
+      <ServiceErrorState
+        message={error || 'Unable to connect to financial health services.'}
+        onRetry={loadAnalysis}
+      />
     )
   }
 
@@ -162,21 +107,11 @@ export default function FinancialHealthPage() {
       />
 
       {/* Summary Cockpit Hero Section in Premium Navy Contrast Card */}
-      <section className="softform-navy-card rounded-[32px] p-8 space-y-6 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-72 h-72 bg-softform-aqua-300/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative grid gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
-          <div className="space-y-4">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-softform-aqua-300 animate-pulse">
-              Financial Health Diagnostics
-            </span>
-            <h2 className="text-3xl font-semibold text-white tracking-tight">
-              {snapshot.companyName} · {snapshot.reportingPeriod}
-            </h2>
-            <p className="text-sm leading-relaxed text-white/80 max-w-3xl">
-              {summary?.disclaimer ?? 'This analysis is context-only and assumptions-based. Company records are required for production advisory or credit analysis.'}
-            </p>
-          </div>
-
+      <NavyHeroSection
+        eyebrow="Financial Health Diagnostics"
+        title={`${snapshot.companyName} · ${snapshot.reportingPeriod}`}
+        description={summary?.disclaimer ?? 'This analysis is context-only and assumptions-based. Company records are required for production advisory or credit analysis.'}
+        aside={
           <div className="flex flex-wrap items-center justify-around gap-6 bg-white/5 border border-white/10 rounded-[24px] p-6 backdrop-blur-md">
             <div className="flex items-center gap-4">
               <ScoreRing
@@ -198,18 +133,20 @@ export default function FinancialHealthPage() {
             </div>
             <div className="h-12 w-[1px] bg-white/10 hidden sm:block" />
             <div className="space-y-2">
-              <div>
-                <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-white/50">Revenue</p>
-                <p className="mt-0.5 text-sm font-bold text-white tabular-finance">{formatHKD(snapshot.incomeStatement.revenue)}</p>
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                <span className="text-[10px] font-medium text-white/70">{passedChecks} integrity passes</span>
               </div>
-              <div>
-                <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-white/50">EBITDA</p>
-                <p className="mt-0.5 text-sm font-bold text-white tabular-finance">{formatHKD(snapshot.incomeStatement.ebitda)}</p>
-              </div>
+              {failedChecks.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-amber-400" />
+                  <span className="text-[10px] font-medium text-white/70">{failedChecks.length} flag warnings</span>
+                </div>
+              )}
             </div>
           </div>
-        </div>
-      </section>
+        }
+      />
 
       {/* Ratio Metric Grid */}
       <motion.section 
@@ -393,21 +330,12 @@ export default function FinancialHealthPage() {
       )}
 
       {/* Footer Navigation */}
-      <section className="flex flex-col sm:flex-row gap-6 items-center justify-between p-8 rounded-[36px] border border-white/70 bg-gradient-to-r from-softform-mist-100/50 to-white/50 backdrop-blur-md shadow-base-card">
-        <div className="space-y-1.5 text-center sm:text-left max-w-2xl">
-          <p className="font-semibold text-softform-navy-950 text-base">Continue to credit readiness</p>
-          <p className="text-xs leading-relaxed text-softform-text-secondary">
-            Use the Credit Readiness module to convert these financial signals into an explainable funding-readiness scorecard.
-          </p>
-        </div>
-        <Link
-          to="/platform/credit-readiness"
-          className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-softform-navy-900 px-4 py-2.5 text-xs font-semibold text-white hover:bg-softform-navy-800 transition shadow-sm"
-        >
-          Open Credit Readiness
-          <ArrowRight size={14} />
-        </Link>
-      </section>
+      <WorkflowFooter
+        title="Continue to credit readiness"
+        description="Use the Credit Readiness module to convert these financial signals into an explainable funding-readiness scorecard."
+        linkTo="/platform/credit-readiness"
+        linkLabel="Open Credit Readiness"
+      />
     </div>
   )
 }
