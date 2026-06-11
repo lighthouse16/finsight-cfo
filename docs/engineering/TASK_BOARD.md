@@ -21,4 +21,6 @@ This board tracks active, planned, and completed tasks for current engineering s
 | **T-107** | `commercial/analysis-run-db-adapter` | **Done** | Backend Engineer | High |
 | **T-108** | `commercial/audit-event-db-adapter` | **Done** | Backend Engineer | Low |
 | **T-109** | `commercial/job-db-adapter` | **Done** | Backend Engineer | Low |
+| **T-110** | `commercial/report-db-adapter` | **Done** | Backend Engineer | Low |
+
 

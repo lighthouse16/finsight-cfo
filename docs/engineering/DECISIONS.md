@@ -91,3 +91,9 @@ This document records key architectural and design decisions for FinSight CFO.
 - **Context**: The background jobs system needs to record executions, payloads, results, and error details securely across multiple tenants. To build this logic safely, we must first abstract metadata storage behind job repository adapters without triggering any async workers or changing runtime persistence configurations.
 - **Decision**: Implement `DatabaseJobRepository` conforming to the abstract `JobRepository` interface protocol, supporting job creation, updates, and terminal/transition status mappings. Wire it through the persistence factory and align database schemas through migrations.
 - **Consequences**: Standardizes job metadata tracking, decouples task state monitoring from worker runtimes, preserves local developer storage, and prevents regressions.
+
+## ADR-014: Persist report metadata and payloads behind repository adapters before report generation/export cutover
+- **Status**: Approved
+- **Context**: The report persistence system needs to record compiled corporate report metadata and payloads securely behind database-backed repository interfaces to allow developer environments to function using local storage by default.
+- **Decision**: Implement `DatabaseReportRepository` conforming to the abstract `ReportRepository` interface protocol, supporting report saving, status updates, and soft deletion. Wire it through the persistence factory and align database schemas via migrations.
+- **Consequences**: Standardizes report history tracking, enables database-backed report metadata querying, preserves local JSON file storage default, and prevents regressions in existing api routes.

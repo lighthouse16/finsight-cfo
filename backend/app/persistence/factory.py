@@ -1,8 +1,8 @@
 from app.core.config import settings, Settings
 from app.persistence.errors import PersistenceConfigurationError, PersistenceAdapterNotImplementedError
-from app.persistence.interfaces import WorkspaceRepository, FileMetadataRepository, AnalysisRunRepository, AuditEventRepository, JobRepository
-from app.persistence.local_adapters import LocalWorkspaceRepository, LocalFileMetadataRepository, LocalAnalysisRunRepository, LocalAuditEventRepository, LocalJobRepository
-from app.persistence.database_adapters import DatabaseWorkspaceRepository, DatabaseFileMetadataRepository, DatabaseAnalysisRunRepository, DatabaseAuditEventRepository, DatabaseJobRepository
+from app.persistence.interfaces import WorkspaceRepository, FileMetadataRepository, AnalysisRunRepository, AuditEventRepository, JobRepository, ReportRepository
+from app.persistence.local_adapters import LocalWorkspaceRepository, LocalFileMetadataRepository, LocalAnalysisRunRepository, LocalAuditEventRepository, LocalJobRepository, LocalReportRepository
+from app.persistence.database_adapters import DatabaseWorkspaceRepository, DatabaseFileMetadataRepository, DatabaseAnalysisRunRepository, DatabaseAuditEventRepository, DatabaseJobRepository, DatabaseReportRepository
 
 def get_persistence_backend_name(app_settings: Settings = settings) -> str:
     """
@@ -108,6 +108,26 @@ def get_job_repository(app_settings: Settings = settings, db_session=None) -> Jo
                 "Database session is required when database persistence backend is active."
             )
         return DatabaseJobRepository(db_session)
+    else:
+        raise PersistenceConfigurationError(f"Unsupported persistence backend: '{backend}'")
+
+
+def get_report_repository(app_settings: Settings = settings, db_session=None) -> ReportRepository:
+    """
+    Factory function returning the active ReportRepository adapter.
+    Raises PersistenceConfigurationError if database backend is selected but session is missing.
+    """
+    backend = get_persistence_backend_name(app_settings)
+    if backend == "local":
+        if 'LocalReportRepository' not in globals():
+            raise PersistenceAdapterNotImplementedError("Local report repository adapter does not exist.")
+        return LocalReportRepository()
+    elif backend == "database":
+        if db_session is None:
+            raise PersistenceConfigurationError(
+                "Database session is required when database persistence backend is active."
+            )
+        return DatabaseReportRepository(db_session)
     else:
         raise PersistenceConfigurationError(f"Unsupported persistence backend: '{backend}'")
 

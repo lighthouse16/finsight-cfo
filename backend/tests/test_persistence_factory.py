@@ -1,8 +1,8 @@
 import pytest
 from unittest.mock import patch
 from app.core.config import Settings
-from app.persistence.factory import get_persistence_backend_name, get_workspace_repository, get_file_metadata_repository, get_analysis_run_repository, get_audit_event_repository, get_job_repository
-from app.persistence.local_adapters import LocalWorkspaceRepository, LocalFileMetadataRepository, LocalAnalysisRunRepository, LocalAuditEventRepository, LocalJobRepository
+from app.persistence.factory import get_persistence_backend_name, get_workspace_repository, get_file_metadata_repository, get_analysis_run_repository, get_audit_event_repository, get_job_repository, get_report_repository
+from app.persistence.local_adapters import LocalWorkspaceRepository, LocalFileMetadataRepository, LocalAnalysisRunRepository, LocalAuditEventRepository, LocalJobRepository, LocalReportRepository
 from app.persistence.errors import PersistenceConfigurationError, PersistenceAdapterNotImplementedError
 
 def test_default_backend_name():
@@ -204,4 +204,35 @@ def test_job_repository_factory_database_with_session_returns_adapter():
     repo = get_job_repository(settings, db_session=mock_session)
     from app.persistence.database_adapters import DatabaseJobRepository
     assert isinstance(repo, DatabaseJobRepository)
+    assert repo.session == mock_session
+
+def test_report_repository_factory_default():
+    """
+    Verifies that get_report_repository returns LocalReportRepository by default.
+    """
+    settings = Settings()
+    repo = get_report_repository(settings)
+    assert isinstance(repo, LocalReportRepository)
+
+def test_report_repository_factory_database_without_session_raises():
+    """
+    Verifies that get_report_repository raises PersistenceConfigurationError if database backend is chosen without a session.
+    """
+    settings = Settings(PERSISTENCE_BACKEND="database")
+    with pytest.raises(PersistenceConfigurationError) as exc_info:
+        get_report_repository(settings)
+    assert "Database session is required" in str(exc_info.value)
+
+def test_report_repository_factory_database_with_session_returns_adapter():
+    """
+    Verifies that get_report_repository returns DatabaseReportRepository when session is provided.
+    """
+    settings = Settings(PERSISTENCE_BACKEND="database")
+    from sqlalchemy.orm import Session
+    from unittest.mock import MagicMock
+    mock_session = MagicMock(spec=Session)
+    
+    repo = get_report_repository(settings, db_session=mock_session)
+    from app.persistence.database_adapters import DatabaseReportRepository
+    assert isinstance(repo, DatabaseReportRepository)
     assert repo.session == mock_session

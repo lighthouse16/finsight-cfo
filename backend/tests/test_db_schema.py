@@ -163,6 +163,16 @@ def test_alembic_migrations_upgrade_downgrade(tmp_path):
             assert "metadata" in jobs_cols
             assert "started_at" in jobs_cols
             assert "completed_at" in jobs_cols
+
+            # Check reports
+            reports_cols = {c["name"]: c for c in inspector.get_columns("reports")}
+            assert "report_type" in reports_cols
+            assert "status" in reports_cols
+            assert "report_payload" in reports_cols
+            assert "storage_uri" in reports_cols
+            assert "metadata" in reports_cols
+            assert "deleted_at" in reports_cols
+            assert reports_cols["analysis_run_id"]["nullable"] is True
             
         # Run downgrade back to base
         command.downgrade(alembic_cfg, "base")
