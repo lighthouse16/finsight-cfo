@@ -33,6 +33,8 @@ This board tracks active, planned, and completed tasks for current engineering s
 | **T-119** | `commercial/extract-audit-service` | **Done** | Backend Engineer | Low |
 | **T-120** | `commercial/extract-report-service` | **Done** | Backend Engineer | Low |
 | **T-121** | `commercial/extract-file-metadata-service` | **Done** | Backend Engineer | Low |
+| **T-122** | `commercial/extract-analysis-runtime-service` | **Done** | Backend Engineer | Low |
+
 
 
 

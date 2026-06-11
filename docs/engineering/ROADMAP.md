@@ -58,6 +58,9 @@ This document outlines the high-level roadmap for transitioning FinSight CFO fro
     - Extract report CRUD orchestration logic from workspaces router into a dedicated report service.
 21. **Extract File Metadata Service (Phase 3)** [COMPLETED]
     - Extract file metadata orchestration logic from workspaces router into a dedicated file metadata service.
+22. **Extract Analysis Runtime Service (Phase 4)** [COMPLETED]
+    - Extract analysis runtime execution and retrieval orchestration logic from workspaces router into a dedicated analysis runtime service.
+
 
 
 ---

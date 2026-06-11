@@ -164,5 +164,12 @@ This document records key architectural and design decisions for FinSight CFO.
 - **Decision**: Extract file upload (both database and local mode paths), file list querying, file deletion, raw bytes retrieval, and workspace cascade deletion logic from `routes/workspaces.py` into `backend/app/services/file_metadata_service.py`. The service interacts with repositories and legacy store APIs while avoiding FastAPI-specific routers or raw DB sessions.
 - **Consequences**: Successfully isolates all file-related metadata management and disk storage interactions, keeps the HTTP routing layer thin, and preserves existing persistence adapter configurations and storage behaviors.
 
+## ADR-026: Extract analysis runtime orchestration into analysis runtime service
+- **Status**: Approved
+- **Context**: Phase 4 of the workspace route service extraction plan involves isolating analysis execution, run listing, run details retrieval, and latest run endpoints from the router layer into a dedicated service module.
+- **Decision**: Extract analysis stage run triggers (supporting sync and async execution flow), run list querying, run details querying, and latest run (both stage-specific and generic) handlers from `routes/workspaces.py` into `backend/app/services/analysis_runtime_service.py`. The service orchestrates persistence mapping and logs audit trails in database mode without modifying financial calculations or snapshot logic.
+- **Consequences**: Successfully isolates all analysis run routing logic, reduces the route layer complexity, and preserves current database-mode persistence and local-mode default behavior.
+
+
 
 
