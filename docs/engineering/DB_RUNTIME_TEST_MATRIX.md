@@ -23,6 +23,7 @@ This test matrix outlines the validation suites, current coverage status, and re
 | **Database / Local** | Report Gen Job Facade | Unit / Integration | High (Success/failure workflows & byte checks) | None | Yes | Platform Team / T-126 |
 | **Database / Local** | Report Worker Prototype | Unit | High (Validation, error propagation, idempotency) | None | Yes | Platform Team / T-127 |
 | **Database / Local** | Job Route Contract | Route | High (Endpoint responses, filters, local fallback, sanitization) | None | Yes | Platform Team / T-128 |
+| **Database / Local** | Job Retry & Progress | Unit / Route | High (Attempt limits, progress updates, validation boundaries) | None | Yes | Platform Team / T-129 |
 | **Database** | Reports | Unit / Integration / Route | High (Adapter + Route tests) | None | Yes | Backend Team / T-110 |
 
 | **Database** | Integration Health Check | Route / Guardrail | High (Smoke + Side-effect tests) | None | Yes | Backend Team / T-116 |

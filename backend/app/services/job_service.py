@@ -148,3 +148,118 @@ def cancel_job(
         status="cancelled",
         error_message=reason,
     )
+
+def increment_job_attempt(
+    *,
+    job_id: str,
+    job_repo: Any,
+) -> Dict[str, Any]:
+    """
+    Increments the attempt count for the job.
+    Updates the database column if DatabaseJobRepository,
+    and updates/stores the count in metadata['attempts'] so it's returned in route responses.
+    """
+    job = get_job(job_id=job_id, job_repo=job_repo)
+    metadata = job.get("metadata") or {}
+    current_attempts = metadata.get("attempts", 0)
+    new_attempts = current_attempts + 1
+    metadata["attempts"] = new_attempts
+
+    if hasattr(job_repo, "session") and job_repo.session:
+        from app.db.models import Job as DbJob
+        db_job = job_repo.session.query(DbJob).filter_by(id=job_id).first()
+        if db_job:
+            db_job.attempts = new_attempts
+            db_job.job_metadata = {**(db_job.job_metadata or {}), **metadata}
+            job_repo.session.commit()
+            return job_repo._to_dict(db_job)
+
+    return job_repo.update_job_status(job_id=job_id, status=job.get("status"), metadata=metadata)
+
+def can_retry_job(job: Dict[str, Any]) -> bool:
+    """
+    Returns True if a failed job is eligible to be retried.
+    Completed, running, and cancelled jobs are never retryable.
+    Failed jobs are retryable only if attempts < max_attempts.
+    """
+    status = job.get("status")
+    if status != "failed":
+        return False
+        
+    metadata = job.get("metadata") or {}
+    attempts = metadata.get("attempts", 0)
+    max_attempts = metadata.get("max_attempts") or metadata.get("maxAttempts") or 3
+    return attempts < max_attempts
+
+def mark_job_progress(
+    *,
+    job_id: str,
+    percent: int,
+    stage: str,
+    message: str,
+    job_repo: Any,
+) -> Dict[str, Any]:
+    """
+    Updates progress information (percent, stage, message) inside the job metadata.
+    Enforces progress bounds and guards against raw file bytes.
+    """
+    _check_no_file_bytes(percent)
+    _check_no_file_bytes(stage)
+    _check_no_file_bytes(message)
+
+    if not isinstance(percent, int) or not (0 <= percent <= 100):
+        raise HTTPException(status_code=400, detail="Progress percent must be an integer between 0 and 100.")
+    if not isinstance(stage, str):
+        raise HTTPException(status_code=400, detail="Progress stage must be a string.")
+    if not isinstance(message, str):
+        raise HTTPException(status_code=400, detail="Progress message must be a string.")
+
+
+    job = get_job(job_id=job_id, job_repo=job_repo)
+    metadata = job.get("metadata") or {}
+    
+    metadata["progress"] = {
+        "percent": percent,
+        "stage": stage,
+        "message": message,
+    }
+
+    if hasattr(job_repo, "session") and job_repo.session:
+        from app.db.models import Job as DbJob
+        db_job = job_repo.session.query(DbJob).filter_by(id=job_id).first()
+        if db_job:
+            db_job.job_metadata = {**(db_job.job_metadata or {}), **metadata}
+            job_repo.session.commit()
+            return job_repo._to_dict(db_job)
+
+    return job_repo.update_job_status(job_id=job_id, status=job.get("status"), metadata=metadata)
+
+def prepare_job_retry(
+    *,
+    job_id: str,
+    job_repo: Any,
+) -> Dict[str, Any]:
+    """
+    Moves a retry-eligible failed job back to the 'pending' state.
+    """
+    job = get_job(job_id=job_id, job_repo=job_repo)
+    if not can_retry_job(job):
+        raise HTTPException(status_code=400, detail=f"Job {job_id} is not eligible for retry.")
+
+    if hasattr(job_repo, "session") and job_repo.session:
+        from app.db.models import Job as DbJob
+        db_job = job_repo.session.query(DbJob).filter_by(id=job_id).first()
+        if db_job:
+            db_job.status = "pending"
+            db_job.result_payload = {}
+            db_job.error_log = None
+            job_repo.session.commit()
+            return job_repo._to_dict(db_job)
+
+    return job_repo.update_job_status(
+        job_id=job_id,
+        status="pending",
+        result_payload={},
+        error_message="",
+    )
+

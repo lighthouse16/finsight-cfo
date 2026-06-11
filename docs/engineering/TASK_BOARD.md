@@ -40,6 +40,7 @@ This board tracks active, planned, and completed tasks for current engineering s
 | **T-126** | `commercial/report-generation-job-facade` | **Done** | Backend Architect | Low |
 | **T-127** | `commercial/report-worker-prototype-service` | **Done** | Backend Architect | Low |
 | **T-128** | `commercial/job-status-route-contract` | **Done** | Backend Architect | Low |
+| **T-129** | `commercial/job-retry-progress-semantics` | **Done** | Backend Architect | Low |
 
 
 

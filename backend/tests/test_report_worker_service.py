@@ -50,6 +50,19 @@ class MockJobRepository:
         self.actions.append(("failed", job_id, "failed"))
         return self.jobs.get(job_id)
 
+    def update_job_status(self, job_id, status, result_payload=None, error_message=None, metadata=None):
+        if job_id in self.jobs:
+            self.jobs[job_id]["status"] = status
+            if error_message is not None:
+                self.jobs[job_id]["errorMessage"] = error_message
+            if result_payload is not None:
+                self.jobs[job_id]["result"] = result_payload
+            if metadata is not None:
+                self.jobs[job_id]["metadata"] = {**(self.jobs[job_id].get("metadata") or {}), **metadata}
+        self.actions.append(("update_status", job_id, status))
+        return self.jobs.get(job_id)
+
+
 class MockReportRepository:
     def __init__(self, should_fail=False):
         self.reports = {}
@@ -109,7 +122,11 @@ def test_process_pending_report_generation_job_success():
 
     # 2. Assert status sequence transitions
     assert job_repo.actions == [
+        ("update_status", job_id, "pending"),
+        ("update_status", job_id, "pending"),
         ("running", job_id, "running"),
+        ("update_status", job_id, "running"),
+        ("update_status", job_id, "running"),
         ("completed", job_id, "completed")
     ]
     assert report_repo.save_called
@@ -149,7 +166,11 @@ def test_process_report_generation_job_failure():
 
     # Verify that status sequence marked running then failed
     assert job_repo.actions == [
+        ("update_status", job_id, "pending"),
+        ("update_status", job_id, "pending"),
         ("running", job_id, "running"),
+        ("update_status", job_id, "running"),
+        ("update_status", job_id, "running"),
         ("failed", job_id, "failed")
     ]
     job = job_repo.get_job(job_id)
@@ -314,3 +335,70 @@ def test_process_job_does_not_spawn_workers_or_threads(monkeypatch):
     )
 
     assert not thread_spawned, "Service spawned a thread!"
+
+def test_report_worker_records_attempts_and_progress_success():
+    job_repo = MockJobRepository()
+    report_repo = MockReportRepository()
+
+    job_id = "job_123"
+    payload = {
+        "report_type": "financial_health",
+        "report_payload": {"revenue": 100000}
+    }
+    job_repo.create_job_with_status(
+        job_id=job_id,
+        job_type="report.generation",
+        status="pending",
+        workspace_id="ws_123",
+        payload=payload
+    )
+
+    res = process_report_generation_job(
+        job_repository=job_repo,
+        report_repository=report_repo,
+        job_id=job_id
+    )
+
+    # Verify attempts incremented
+    job = job_repo.get_job(job_id)
+    assert job["metadata"]["attempts"] == 1
+
+    # Verify progress milestones recorded
+    progress = job["metadata"]["progress"]
+    assert progress["percent"] == 100
+    assert progress["stage"] == "completed"
+    assert progress["message"] == "Report generated successfully"
+
+def test_report_worker_records_attempts_and_progress_failure():
+    job_repo = MockJobRepository()
+    report_repo = MockReportRepository(should_fail=True)
+
+    job_id = "job_123"
+    payload = {
+        "report_type": "financial_health",
+        "report_payload": {"revenue": 100000}
+    }
+    job_repo.create_job_with_status(
+        job_id=job_id,
+        job_type="report.generation",
+        status="pending",
+        workspace_id="ws_123",
+        payload=payload
+    )
+
+    with pytest.raises(RuntimeError):
+        process_report_generation_job(
+            job_repository=job_repo,
+            report_repository=report_repo,
+            job_id=job_id
+        )
+
+    # Verify attempts incremented
+    job = job_repo.get_job(job_id)
+    assert job["metadata"]["attempts"] == 1
+
+    # Verify progress milestone failed state recorded
+    progress = job["metadata"]["progress"]
+    assert progress["percent"] == 50
+    assert progress["stage"] == "failed"
+    assert "Database connection timed out" in progress["message"]
