@@ -98,15 +98,20 @@ We propose the following six-step rollout plan:
   * Created a service-only report worker prototype (`process_report_generation_job`) processing exactly one job.
   * Verified status transitions (`pending` -> `running` -> `completed`/`failed`) using mock repositories.
   * Deferred daemon, queues, background execution, and routing to future phases.
-* **Phase D: Retry, Idempotency & Progress Semantics**
+* **Phase D: Job Status Route Contract** [COMPLETED]
+  * Exposed read-only job status and workspace-level job list API endpoints.
+  * Ensured local mode returns 501 cleanly to prevent database side-effects.
+  * Kept background execution/workers/daemons/queues deferred.
+* **Phase E: Retry, Idempotency & Progress Semantics**
   * Introduce an exponential backoff retry loop tracking the `attempts` column.
   * Ensure report compilations and snapshots write actions are idempotent.
-* **Phase E: Process Supervision & Celery Setup**
+* **Phase F: Process Supervision & Celery Setup**
   * Integrate Redis and Celery.
   * Separate the web container from the worker container in deployment configurations.
-* **Phase F: Observability & Monitoring**
+* **Phase G: Observability & Monitoring**
   * Expose Prometheus metrics for job latency, throughput, and error rates.
   * Hook up Slack/PagerDuty alerts for critical task failures.
+
 
 ## Guardrails
 

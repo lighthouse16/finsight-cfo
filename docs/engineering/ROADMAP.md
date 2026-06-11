@@ -70,6 +70,9 @@ This document outlines the high-level roadmap for transitioning FinSight CFO fro
     - Introduce a synchronous job execution facade around report generation and persistence, coordinating lifecycle status checks and database saving.
 27. **Report Worker Prototype Service (Phase 9)** [COMPLETED]
     - Introduce a service-only report worker prototype (`process_report_generation_job`) processing exactly one job, verifying lifecycle status changes without concurrency or worker processes.
+28. **Job Status Route Contract (Phase 10)** [COMPLETED]
+    - Expose read-only endpoints `GET /api/workspaces/{workspace_id}/jobs` and `GET /api/workspaces/{workspace_id}/jobs/{job_id}` to provide job visibility before implementing retry and Celery runtimes.
+
 
 
 ---

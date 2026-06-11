@@ -199,3 +199,10 @@ This document records key architectural and design decisions for FinSight CFO.
 - Context: In Phase C of the background processing rollout, we need to prototype the execution unit of a worker ("process exactly one job by ID") before introducing background queue daemons, process loops, or scheduling services.
 - Decision: Create a dedicated `process_report_generation_job` function inside `report_worker_service.py` that processes a pre-existing job in `"pending"` status, transitions it to `"running"`, generates the report, and completes or fails the job. The implementation must remain synchronous, service-only, and run without threading or external queues.
 - Consequences: Safely establishes the logic of report generation job execution in isolation, allowing simple unit testing, while keeping background worker daemons and queue routing deferred.
+
+## ADR-032: Add job status route contract
+- Status: Approved
+- Context: In Phase D of the background processing rollout, we need to expose a minimal read-only backend API route contract for reading job status and listing workspace jobs using the existing job service and JobRepository, without triggering workers, queues, report generation, or background execution.
+- Decision: Add API endpoints `GET /api/workspaces/{workspace_id}/jobs` and `GET /api/workspaces/{workspace_id}/jobs/{job_id}` in `backend/app/routes/jobs.py` and register them under the `/api/workspaces` prefix. Ensure local mode returns a 501 HTTP exception cleanly without initializing DB connection pools. Ensure all raw file bytes are sanitized from returned JSON payloads.
+- Consequences: Exposes read-only job visibility so future retry/progress/worker work can be validated end-to-end.
+
