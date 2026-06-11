@@ -73,6 +73,7 @@ To minimize risk, route wiring will proceed in sequential, isolated PRs:
 5. **Runtime Integration Health Check** [COMPLETED]: Added smoke tests verifying the combined route chain (workspace -> file -> run -> report) and guarding local mode against DB engine side-effects.
 6. **Audit Events Integration** [COMPLETED]: Redirect audit trail operations to `AuditEventRepository`.
 7. **Jobs / Background Processing Integration**: Introduce database-backed async processing task tracking.
+8. **Workspace Route Service Extraction Plan** [COMPLETED]: Plan and document service boundaries for workspaces route.
 
 ## 8. Feature Flag Strategy
 

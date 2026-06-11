@@ -50,6 +50,8 @@ This document outlines the high-level roadmap for transitioning FinSight CFO fro
     - Sequentially integrate analysis runs, reports, and audit event endpoints with database persistence.
 17. **Runtime Integration Health Check** [COMPLETED]
     - Add health check validation and guardrails suite checking all active persistence routes.
+18. **Workspace Route Service Extraction Plan** [COMPLETED]
+    - Plan and document the service extraction boundaries to clean up workspaces.py before further refactoring.
 
 ---
 
