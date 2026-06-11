@@ -1,5 +1,8 @@
-from fastapi import APIRouter, HTTPException
+from typing import Optional
+from fastapi import APIRouter, HTTPException, Header
 from pydantic import ValidationError
+from app.core.config import settings
+from app.storage.workspace_store import WorkspaceStore
 from app.models.financials import (
     CompanyFinancialSnapshot,
     FinancialAnalysisResponse,
@@ -19,6 +22,8 @@ from app.services.financials.projection_engine import (
 )
 from app.services.financials.valuation_engine import build_valuation_analysis
 from app.services.financials.summary_engine import build_financial_analysis_summary
+
+from app.models.errors import raise_missing_workspace_error, raise_insufficient_data_error
 
 router = APIRouter()
 
@@ -133,60 +138,118 @@ def _build_financial_analysis_response(
     )
 
 
-@router.get("/demo-analysis", response_model=FinancialAnalysisResponse)
-def get_demo_analysis():
+def _resolve_workspace_analysis(ws_id: Optional[str], is_preview: bool = False):
+    is_production = settings.APP_MODE == "production" or not settings.ALLOW_DEMO_FALLBACK
+    
+    # Try to load workspace snapshot if we have a workspace_id, or if we are in production
+    if is_production or ws_id:
+        if not ws_id:
+            # Fall back to latest workspace
+            workspaces = WorkspaceStore.list_workspaces()
+            if workspaces:
+                ws_id = workspaces[-1].id
+            else:
+                if is_production:
+                    raise_missing_workspace_error("WORKSPACE_DATA_NOT_FOUND")
+                
+        if ws_id:
+            workspace = WorkspaceStore.get_workspace(ws_id)
+            if not workspace:
+                if is_production:
+                    raise_missing_workspace_error("WORKSPACE_DATA_NOT_FOUND")
+            else:
+                snapshot = WorkspaceStore.get_active_snapshot(ws_id)
+                if snapshot:
+                    from app.services.analysis_run_service import execute_financial_health_run
+                    run = execute_financial_health_run(ws_id, snapshot.id)
+                    res = dict(run.results)
+                    res["run_metadata"] = {
+                        "id": run.id,
+                        "runId": run.id,
+                        "snapshotId": run.snapshot_id,
+                        "status": run.status,
+                        "runType": run.run_type,
+                        "createdAt": run.created_at,
+                        "logicVersion": run.logic_version,
+                        "warningsCount": len(run.warnings)
+                    }
+                    return res
+                else:
+                    if is_production:
+                        raise_missing_workspace_error("ACTIVE_SNAPSHOT_NOT_FOUND")
+                        
+        if is_production:
+            raise_missing_workspace_error("WORKSPACE_DATA_NOT_FOUND")
+
+    # Fallback to in-memory context for preview if present and not in production
+    if is_preview:
+        context = get_active_workspace_preview_context()
+        if context:
+            try:
+                snapshot = CompanyFinancialSnapshot.model_validate(context.snapshotPreview)
+                metadata = dict(snapshot.metadata or {})
+                metadata.update(
+                    {
+                        "mode": "preview",
+                        "source": "data_room_workspace_preview",
+                        "preview_only": True,
+                        "activated_at": context.activatedAt,
+                    }
+                )
+                snapshot.metadata = metadata
+                preview_warnings = [
+                    "Preview analysis mode is using temporary in-memory Data Room workspace context. Production analysis was not updated.",
+                    *context.warnings,
+                ]
+                return _build_financial_analysis_response(snapshot, preview_warnings)
+            except ValidationError as exc:
+                if is_production:
+                    missing = []
+                    for err in exc.errors():
+                        loc_str = " -> ".join(str(l) for l in err.get("loc", []))
+                        missing.append(f"{loc_str}: {err.get('msg')}")
+                    raise_insufficient_data_error(missing)
+                else:
+                    raise HTTPException(
+                        status_code=422,
+                        detail={
+                            "source": "data_room_workspace_preview",
+                            "previewOnly": True,
+                            "message": "Preview analysis is incomplete or malformed.",
+                            "errors": exc.errors(),
+                        }
+                    )
+        else:
+            raise HTTPException(
+                status_code=404,
+                detail="No active workspace preview context",
+            )
+
+    # Standard Harbour & Finch fallback
+    return _build_financial_analysis_response(get_demo_financial_snapshot())
+
+
+@router.get("/demo-analysis")
+def get_demo_analysis(
+    x_workspace_id: Optional[str] = Header(None, alias="x-workspace-id"),
+    workspace_id: Optional[str] = None,
+):
     """
     Returns the financial snapshot, integrity check validation results,
     calculated financial ratios, risk diagnostics, projections, valuations,
     financial analysis summary, and any analysis warnings.
     """
-    return _build_financial_analysis_response(get_demo_financial_snapshot())
+    return _resolve_workspace_analysis(workspace_id or x_workspace_id, is_preview=False)
 
 
-@router.get("/preview-analysis", response_model=FinancialAnalysisResponse)
-def get_preview_analysis():
+@router.get("/preview-analysis")
+def get_preview_analysis(
+    x_workspace_id: Optional[str] = Header(None, alias="x-workspace-id"),
+    workspace_id: Optional[str] = None,
+):
     """
     Return financial analysis derived from the active Data Room preview snapshot.
-
-    This preview mode is separate from /api/financials/demo-analysis. It reads
-    the temporary in-memory workspace preview context only and does not persist
-    data or mutate the demo analysis snapshot.
     """
-    context = get_active_workspace_preview_context()
-    if context is None:
-        raise HTTPException(
-            status_code=404,
-            detail="No active workspace preview context is available.",
-        )
-
-    try:
-        snapshot = CompanyFinancialSnapshot.model_validate(context.snapshotPreview)
-    except ValidationError as exc:
-        raise HTTPException(
-            status_code=422,
-            detail={
-                "message": "Active workspace preview context is incomplete or malformed.",
-                "source": "data_room_workspace_preview",
-                "previewOnly": True,
-                "errors": exc.errors(),
-            },
-        ) from exc
-
-    metadata = dict(snapshot.metadata or {})
-    metadata.update(
-        {
-            "mode": "preview",
-            "source": "data_room_workspace_preview",
-            "preview_only": True,
-            "activated_at": context.activatedAt,
-        }
-    )
-    snapshot.metadata = metadata
-
-    preview_warnings = [
-        "Preview analysis mode is using temporary in-memory Data Room workspace context. Production analysis was not updated.",
-        *context.warnings,
-    ]
-    return _build_financial_analysis_response(snapshot, preview_warnings)
+    return _resolve_workspace_analysis(workspace_id or x_workspace_id, is_preview=True)
 
 

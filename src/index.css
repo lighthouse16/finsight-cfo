@@ -351,3 +351,104 @@
     content: '';
   }
 }
+
+/* Print CSS Styles for Professional Reports Export */
+@media print {
+  /* Hide sidebar navigation, command bars, navigation buttons, and workflow footers */
+  aside,
+  nav,
+  header,
+  footer,
+  #SidebarNav,
+  #TopCommandBar,
+  .no-print,
+  .workflow-footer,
+  button,
+  a[href^="/platform/"]::after,
+  a[href^="/"]::after {
+    display: none !important;
+  }
+
+  /* Reset layout constraints so page expands to fill full paper width without scrolling */
+  body,
+  html,
+  main,
+  .softform-page,
+  .mx-auto,
+  .min-w-0,
+  .flex-1 {
+    background: white !important;
+    color: black !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+    height: auto !important;
+    position: static !important;
+  }
+
+  /* Add padding for printing */
+  .softform-page {
+    padding: 1.5cm !important;
+  }
+
+  /* Standardize card and panel containers for print grids */
+  .softform-card,
+  .softform-panel,
+  .softform-metric-card,
+  .softform-navy-card {
+    background: white !important;
+    color: black !important;
+    border: 1px solid #c8d2dc !important;
+    box-shadow: none !important;
+    page-break-inside: avoid;
+    backdrop-filter: none !important;
+    border-radius: 16px !important;
+  }
+
+  /* Ensure text colors are high-contrast on white background */
+  .text-white,
+  .text-white\/80,
+  .text-white\/70,
+  .text-white\/50,
+  .text-softform-navy-950,
+  .text-slate-800 {
+    color: #0b1523 !important;
+  }
+
+  .text-softform-text-secondary,
+  .text-slate-500,
+  .text-slate-400 {
+    color: #4b5563 !important;
+  }
+
+  /* Re-style background overlays to be clean light gray slots */
+  .bg-slate-900,
+  .bg-white\/5,
+  .bg-white\/45,
+  .bg-white\/50,
+  .bg-white\/30,
+  .bg-emerald-50\/20,
+  .bg-rose-50\/20,
+  .bg-slate-50\/40,
+  .dark\:bg-slate-900 {
+    background: #f8fafc !important;
+  }
+
+  /* Avoid page breaks inside sections and charts */
+  section,
+  svg,
+  canvas,
+  .grid {
+    page-break-inside: avoid;
+  }
+
+  /* Remove link decoration */
+  a {
+    text-decoration: none !important;
+    color: inherit !important;
+  }
+}
+

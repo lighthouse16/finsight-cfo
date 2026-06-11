@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export type FreshnessStatus = 'Daily' | 'Monthly' | 'Delayed' | 'Workspace'
 
 export type SignalSeverity = 'Neutral' | 'Caution' | 'High' | 'Positive'
@@ -643,6 +644,7 @@ export interface FundingChannelRankingResponse {
   source: FundingChannelProvenance
   warnings: string[]
   disclaimer: string
+  run_metadata?: any
 }
 
 export interface CompanyFinancialSnapshot {

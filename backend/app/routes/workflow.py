@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Optional
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Header
 
 from app.routes.data_room import get_active_workspace_preview_context
 from app.routes.financials import _build_financial_analysis_response, get_demo_analysis
@@ -23,37 +23,31 @@ CDI_TRUST_BRIDGE_DISCLAIMER = (
 )
 
 
-def _active_or_demo_analysis():
-    """Build analysis from active Data Room preview context, otherwise demo data."""
-    context = get_active_workspace_preview_context()
-    if context is None:
-        return get_demo_analysis(), "demo_financial_snapshot", [
-            "No active Data Room preview context. Workflow runner used demo financial snapshot."
-        ]
+async def _active_or_demo_analysis(
+    x_workspace_id: Optional[str] = None,
+    workspace_id: Optional[str] = None,
+):
+    """Build analysis from active Data Room workspace snapshot or preview context, otherwise demo data."""
+    analysis = await get_demo_analysis(x_workspace_id=x_workspace_id, workspace_id=workspace_id)
+    if isinstance(analysis, dict) and analysis.get("status") == "insufficient_data":
+        return analysis, None, []
 
-    snapshot = CompanyFinancialSnapshot.model_validate(context.snapshotPreview)
-    metadata = dict(snapshot.metadata or {})
-    metadata.update(
-        {
-            "mode": "preview",
-            "source": "data_room_workspace_preview",
-            "preview_only": True,
-            "activated_at": context.activatedAt,
-            "workflow_runner_source": "active_data_room_preview",
-        }
-    )
-    snapshot.metadata = metadata
-    warnings = [
-        "Workflow runner is using temporary in-memory Data Room preview context. Production persistence is not enabled.",
-        *context.warnings,
-    ]
-    return _build_financial_analysis_response(snapshot, warnings), "active_data_room_preview", warnings
+    is_preview = False
+    if hasattr(analysis, "snapshot") and getattr(analysis, "snapshot") and getattr(analysis.snapshot, "metadata", None):
+        is_preview = analysis.snapshot.metadata.get("source") != "demo_company"
+
+    source_name = "active_workspace_snapshot" if is_preview else "demo_financial_snapshot"
+    warnings = getattr(analysis, "warnings", [])
+    return analysis, source_name, warnings
 
 
 def _build_mock_trust_bridge_context(analysis) -> dict[str, Any]:
     """Build a deterministic CDI-style trust bridge for the workflow response."""
-    company_id = analysis.snapshot.company_id
-    company_name = analysis.snapshot.company_name
+    # Handle dict if analysis is returned as a dict with status: insufficient_data
+    if isinstance(analysis, dict):
+        return {}
+    company_id = getattr(analysis.snapshot, "company_id", "demo_company")
+    company_name = getattr(analysis.snapshot, "company_name", "Demo Company")
     return {
         "consent": {
             "consentId": f"workflow_mock_cdi_{company_id}",
@@ -120,7 +114,10 @@ def _stage(
 
 
 @router.get("/run")
-def run_bochk_workflow() -> dict[str, Any]:
+async def run_bochk_workflow(
+    x_workspace_id: Optional[str] = Header(None, alias="x-workspace-id"),
+    workspace_id: Optional[str] = None,
+) -> Any:
     """
     Execute the BOCHK challenge workflow as a deterministic demo pipeline.
 
@@ -128,7 +125,15 @@ def run_bochk_workflow() -> dict[str, Any]:
     judges can inspect a single Stage 0 -> Stage 7 response without trusting UI
     stitching. It is context-only and not a production underwriting workflow.
     """
-    analysis, data_source, source_warnings = _active_or_demo_analysis()
+    ws_id = workspace_id or x_workspace_id
+    workflow_run_record = None
+    if ws_id:
+        from app.services.analysis_run_service import execute_workflow_run
+        workflow_run_record = await execute_workflow_run(ws_id)
+
+    analysis, data_source, source_warnings = await _active_or_demo_analysis(x_workspace_id, workspace_id)
+    if isinstance(analysis, dict) and analysis.get("status") == "insufficient_data":
+        return analysis
 
     precheck = build_hard_gate_precheck(analysis)
     risk_score = build_unified_risk_score(analysis, precheck)
@@ -228,7 +233,7 @@ def run_bochk_workflow() -> dict[str, Any]:
         ),
     ]
 
-    return {
+    res = {
         "workflowId": "bochk-business-valuation-credit-scoring-v1",
         "mode": "context_only_demo",
         "ranAt": datetime.now(timezone.utc).isoformat(),
@@ -258,3 +263,15 @@ def run_bochk_workflow() -> dict[str, Any]:
         },
         "disclaimer": "Workflow runner is for BOCHK challenge demonstration only. It is not a production credit approval, underwriting, valuation, CDI, or regulatory PD workflow.",
     }
+    if workflow_run_record:
+        res["run_metadata"] = {
+            "id": workflow_run_record.id,
+            "runId": workflow_run_record.id,
+            "snapshotId": workflow_run_record.snapshot_id,
+            "status": workflow_run_record.status,
+            "runType": workflow_run_record.run_type,
+            "createdAt": workflow_run_record.created_at,
+            "logicVersion": workflow_run_record.logic_version,
+            "warningsCount": len(workflow_run_record.warnings)
+        }
+    return res

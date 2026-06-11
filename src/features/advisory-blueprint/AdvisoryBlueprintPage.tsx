@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   BarChart3,
   ShieldCheck,
@@ -9,12 +8,17 @@ import {
   RotateCw,
   CheckSquare,
   ArrowRight,
+  Loader2,
+  RefreshCw,
+  Play,
 } from 'lucide-react'
 import PageHeader from '../../components/platform/PageHeader'
 import StatusChip from '../../components/platform/StatusChip'
 import SectionBlock from '../../components/platform/SectionBlock'
 import SkeletonLoader from '../../components/platform/SkeletonLoader'
 import SourceInfoTooltip from '../market-watch/components/SourceInfoTooltip'
+import RunMetadataBadge from '../../components/platform/RunMetadataBadge'
+import WorkspaceInsufficientDataState from '../../components/platform/WorkspaceInsufficientDataState'
 import {
   getAdvisoryBlueprint,
   getAdvisoryRiskScore,
@@ -22,6 +26,7 @@ import {
   getAdvisoryFacilityStructures,
   getFinancialPreviewAnalysis,
 } from './api/advisoryBlueprintApi'
+import { fetchLatestRunSafe, triggerAnalysisRun } from '../../lib/workspaceRunHelpers'
 import {
   AdvisoryBlueprintResponse,
   UnifiedRiskScoreResult,
@@ -35,11 +40,16 @@ import {
 } from '../data-room/utils/workspaceAnalysisContext'
 import type { FinancialAnalysisResponse } from '../market-watch/types'
 
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+
 export default function AdvisoryBlueprintPage() {
   const [blueprint, setBlueprint] = useState<AdvisoryBlueprintResponse | null>(null)
   const [riskScore, setRiskScore] = useState<UnifiedRiskScoreResult | null>(null)
   const [stressTests, setStressTests] = useState<StressTestingResponse | null>(null)
   const [facilityStructures, setFacilityStructures] = useState<FacilityStructuringResponse | null>(null)
+  const [hasSnapshotButNoRun, setHasSnapshotButNoRun] = useState(false)
+  const [isRunning, setIsRunning] = useState(false)
 
   const [loading, setLoading] = useState<boolean>(true)
   const [loadingStep, setLoadingStep] = useState<string>('Preparing advisory blueprint...')
@@ -50,31 +60,59 @@ export default function AdvisoryBlueprintPage() {
   const loadAllData = async () => {
     setLoading(true)
     setError(null)
+    setHasSnapshotButNoRun(false)
     try {
       setLoadingStep('Preparing advisory blueprint...')
       const bp = await getAdvisoryBlueprint()
-      setBlueprint(bp)
+      if (bp && (bp as any).status === 'insufficient_data') {
+        setBlueprint(bp)
+        setLoading(false)
+        return
+      }
 
-      setLoadingStep('Loading facility context...')
-      const rs = await getAdvisoryRiskScore().catch((e) => {
-        console.warn('Risk score load failed', e)
-        return null
-      })
-      setRiskScore(rs)
+      const workspaceId = localStorage.getItem('active_workspace_id')
+      if (workspaceId) {
+        const latestRun = await fetchLatestRunSafe(workspaceId, 'advisory_blueprint')
+        if (latestRun) {
+          const bpData = {
+            ...latestRun.results,
+            run_metadata: {
+              id: latestRun.id,
+              runId: latestRun.id,
+              snapshotId: latestRun.snapshotId,
+              status: latestRun.status,
+              runType: latestRun.runType,
+              createdAt: latestRun.createdAt,
+              logicVersion: latestRun.logicVersion,
+              warningsCount: latestRun.warnings?.length ?? 0
+            }
+          }
+          setBlueprint(bpData)
 
-      setLoadingStep('Checking stress scenarios...')
-      const [st, fs] = await Promise.all([
-        getAdvisoryStressTests().catch((e) => {
-          console.warn('Stress tests load failed', e)
-          return null
-        }),
-        getAdvisoryFacilityStructures().catch((e) => {
-          console.warn('Facility structures load failed', e)
-          return null
-        }),
-      ])
-      setStressTests(st)
-      setFacilityStructures(fs)
+          // Load other requirements for advisory dashboard in parallel
+          setLoadingStep('Loading risk profile...')
+          const rs = await getAdvisoryRiskScore().catch(() => null)
+          setRiskScore(rs)
+
+          setLoadingStep('Checking stress scenarios...')
+          const [st, fs] = await Promise.all([
+            getAdvisoryStressTests().catch(() => null),
+            getAdvisoryFacilityStructures().catch(() => null),
+          ])
+          setStressTests(st)
+          setFacilityStructures(fs)
+        } else {
+          // Snapshot exists, but no run yet
+          setHasSnapshotButNoRun(true)
+          setBlueprint(bp)
+        }
+      } else {
+        setBlueprint({
+          status: 'insufficient_data',
+          missingRequirements: ['Please select or create a workspace in the Data Room.'],
+          nextActions: ['Go to the Data Room']
+        } as any)
+      }
 
       const activeWorkspaceContext = loadWorkspaceAnalysisContext()
       if (activeWorkspaceContext) {
@@ -88,6 +126,21 @@ export default function AdvisoryBlueprintPage() {
       console.error('Failed to load advisory blueprint context', e)
       setError('Advisory blueprint is currently unavailable. Please check the backend connection.')
       setLoading(false)
+    }
+  }
+
+  const handleRunAnalysis = async () => {
+    const workspaceId = localStorage.getItem('active_workspace_id')
+    if (!workspaceId) return
+    setIsRunning(true)
+    try {
+      await triggerAnalysisRun(workspaceId, 'advisory_blueprint')
+      await loadAllData()
+    } catch (err: any) {
+      console.error('Failed to trigger advisory blueprint run:', err)
+      alert(`Failed to run advisory blueprint: ${err.message || err}`)
+    } finally {
+      setIsRunning(false)
     }
   }
 
@@ -174,6 +227,57 @@ export default function AdvisoryBlueprintPage() {
     )
   }
 
+  const isInsufficientData = blueprint && (blueprint as any).status === 'insufficient_data'
+
+  if (isInsufficientData) {
+    return (
+      <div className="space-y-8 pb-12">
+        <PageHeader
+          title="Advisory Blueprint"
+          subtitle="Context-only financing readiness brief based on demo financial analysis."
+        />
+        <WorkspaceInsufficientDataState
+          missingRequirements={(blueprint as any)?.missingRequirements}
+          nextActions={(blueprint as any)?.nextActions}
+        />
+      </div>
+    )
+  }
+
+  if (hasSnapshotButNoRun) {
+    return (
+      <div className="space-y-8 pb-12">
+        <PageHeader
+          title="Advisory Blueprint"
+          subtitle="Context-only financing readiness brief based on demo financial analysis."
+        />
+        <div className="flex flex-col items-center justify-center p-8 sm:p-12 bg-white/40 dark:bg-slate-900/40 border border-white/60 dark:border-slate-800/60 rounded-3xl backdrop-blur-md shadow-sm max-w-2xl mx-auto text-center space-y-6">
+          <div className="w-16 h-16 rounded-full bg-softform-teal-deep/10 dark:bg-softform-aqua-300/10 flex items-center justify-center text-softform-teal-deep dark:text-softform-aqua-300">
+            <Landmark size={28} />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Advisory Blueprint Analysis Needed</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+              An active workspace snapshot exists, but no advisory blueprint run has been triggered for this snapshot yet. Run the analysis to generate the final advisory brief.
+            </p>
+          </div>
+          <button
+            onClick={handleRunAnalysis}
+            disabled={isRunning}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 text-sm font-semibold rounded-full shadow-sm disabled:opacity-50 transition-colors"
+          >
+            {isRunning ? (
+              <Loader2 size={16} className="animate-spin text-softform-teal-deep dark:text-softform-aqua-300" />
+            ) : (
+              <Play size={16} fill="currentColor" className="ml-0.5" />
+            )}
+            <span>Run Advisory Blueprint Analysis</span>
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   if (error || !blueprint) {
     return (
       <div className="softform-card rounded-[32px] p-8 sm:p-10 text-center">
@@ -221,6 +325,24 @@ export default function AdvisoryBlueprintPage() {
           </StatusChip>
         }
       />
+
+      <div className="flex flex-wrap items-center gap-3">
+        <RunMetadataBadge metadata={blueprint?.run_metadata} />
+        {blueprint?.run_metadata && (
+          <button
+            onClick={handleRunAnalysis}
+            disabled={isRunning}
+            className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 text-xs font-semibold rounded-full shadow-sm transition-colors disabled:opacity-50"
+          >
+            {isRunning ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : (
+              <RefreshCw size={12} />
+            )}
+            <span>Rerun Analysis</span>
+          </button>
+        )}
+      </div>
 
       {workspaceAnalysisContext && (
         <div className="rounded-[22px] border border-softform-aqua-300/25 bg-softform-mist-100/45 px-5 py-4 shadow-soft-inner">

@@ -81,13 +81,16 @@ VITE_API_BASE_URL=http://127.0.0.1:8000
 
 ## Recommended demo flow
 
-1. Start backend and frontend.
-2. Open the platform Data Room.
-3. Upload or paste structured financial statement data.
-4. Activate the workspace preview context.
-5. Open Financial Health / preview analysis to verify ratios, projections, and valuation.
-6. Open Market Watch for macro, rates, funding, and cross-border context.
-7. Open Advisory Blueprint. The advisory pipeline will use the active Data Room preview when available.
+The project is fully packaged for an end-to-end product demonstration:
+* **Sample Data Pack**: Sourced under the [`demo_data/`](file:///d:/projects/finsight-cfo-v3/demo_data) folder. It contains realistic CSV templates for **Novus Retail Solutions Ltd** (P&L, Balance Sheet, Cash Flow, Debt Schedule, Receivables Aging).
+* **Single-Click Setup**: If the application is in development/demo mode, click the **"Initialize Sample Workspace"** button in the Data Room to instantly create, upload, and run all core analysis pipelines.
+* **Traceable Report PDF Export**: Navigate to the Reports page to view and export (Print/Save PDF) the fully compiled audit brief.
+* **AI CFO Consultation**: Ask questions of the assistant with live active workspace context badges.
+
+Please refer to the comprehensive [DEMO.md](file:///d:/projects/finsight-cfo-v3/DEMO.md) for the step-by-step walkthrough script and demo guidelines.
+
+> [!WARNING]
+> **Safety Guard**: The sample workspace reset helper (`POST /api/workspaces/reset-sample`) is a development/demo utility. It is strictly disabled in production (`APP_MODE=production` or `ALLOW_DEMO_FALLBACK=false`), returning `HTTP 403 Forbidden` for security.
 
 ## Finance guardrails for future development
 

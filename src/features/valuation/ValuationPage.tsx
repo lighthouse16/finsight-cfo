@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
-import { Calculator, TrendingUp, BarChart3 } from 'lucide-react'
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useEffect, useState, useMemo } from 'react'
+import { Calculator, TrendingUp, BarChart3, Loader2, RefreshCw, Play } from 'lucide-react'
 import PageHeader from '../../components/platform/PageHeader'
 import StatusChip from '../../components/platform/StatusChip'
 import SectionBlock from '../../components/platform/SectionBlock'
@@ -9,8 +10,12 @@ import NavyHeroSection from '../../components/platform/NavyHeroSection'
 import PageLoadingSkeleton from '../../components/platform/PageLoadingSkeleton'
 import WorkflowFooter from '../../components/platform/WorkflowFooter'
 import { getFinancialHealthAnalysis } from '../financial-health/financialHealthApi'
-import type { FinancialAnalysisResponse, ValuationOutput } from '../market-watch/types'
+import type { ValuationOutput } from '../market-watch/types'
 import { formatHKD, formatPercent, formatMultiple, bandVariant } from '../../lib/formatters'
+import RunMetadataBadge from '../../components/platform/RunMetadataBadge'
+import { fetchLatestRunSafe, triggerAnalysisRun } from '../../lib/workspaceRunHelpers'
+
+import WorkspaceInsufficientDataState from '../../components/platform/WorkspaceInsufficientDataState'
 
 function assumptionNumber(valuation: ValuationOutput, key: string) {
   const value = valuation.assumptions?.[key]
@@ -18,16 +23,55 @@ function assumptionNumber(valuation: ValuationOutput, key: string) {
 }
 
 export default function ValuationPage() {
-  const [analysis, setAnalysis] = useState<FinancialAnalysisResponse | null>(null)
+  const [analysis, setAnalysis] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [hasSnapshotButNoRun, setHasSnapshotButNoRun] = useState(false)
+  const [isRunning, setIsRunning] = useState(false)
 
   const loadValuation = async () => {
     setLoading(true)
     setError(null)
+    setHasSnapshotButNoRun(false)
     try {
-      const data = await getFinancialHealthAnalysis()
-      setAnalysis(data)
+      // 1. Check legacy/direct analysis status first
+      const legacyData = await getFinancialHealthAnalysis()
+      if (legacyData && legacyData.status === 'insufficient_data') {
+        setAnalysis(legacyData)
+        return
+      }
+
+      // 2. Check for latest valuation run
+      const workspaceId = localStorage.getItem('active_workspace_id')
+      if (workspaceId) {
+        const latestRun = await fetchLatestRunSafe(workspaceId, 'valuation')
+        if (latestRun) {
+          const analysisData = {
+            ...latestRun.results,
+            run_metadata: {
+              id: latestRun.id,
+              runId: latestRun.id,
+              snapshotId: latestRun.snapshotId,
+              status: latestRun.status,
+              runType: latestRun.runType,
+              createdAt: latestRun.createdAt,
+              logicVersion: latestRun.logicVersion,
+              warningsCount: latestRun.warnings?.length ?? 0
+            }
+          }
+          setAnalysis(analysisData)
+        } else {
+          // Snapshot exists, but no run yet
+          setHasSnapshotButNoRun(true)
+          setAnalysis(legacyData)
+        }
+      } else {
+        setAnalysis({
+          status: 'insufficient_data',
+          missingRequirements: ['Please select or create a workspace in the Data Room.'],
+          nextActions: ['Go to the Data Room']
+        })
+      }
     } catch (e) {
       console.error('Valuation load failed', e)
       setError('Valuation is currently unavailable. Please check the backend connection.')
@@ -36,12 +80,80 @@ export default function ValuationPage() {
     }
   }
 
+  const handleRunAnalysis = async () => {
+    const workspaceId = localStorage.getItem('active_workspace_id')
+    if (!workspaceId) return
+    setIsRunning(true)
+    try {
+      await triggerAnalysisRun(workspaceId, 'valuation')
+      await loadValuation()
+    } catch (err: any) {
+      console.error('Failed to trigger valuation run:', err)
+      alert(`Failed to run valuation: ${err.message || err}`)
+    } finally {
+      setIsRunning(false)
+    }
+  }
+
   useEffect(() => {
     loadValuation()
   }, [])
 
+  const isInsufficientData = useMemo(() => {
+    return analysis && analysis.status === 'insufficient_data'
+  }, [analysis])
+
   if (loading) {
     return <PageLoadingSkeleton layout="valuation" metricCount={4} sectionCount={2} />
+  }
+
+  if (isInsufficientData) {
+    return (
+      <div className="space-y-8 pb-12">
+        <PageHeader
+          title="Valuation"
+          subtitle="Indicative WACC and DCF valuation view built from the active financial analysis snapshot."
+        />
+        <WorkspaceInsufficientDataState
+          missingRequirements={analysis?.missingRequirements}
+          nextActions={analysis?.nextActions}
+        />
+      </div>
+    )
+  }
+
+  if (hasSnapshotButNoRun) {
+    return (
+      <div className="space-y-8 pb-12">
+        <PageHeader
+          title="Valuation"
+          subtitle="Indicative WACC and DCF valuation view built from the active financial analysis snapshot."
+        />
+        <div className="flex flex-col items-center justify-center p-8 sm:p-12 bg-white/40 dark:bg-slate-900/40 border border-white/60 dark:border-slate-800/60 rounded-3xl backdrop-blur-md shadow-sm max-w-2xl mx-auto text-center space-y-6">
+          <div className="w-16 h-16 rounded-full bg-softform-teal-deep/10 dark:bg-softform-aqua-300/10 flex items-center justify-center text-softform-teal-deep dark:text-softform-aqua-300">
+            <Calculator size={28} />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Valuation Analysis Needed</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+              An active workspace snapshot exists, but no valuation analysis run has been triggered for this snapshot yet. Run the analysis to generate models.
+            </p>
+          </div>
+          <button
+            onClick={handleRunAnalysis}
+            disabled={isRunning}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 text-sm font-semibold rounded-full shadow-sm disabled:opacity-50 transition-colors"
+          >
+            {isRunning ? (
+              <Loader2 size={16} className="animate-spin text-softform-teal-deep dark:text-softform-aqua-300" />
+            ) : (
+              <Play size={16} fill="currentColor" className="ml-0.5" />
+            )}
+            <span>Run Valuation Analysis</span>
+          </button>
+        </div>
+      </div>
+    )
   }
 
   if (error || !analysis) {
@@ -80,6 +192,24 @@ export default function ValuationPage() {
           </StatusChip>
         }
       />
+
+      <div className="flex flex-wrap items-center gap-3">
+        <RunMetadataBadge metadata={analysis?.run_metadata} />
+        {analysis?.run_metadata && (
+          <button
+            onClick={handleRunAnalysis}
+            disabled={isRunning}
+            className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 text-xs font-semibold rounded-full shadow-sm transition-colors disabled:opacity-50"
+          >
+            {isRunning ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : (
+              <RefreshCw size={12} />
+            )}
+            <span>Rerun Analysis</span>
+          </button>
+        )}
+      </div>
 
       {/* Business Valuation Hero Section in Premium Navy Contrast Card */}
       <NavyHeroSection
@@ -198,7 +328,7 @@ export default function ValuationPage() {
           className="rounded-[32px] p-6 sm:p-8 space-y-6"
         >
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-            {valuationYears.slice(0, 5).map((year) => (
+            {valuationYears.slice(0, 5).map((year: any) => (
               <div key={year.year} className="rounded-[20px] border border-white/60 bg-white/45 p-4 shadow-sm hover-lift flex flex-col justify-between min-h-[120px]">
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-softform-teal-deep">Year {year.year}</p>
@@ -224,7 +354,7 @@ export default function ValuationPage() {
             className="rounded-[28px] p-6 sm:p-8 space-y-5"
           >
             <div className="space-y-3">
-              {sensitivity.slice(0, 5).map((point, idx) => (
+              {sensitivity.slice(0, 5).map((point: any, idx: number) => (
                 <div key={`${point.wacc}-${point.terminalGrowthRate}-${idx}`} className="grid grid-cols-3 gap-2 rounded-xl border border-white/60 bg-white/45 px-4 py-3 text-xs items-center">
                   <span className="font-semibold text-softform-text-secondary">{formatPercent(point.wacc)}</span>
                   <span className="font-semibold text-softform-text-secondary text-center">g {formatPercent(point.terminalGrowthRate)}</span>
@@ -243,7 +373,7 @@ export default function ValuationPage() {
             className="rounded-[28px] p-6 sm:p-8 space-y-5"
           >
             <div className="space-y-3">
-              {sanityChecks.slice(0, 5).map((check) => (
+              {sanityChecks.slice(0, 5).map((check: any) => (
                 <div key={check.name} className="rounded-xl border border-white/60 bg-white/45 px-4 py-3 text-sm flex gap-3 items-start justify-between">
                   <div className="space-y-1">
                     <p className="font-semibold text-softform-navy-950">{check.name}</p>
@@ -265,7 +395,7 @@ export default function ValuationPage() {
           <div className="flex items-start gap-3">
             <div className="space-y-2">
               <p className="text-sm font-semibold text-softform-navy-950">Model Warnings</p>
-              {modelWarnings.slice(0, 5).map((warning, idx) => (
+              {modelWarnings.slice(0, 5).map((warning: any, idx: number) => (
                 <p key={idx} className="text-xs leading-relaxed text-softform-text-secondary">{warning}</p>
               ))}
             </div>

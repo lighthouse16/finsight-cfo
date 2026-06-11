@@ -32,6 +32,7 @@ EXPECTED_FIELDS: dict[str, set[str]] = {
         "depreciation_amortization",
         "ebitda",
         "interest_expense",
+        "ebt",
         "taxes",
         "net_income",
     },

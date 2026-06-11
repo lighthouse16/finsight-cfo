@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
-import { Landmark, ShieldCheck, TrendingUp } from 'lucide-react'
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useEffect, useState, useMemo } from 'react'
+import { Landmark, ShieldCheck, TrendingUp, Loader2, RefreshCw, Play } from 'lucide-react'
 import PageHeader from '../../components/platform/PageHeader'
 import StatusChip from '../../components/platform/StatusChip'
 import SectionBlock from '../../components/platform/SectionBlock'
@@ -10,10 +11,14 @@ import WorkflowFooter from '../../components/platform/WorkflowFooter'
 import { getCreditScore, getAdvisoryFacilityStructures } from '../advisory-blueprint/api/advisoryBlueprintApi'
 import { getCrossBorderFundingContext, getFundingChannelRanking } from '../market-watch/api/marketWatchApi'
 import { createAndFetchMockCdiData } from '../cdi/cdiApi'
-import type { CreditScoringResult, FacilityStructuringResponse } from '../advisory-blueprint/types'
+import type { FacilityStructuringResponse } from '../advisory-blueprint/types'
 import type { CrossBorderFundingContextResponse, FundingChannelItem, FundingChannelRankingResponse } from '../market-watch/types'
 import type { CdiConsentSession, CdiMockDataResponse } from '../cdi/cdiApi'
 import { formatHKD, formatPercent, formatBand, bandVariant } from '../../lib/formatters'
+import RunMetadataBadge from '../../components/platform/RunMetadataBadge'
+import { fetchLatestRunSafe, triggerAnalysisRun } from '../../lib/workspaceRunHelpers'
+
+import WorkspaceInsufficientDataState from '../../components/platform/WorkspaceInsufficientDataState'
 
 function fitTone(value?: string) {
   if (value === 'strong_fit' || value === 'strong' || value === 'clear') return 'bg-emerald-500/10 text-emerald-700'
@@ -22,7 +27,7 @@ function fitTone(value?: string) {
 }
 
 export default function FundingStrategyPage() {
-  const [creditScore, setCreditScore] = useState<CreditScoringResult | null>(null)
+  const [creditScore, setCreditScore] = useState<any>(null)
   const [ranking, setRanking] = useState<FundingChannelRankingResponse | null>(null)
   const [crossBorder, setCrossBorder] = useState<CrossBorderFundingContextResponse | null>(null)
   const [facilities, setFacilities] = useState<FacilityStructuringResponse | null>(null)
@@ -30,44 +35,78 @@ export default function FundingStrategyPage() {
   const [cdiData, setCdiData] = useState<CdiMockDataResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [hasSnapshotButNoRun, setHasSnapshotButNoRun] = useState(false)
+  const [isRunning, setIsRunning] = useState(false)
 
   const loadStrategy = async () => {
     setLoading(true)
     setError(null)
+    setHasSnapshotButNoRun(false)
     try {
-      const [score, channelRanking, crossBorderContext, facilityContext] = await Promise.all([
-        getCreditScore().catch((e) => {
-          console.warn('Credit score unavailable for funding strategy', e)
-          return null
-        }),
-        getFundingChannelRanking().catch((e) => {
-          console.warn('Funding ranking unavailable', e)
-          return null
-        }),
-        getCrossBorderFundingContext().catch((e) => {
-          console.warn('Cross-border context unavailable', e)
-          return null
-        }),
-        getAdvisoryFacilityStructures().catch((e) => {
-          console.warn('Facility structures unavailable', e)
-          return null
-        }),
-      ])
+      // 1. Check legacy/direct funding channels to determine if we have insufficient data
+      const legacyScore = await getCreditScore().catch(() => null)
+      const legacyRanking = await getFundingChannelRanking().catch(() => null)
+      
+      if (
+        (legacyScore && (legacyScore as any).status === 'insufficient_data') ||
+        (legacyRanking && (legacyRanking as any).status === 'insufficient_data')
+      ) {
+        setCreditScore(legacyScore || { status: 'insufficient_data' })
+        return
+      }
 
-      const cdiContext = await createAndFetchMockCdiData({
-        companyId: score?.companyId ?? 'demo-company',
-        companyName: score?.companyName ?? 'Demo Trading Limited',
-      }).catch((e) => {
-        console.warn('Mock CDI context unavailable', e)
-        return null
-      })
+      // 2. We have workspace and snapshot! Now check for latest run of type funding_strategy
+      const workspaceId = localStorage.getItem('active_workspace_id')
+      if (workspaceId) {
+        const latestRun = await fetchLatestRunSafe(workspaceId, 'funding_strategy')
+        if (latestRun) {
+          const runRanking = {
+            ...latestRun.results,
+            run_metadata: {
+              id: latestRun.id,
+              runId: latestRun.id,
+              snapshotId: latestRun.snapshotId,
+              status: latestRun.status,
+              runType: latestRun.runType,
+              createdAt: latestRun.createdAt,
+              logicVersion: latestRun.logicVersion,
+              warningsCount: latestRun.warnings?.length ?? 0
+            }
+          }
+          
+          // Load other requirements for strategy dashboard in parallel
+          const [crossBorderContext, facilityContext, scoreData] = await Promise.all([
+            getCrossBorderFundingContext().catch(() => null),
+            getAdvisoryFacilityStructures().catch(() => null),
+            getCreditScore().catch(() => null),
+          ])
 
-      setCreditScore(score)
-      setRanking(channelRanking)
-      setCrossBorder(crossBorderContext)
-      setFacilities(facilityContext)
-      setCdiConsent(cdiContext?.consent ?? null)
-      setCdiData(cdiContext?.data ?? null)
+          if (scoreData) {
+            const cdiContext = await createAndFetchMockCdiData({
+              companyId: scoreData?.companyId ?? 'demo-company',
+              companyName: scoreData?.companyName ?? 'Demo Trading Limited',
+            }).catch(() => null)
+            setCdiConsent(cdiContext?.consent ?? null)
+            setCdiData(cdiContext?.data ?? null)
+          }
+
+          setRanking(runRanking)
+          setCreditScore(scoreData)
+          setCrossBorder(crossBorderContext)
+          setFacilities(facilityContext)
+        } else {
+          // Snapshot exists, but no run yet
+          setHasSnapshotButNoRun(true)
+          setCreditScore(legacyScore)
+          setRanking(legacyRanking)
+        }
+      } else {
+        setCreditScore({
+          status: 'insufficient_data',
+          missingRequirements: ['Please select or create a workspace in the Data Room.'],
+          nextActions: ['Go to the Data Room']
+        })
+      }
     } catch (e) {
       console.error('Funding strategy load failed', e)
       setError('Funding Strategy is currently unavailable. Please check the backend connection.')
@@ -76,12 +115,80 @@ export default function FundingStrategyPage() {
     }
   }
 
+  const handleRunAnalysis = async () => {
+    const workspaceId = localStorage.getItem('active_workspace_id')
+    if (!workspaceId) return
+    setIsRunning(true)
+    try {
+      await triggerAnalysisRun(workspaceId, 'funding_strategy')
+      await loadStrategy()
+    } catch (err: any) {
+      console.error('Failed to trigger funding strategy run:', err)
+      alert(`Failed to run funding strategy: ${err.message || err}`)
+    } finally {
+      setIsRunning(false)
+    }
+  }
+
   useEffect(() => {
     loadStrategy()
   }, [])
 
+  const isInsufficientData = useMemo(() => {
+    return creditScore && creditScore.status === 'insufficient_data'
+  }, [creditScore])
+
   if (loading) {
     return <PageLoadingSkeleton layout="funding" />
+  }
+
+  if (isInsufficientData) {
+    return (
+      <div className="space-y-8 pb-12">
+        <PageHeader
+          title="Funding Strategy"
+          subtitle="Compare channel fit, facility structures, rate context, consent-based CDI signals, and cross-border considerations from the finance workflow."
+        />
+        <WorkspaceInsufficientDataState
+          missingRequirements={creditScore?.missingRequirements}
+          nextActions={creditScore?.nextActions}
+        />
+      </div>
+    )
+  }
+
+  if (hasSnapshotButNoRun) {
+    return (
+      <div className="space-y-8 pb-12">
+        <PageHeader
+          title="Funding Strategy"
+          subtitle="Compare channel fit, facility structures, rate context, consent-based CDI signals, and cross-border considerations from the finance workflow."
+        />
+        <div className="flex flex-col items-center justify-center p-8 sm:p-12 bg-white/40 dark:bg-slate-900/40 border border-white/60 dark:border-slate-800/60 rounded-3xl backdrop-blur-md shadow-sm max-w-2xl mx-auto text-center space-y-6">
+          <div className="w-16 h-16 rounded-full bg-softform-teal-deep/10 dark:bg-softform-aqua-300/10 flex items-center justify-center text-softform-teal-deep dark:text-softform-aqua-300">
+            <Landmark size={28} />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Funding Strategy Analysis Needed</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+              An active workspace snapshot exists, but no funding strategy analysis run has been triggered for this snapshot yet. Run the analysis to generate ranking.
+            </p>
+          </div>
+          <button
+            onClick={handleRunAnalysis}
+            disabled={isRunning}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 text-sm font-semibold rounded-full shadow-sm disabled:opacity-50 transition-colors"
+          >
+            {isRunning ? (
+              <Loader2 size={16} className="animate-spin text-softform-teal-deep dark:text-softform-aqua-300" />
+            ) : (
+              <Play size={16} fill="currentColor" className="ml-0.5" />
+            )}
+            <span>Run Funding Strategy Analysis</span>
+          </button>
+        </div>
+      </div>
+    )
   }
 
   if (error) {
@@ -107,6 +214,24 @@ export default function FundingStrategyPage() {
           </StatusChip>
         }
       />
+
+      <div className="flex flex-wrap items-center gap-3">
+        <RunMetadataBadge metadata={ranking?.run_metadata} />
+        {ranking?.run_metadata && (
+          <button
+            onClick={handleRunAnalysis}
+            disabled={isRunning}
+            className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 text-xs font-semibold rounded-full shadow-sm transition-colors disabled:opacity-50"
+          >
+            {isRunning ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : (
+              <RefreshCw size={12} />
+            )}
+            <span>Rerun Analysis</span>
+          </button>
+        )}
+      </div>
 
       {/* Cockpit Strategy Bridge Hero Section in Premium Navy Contrast Card */}
       <NavyHeroSection

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export type BlueprintReadinessStatus =
   | 'ready_context'
   | 'watch_context'
@@ -43,6 +44,7 @@ export interface AdvisoryBlueprintResponse {
   sourceOutputs: string[]
   disclaimer: string
   warnings: string[]
+  run_metadata?: any
 }
 
 export type HardGateStatus = 'pass' | 'watch' | 'fail' | 'unavailable'

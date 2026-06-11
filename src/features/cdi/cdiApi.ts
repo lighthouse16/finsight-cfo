@@ -48,7 +48,7 @@ export type CdiMockDataResponse = {
   disclaimer: string
 }
 
-import { API_BASE_URL } from '../../lib/apiBase'
+import { API_BASE_URL, getWorkspaceHeaders } from '../../lib/apiBase'
 
 
 export async function createMockCdiConsent(params: {
@@ -58,7 +58,7 @@ export async function createMockCdiConsent(params: {
 }): Promise<CdiConsentSession> {
   const response = await fetch(`${API_BASE_URL}/api/cdi/mock-consent`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getWorkspaceHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({
       companyId: params.companyId,
       companyName: params.companyName,
@@ -80,6 +80,7 @@ export async function createMockCdiConsent(params: {
 
 export async function getMockCdiData(consentId: string): Promise<CdiMockDataResponse> {
   const response = await fetch(`${API_BASE_URL}/api/cdi/mock-data/${consentId}`, {
+    headers: getWorkspaceHeaders(),
     signal: AbortSignal.timeout(8000),
   })
 
@@ -89,6 +90,7 @@ export async function getMockCdiData(consentId: string): Promise<CdiMockDataResp
 
   return response.json()
 }
+
 
 export async function createAndFetchMockCdiData(params: {
   companyId: string

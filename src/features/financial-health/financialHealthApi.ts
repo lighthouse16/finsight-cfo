@@ -1,11 +1,11 @@
-import type { FinancialAnalysisResponse } from '../market-watch/types'
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { API_BASE_URL, getWorkspaceHeaders, handleApiResponse } from '../../lib/apiBase'
 
-import { API_BASE_URL } from '../../lib/apiBase'
 
-
-export async function getFinancialHealthAnalysis(): Promise<FinancialAnalysisResponse> {
+export async function getFinancialHealthAnalysis(): Promise<any> {
   try {
     const previewRes = await fetch(`${API_BASE_URL}/api/financials/preview-analysis`, {
+      headers: getWorkspaceHeaders(),
       signal: AbortSignal.timeout(5000),
     })
 
@@ -13,20 +13,18 @@ export async function getFinancialHealthAnalysis(): Promise<FinancialAnalysisRes
       return previewRes.json()
     }
 
-    if (previewRes.status !== 404) {
-      console.warn(`Preview financial analysis returned ${previewRes.status}; falling back to demo analysis.`)
+    if (previewRes.status === 422) {
+      return handleApiResponse(previewRes)
     }
   } catch (error) {
-    console.warn('Preview financial analysis unavailable; falling back to demo analysis.', error)
+    console.warn('Preview financial analysis unavailable; trying persistent snapshot.', error)
   }
 
   const demoRes = await fetch(`${API_BASE_URL}/api/financials/demo-analysis`, {
+    headers: getWorkspaceHeaders(),
     signal: AbortSignal.timeout(8000),
   })
 
-  if (!demoRes.ok) {
-    throw new Error(`Financial analysis API returned status ${demoRes.status}`)
-  }
-
-  return demoRes.json()
+  return handleApiResponse(demoRes)
 }
+
