@@ -70,8 +70,9 @@ To minimize risk, route wiring will proceed in sequential, isolated PRs:
 2. **File Metadata Service Integration** [COMPLETED]: Wired `FileMetadataRepository` into `routes/workspaces.py` file endpoints to handle document metadata registrations and file listings.
 3. **Analysis Run Service Integration** [COMPLETED]: Wired `AnalysisRunRepository` into advisory analysis handlers.
 4. **Reports Integration** [COMPLETED]: Wired `ReportRepository` into workspaces report endpoints to handle corporate report metadata/payload lifecycle.
-5. **Audit Events Integration**: Redirect audit trail operations to `AuditEventRepository`.
-6. **Jobs / Background Processing Integration**: Introduce database-backed async processing task tracking.
+5. **Runtime Integration Health Check** [COMPLETED]: Added smoke tests verifying the combined route chain (workspace -> file -> run -> report) and guarding local mode against DB engine side-effects.
+6. **Audit Events Integration**: Redirect audit trail operations to `AuditEventRepository`.
+7. **Jobs / Background Processing Integration**: Introduce database-backed async processing task tracking.
 
 ## 8. Feature Flag Strategy
 

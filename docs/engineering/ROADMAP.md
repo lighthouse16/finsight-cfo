@@ -48,6 +48,8 @@ This document outlines the high-level roadmap for transitioning FinSight CFO fro
     - Route file metadata requests through persistence repository factory with backward-compatible local mode default.
 16. **Other Route Database Integrations** (Analysis Runs: [COMPLETED], Reports: [COMPLETED], etc.: [PLANNED])
     - Sequentially integrate analysis runs and reports endpoints with database persistence.
+17. **Runtime Integration Health Check** [COMPLETED]
+    - Add health check validation and guardrails suite checking all active persistence routes.
 
 ---
 
