@@ -158,4 +158,11 @@ This document records key architectural and design decisions for FinSight CFO.
 - **Decision**: Extract workspace report saving, list fetching, status patching, and soft deleting logic from `routes/workspaces.py` into `backend/app/services/report_service.py`. Enforce error routing using standard HTTPException raises in the service.
 - **Consequences**: Successfully decouples workspace reports CRUD logic, simplifies workspaces route handlers down to single-line service calls, and retains full local/database mode test compatibility.
 
+## ADR-025: Extract file metadata orchestration into file metadata service
+- **Status**: Approved
+- **Context**: Phase 3 of the workspace route service extraction plan involves isolating file upload, list, delete, and cascade cleanup logic from the router layer into a dedicated service module.
+- **Decision**: Extract file upload (both database and local mode paths), file list querying, file deletion, raw bytes retrieval, and workspace cascade deletion logic from `routes/workspaces.py` into `backend/app/services/file_metadata_service.py`. The service interacts with repositories and legacy store APIs while avoiding FastAPI-specific routers or raw DB sessions.
+- **Consequences**: Successfully isolates all file-related metadata management and disk storage interactions, keeps the HTTP routing layer thin, and preserves existing persistence adapter configurations and storage behaviors.
+
+
 

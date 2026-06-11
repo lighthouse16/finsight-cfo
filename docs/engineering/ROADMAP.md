@@ -56,6 +56,9 @@ This document outlines the high-level roadmap for transitioning FinSight CFO fro
     - Extract best-effort audit event logging helper from workspaces router into a dedicated audit service.
 20. **Extract Report Service (Phase 2)** [COMPLETED]
     - Extract report CRUD orchestration logic from workspaces router into a dedicated report service.
+21. **Extract File Metadata Service (Phase 3)** [COMPLETED]
+    - Extract file metadata orchestration logic from workspaces router into a dedicated file metadata service.
+
 
 ---
 
