@@ -16,8 +16,8 @@ from app.persistence.local_adapters import (
     LocalJobRepository,
     LocalReportRepository,
 )
-from app.persistence.database_adapters import DatabaseWorkspaceRepository, DatabaseFileMetadataRepository
-from app.persistence.factory import get_workspace_repository, get_file_metadata_repository, get_persistence_backend_name
+from app.persistence.database_adapters import DatabaseWorkspaceRepository, DatabaseFileMetadataRepository, DatabaseAnalysisRunRepository
+from app.persistence.factory import get_workspace_repository, get_file_metadata_repository, get_analysis_run_repository, get_persistence_backend_name
 from app.persistence.errors import PersistenceConfigurationError, PersistenceAdapterNotImplementedError
 
 __all__ = [
@@ -40,9 +40,11 @@ __all__ = [
     # Database adapters
     "DatabaseWorkspaceRepository",
     "DatabaseFileMetadataRepository",
+    "DatabaseAnalysisRunRepository",
     # Factory & helpers
     "get_workspace_repository",
     "get_file_metadata_repository",
+    "get_analysis_run_repository",
     "get_persistence_backend_name",
     # Exceptions
     "PersistenceConfigurationError",

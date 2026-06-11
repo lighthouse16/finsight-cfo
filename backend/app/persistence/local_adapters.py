@@ -1,3 +1,5 @@
+import uuid
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from app.models.workspace import CompanyWorkspace, FinancialSnapshot, AnalysisRun, AuditEvent
 from app.storage.workspace_store import WorkspaceStore
@@ -55,18 +57,81 @@ class LocalFinancialSnapshotRepository(FinancialSnapshotRepository):
         return [active] if active else []
 
 class LocalAnalysisRunRepository(AnalysisRunRepository):
-    def save_run(self, run: Any) -> Any:
-        return WorkspaceStore.save_analysis_run(run)
+    def save_run(
+        self,
+        workspace_id: str,
+        run_type: str,
+        status: str,
+        input_payload: Optional[Dict[str, Any]] = None,
+        output_payload: Optional[Dict[str, Any]] = None,
+        summary: Optional[Dict[str, Any]] = None,
+        error_message: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        run_id = f"run_{uuid.uuid4().hex[:12]}"
+        snapshot_id = (metadata or {}).get("snapshot_id", "") or (input_payload or {}).get("snapshot_id", "")
+        warnings = (summary or {}).get("warnings", [])
+        errors = (summary or {}).get("errors", [])
+        if error_message and error_message not in errors:
+            errors = list(errors) + [error_message]
 
-    def get_run(self, run_id: str) -> Optional[AnalysisRun]:
-        return WorkspaceStore.get_run(run_id)
+        dto = AnalysisRun(
+            id=run_id,
+            workspaceId=workspace_id,
+            snapshotId=snapshot_id,
+            runType=run_type,
+            status=status,
+            inputs=input_payload or {},
+            results=output_payload or {},
+            warnings=warnings,
+            errors=errors,
+            sourceTrace=(metadata or {}).get("source_trace", {}),
+            logicVersion=(metadata or {}).get("logic_version", "v1"),
+            createdAt=datetime.now(timezone.utc).isoformat(),
+            completedAt=datetime.now(timezone.utc).isoformat() if status in ("completed", "failed", "cancelled") else None,
+            durationMs=None
+        )
+        saved = WorkspaceStore.save_analysis_run(dto)
+        return saved.model_dump(by_alias=True)
 
-    def list_runs(self, workspace_id: str) -> List[AnalysisRun]:
-        return WorkspaceStore.list_runs(workspace_id)
+    def get_run(self, run_id: str) -> Optional[Dict[str, Any]]:
+        dto = WorkspaceStore.get_run(run_id)
+        return dto.model_dump(by_alias=True) if dto else None
 
-    def list_recent_runs(self, workspace_id: str, limit: int = 20) -> List[AnalysisRun]:
-        runs = self.list_runs(workspace_id)
-        return runs[:limit]
+    def list_runs(self, workspace_id: str) -> List[Dict[str, Any]]:
+        dtos = WorkspaceStore.list_runs(workspace_id)
+        return [d.model_dump(by_alias=True) for d in dtos]
+
+    def list_recent_runs(self, workspace_id: str, limit: int = 20) -> List[Dict[str, Any]]:
+        dtos = WorkspaceStore.list_runs(workspace_id)
+        return [d.model_dump(by_alias=True) for d in dtos[:limit]]
+
+    def update_run_status(
+        self,
+        run_id: str,
+        status: str,
+        output_payload: Optional[Dict[str, Any]] = None,
+        summary: Optional[Dict[str, Any]] = None,
+        error_message: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        dto = WorkspaceStore.get_run(run_id)
+        if not dto:
+            raise ValueError(f"Run {run_id} not found")
+
+        dto.status = status
+        if output_payload is not None:
+            dto.results = output_payload
+        if summary is not None:
+            dto.warnings = summary.get("warnings", dto.warnings)
+            dto.errors = summary.get("errors", dto.errors)
+        if error_message:
+            if error_message not in dto.errors:
+                dto.errors = list(dto.errors) + [error_message]
+        if status in ("completed", "failed", "cancelled"):
+            dto.completed_at = datetime.now(timezone.utc).isoformat()
+
+        saved = WorkspaceStore.save_analysis_run(dto)
+        return saved.model_dump(by_alias=True)
 
 class LocalAuditEventRepository(AuditEventRepository):
     def append_event(self, workspace_id: str, event_type: str, description: str) -> AuditEvent:

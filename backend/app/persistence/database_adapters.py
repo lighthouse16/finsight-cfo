@@ -2,9 +2,9 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
-from app.db.models import Workspace, Organization, WorkspaceFile, WorkspaceFileVersion
+from app.db.models import Workspace, Organization, WorkspaceFile, WorkspaceFileVersion, AnalysisRun as DbAnalysisRun
 from app.models.workspace import CompanyWorkspace
-from app.persistence.interfaces import WorkspaceRepository, FileMetadataRepository
+from app.persistence.interfaces import WorkspaceRepository, FileMetadataRepository, AnalysisRunRepository
 from app.persistence.errors import PersistenceConfigurationError
 
 class DatabaseWorkspaceRepository(WorkspaceRepository):
@@ -384,3 +384,149 @@ class DatabaseFileMetadataRepository(FileMetadataRepository):
             "versionNumber": new_version.version_number,
             "createdAt": new_version.created_at.isoformat() if new_version.created_at else None,
         }
+
+
+class DatabaseAnalysisRunRepository(AnalysisRunRepository):
+    """
+    SQLAlchemy-backed implementation of the AnalysisRunRepository.
+    Enforcement of tenant isolation and authorization is deferred to future auth/RBAC tasks.
+    """
+    def __init__(self, db_session: Session) -> None:
+        self.session = db_session
+
+    def _to_dict(self, run: DbAnalysisRun) -> Dict[str, Any]:
+        return {
+            "id": run.id,
+            "workspaceId": run.workspace_id,
+            "snapshotId": run.snapshot_version_id or "",
+            "runType": run.run_type,
+            "status": run.status,
+            "inputs": run.input_payload or {},
+            "results": run.output_payload or {},
+            "warnings": (run.summary or {}).get("warnings", []),
+            "errors": (run.summary or {}).get("errors", []),
+            "sourceTrace": (run.run_metadata or {}).get("source_trace", {}),
+            "logicVersion": (run.run_metadata or {}).get("logic_version", "v1"),
+            "createdAt": run.created_at.isoformat() if run.created_at else None,
+            "completedAt": run.completed_at.isoformat() if run.completed_at else None,
+            "durationMs": run.duration_ms
+        }
+
+    def save_run(
+        self,
+        workspace_id: str,
+        run_type: str,
+        status: str,
+        input_payload: Optional[Dict[str, Any]] = None,
+        output_payload: Optional[Dict[str, Any]] = None,
+        summary: Optional[Dict[str, Any]] = None,
+        error_message: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Save/register a new analysis run execution result.
+        Raises PersistenceConfigurationError if target workspace does not exist.
+        """
+        workspace = self.session.query(Workspace).filter_by(id=workspace_id).first()
+        if not workspace:
+            raise PersistenceConfigurationError(f"Workspace '{workspace_id}' does not exist.")
+            
+        org_id = workspace.organization_id
+        run_id = f"run_{workspace_id}_{uuid.uuid4().hex[:8]}"
+        snapshot_id = (metadata or {}).get("snapshot_id", "") or (input_payload or {}).get("snapshot_id", "")
+        
+        completed_at = None
+        if status in ("completed", "failed", "cancelled"):
+            completed_at = datetime.now(timezone.utc)
+            
+        run = DbAnalysisRun(
+            id=run_id,
+            workspace_id=workspace_id,
+            organization_id=org_id,
+            run_type=run_type,
+            status=status,
+            snapshot_version_id=snapshot_id or None,
+            duration_ms=(metadata or {}).get("duration_ms"),
+            error_message=error_message,
+            input_payload=input_payload or {},
+            output_payload=output_payload or {},
+            summary=summary or {},
+            run_metadata=metadata or {},
+            started_at=datetime.now(timezone.utc),
+            completed_at=completed_at
+        )
+        self.session.add(run)
+        self.session.commit()
+        return self._to_dict(run)
+
+    def get_run(self, run_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get an analysis run by ID.
+        """
+        run = self.session.query(DbAnalysisRun).filter_by(id=run_id).first()
+        if not run:
+            return None
+        return self._to_dict(run)
+
+    def list_runs(self, workspace_id: str) -> List[Dict[str, Any]]:
+        """
+        List all analysis runs for a workspace, sorted newest first.
+        """
+        runs = (
+            self.session.query(DbAnalysisRun)
+            .filter_by(workspace_id=workspace_id)
+            .order_by(DbAnalysisRun.created_at.desc())
+            .all()
+        )
+        return [self._to_dict(r) for r in runs]
+
+    def list_recent_runs(self, workspace_id: str, limit: int = 20) -> List[Dict[str, Any]]:
+        """
+        List the most recent analysis runs for a workspace, sorted newest first, up to a limit.
+        """
+        runs = (
+            self.session.query(DbAnalysisRun)
+            .filter_by(workspace_id=workspace_id)
+            .order_by(DbAnalysisRun.created_at.desc())
+            .limit(limit)
+            .all()
+        )
+        return [self._to_dict(r) for r in runs]
+
+    def update_run_status(
+        self,
+        run_id: str,
+        status: str,
+        output_payload: Optional[Dict[str, Any]] = None,
+        summary: Optional[Dict[str, Any]] = None,
+        error_message: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Update the status/outputs/errors of an analysis run.
+        """
+        run = self.session.query(DbAnalysisRun).filter_by(id=run_id).first()
+        if not run:
+            raise PersistenceConfigurationError(f"AnalysisRun '{run_id}' does not exist.")
+            
+        run.status = status
+        if output_payload is not None:
+            run.output_payload = output_payload
+        if summary is not None:
+            run.summary = summary
+        if error_message is not None:
+            run.error_message = error_message
+            
+        if status in ("completed", "failed", "cancelled"):
+            run.completed_at = datetime.now(timezone.utc)
+            if run.started_at:
+                started_at = run.started_at
+                if started_at.tzinfo is None:
+                    started_at = started_at.replace(tzinfo=timezone.utc)
+                completed_at = run.completed_at
+                if completed_at.tzinfo is None:
+                    completed_at = completed_at.replace(tzinfo=timezone.utc)
+                diff = completed_at - started_at
+                run.duration_ms = int(diff.total_seconds() * 1000)
+                
+        self.session.commit()
+        return self._to_dict(run)

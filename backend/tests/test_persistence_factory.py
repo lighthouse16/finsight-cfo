@@ -1,8 +1,8 @@
 import pytest
 from unittest.mock import patch
 from app.core.config import Settings
-from app.persistence.factory import get_persistence_backend_name, get_workspace_repository, get_file_metadata_repository
-from app.persistence.local_adapters import LocalWorkspaceRepository, LocalFileMetadataRepository
+from app.persistence.factory import get_persistence_backend_name, get_workspace_repository, get_file_metadata_repository, get_analysis_run_repository
+from app.persistence.local_adapters import LocalWorkspaceRepository, LocalFileMetadataRepository, LocalAnalysisRunRepository
 from app.persistence.errors import PersistenceConfigurationError, PersistenceAdapterNotImplementedError
 
 def test_default_backend_name():
@@ -111,4 +111,35 @@ def test_file_metadata_repository_factory_database_with_session_returns_adapter(
     repo = get_file_metadata_repository(settings, db_session=mock_session)
     from app.persistence.database_adapters import DatabaseFileMetadataRepository
     assert isinstance(repo, DatabaseFileMetadataRepository)
+    assert repo.session == mock_session
+
+def test_analysis_run_repository_factory_default():
+    """
+    Verifies that get_analysis_run_repository returns LocalAnalysisRunRepository by default.
+    """
+    settings = Settings()
+    repo = get_analysis_run_repository(settings)
+    assert isinstance(repo, LocalAnalysisRunRepository)
+
+def test_analysis_run_repository_factory_database_without_session_raises():
+    """
+    Verifies that get_analysis_run_repository raises PersistenceConfigurationError if database backend is chosen without a session.
+    """
+    settings = Settings(PERSISTENCE_BACKEND="database")
+    with pytest.raises(PersistenceConfigurationError) as exc_info:
+        get_analysis_run_repository(settings)
+    assert "Database session is required" in str(exc_info.value)
+
+def test_analysis_run_repository_factory_database_with_session_returns_adapter():
+    """
+    Verifies that get_analysis_run_repository returns DatabaseAnalysisRunRepository when session is provided.
+    """
+    settings = Settings(PERSISTENCE_BACKEND="database")
+    from sqlalchemy.orm import Session
+    from unittest.mock import MagicMock
+    mock_session = MagicMock(spec=Session)
+    
+    repo = get_analysis_run_repository(settings, db_session=mock_session)
+    from app.persistence.database_adapters import DatabaseAnalysisRunRepository
+    assert isinstance(repo, DatabaseAnalysisRunRepository)
     assert repo.session == mock_session

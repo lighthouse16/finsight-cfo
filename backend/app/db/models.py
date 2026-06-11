@@ -157,6 +157,12 @@ class AnalysisRun(Base, TimestampMixin):
     duration_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     error_message: Mapped[Optional[str]] = mapped_column(TEXT, nullable=True)
     created_by_user_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    input_payload: Mapped[Optional[dict]] = mapped_column(JSON, default=dict, nullable=True)
+    output_payload: Mapped[Optional[dict]] = mapped_column(JSON, default=dict, nullable=True)
+    summary: Mapped[Optional[dict]] = mapped_column(JSON, default=dict, nullable=True)
+    run_metadata: Mapped[Optional[dict]] = mapped_column("metadata", JSON, default=dict, nullable=True)
+    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     workspace: Mapped["Workspace"] = relationship("Workspace", back_populates="runs")
