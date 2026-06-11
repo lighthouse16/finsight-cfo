@@ -22,7 +22,7 @@ This document outlines the high-level roadmap for transitioning FinSight CFO fro
    - Add SQLAlchemy, SQLModel, Alembic, and database drivers to python dependencies.
 3. **Add Schema Models** [COMPLETED]
    - Write declarative SQLAlchemy/SQLModel models representing all entities (Workspaces, Snapshots, AnalysisRuns).
-4. **Add Repository Interfaces** [PLANNED]
+4. **Add Repository Interfaces** [COMPLETED]
    - Create abstract class signatures specifying CRUD actions.
 5. **Add Local Adapter Compatibility Tests** [PLANNED]
    - Write test contract suites checking existing file storage logic against repository interface constraints.
