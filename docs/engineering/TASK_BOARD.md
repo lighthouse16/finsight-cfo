@@ -17,6 +17,7 @@ This board tracks active, planned, and completed tasks for current engineering s
 | **T-103** | `commercial/persistence-repository-interfaces` | **Done** | Backend Engineer | Low |
 | **T-104** | `commercial/workspace-db-adapter` | **Done** | Backend Engineer | Medium |
 | **T-105** | `commercial/file-metadata-db-adapter` | **Done** | Backend Engineer | Medium |
-| **T-106** | `commercial/analysis-run-db-adapter` | **Planned** | Backend Engineer | High |
-| **T-107** | `commercial/audit-job-report-db-adapter` | **Planned** | Backend Engineer | Low |
+| **T-106** | `commercial/db-migration-alignment-file-metadata` | **Done** | Backend Engineer | Low |
+| **T-107** | `commercial/analysis-run-db-adapter` | **Planned** | Backend Engineer | High |
+| **T-108** | `commercial/audit-job-report-db-adapter` | **Planned** | Backend Engineer | Low |
 

@@ -30,8 +30,8 @@ This document outlines the high-level roadmap for transitioning FinSight CFO fro
    - Verify DB repositories pass the exact same unit test assertions using an in-memory SQLite backend.
 7. **Move Workspace Persistence Behind Interface** [PLANNED]
    - Refactor workspaces endpoints to fetch and save using the new interface contract.
-8. **Add Database File Metadata Adapter & Tests** [COMPLETED]
-   - Store file metadata and version pointers in database, keeping physical bytes in local storage / object storage.
+8. **Add Database File Metadata Adapter & Migration Alignment** [COMPLETED]
+   - Store file metadata and version pointers in database, keeping physical bytes in local storage / object storage. Ensure ORM schemas and Alembic migrations remain aligned.
 9. **Move Analysis Runs Behind Interface** [PLANNED]
    - Redirect analysis diagnostic results storage from filesystem JSON files to run artifact DB payloads.
 
