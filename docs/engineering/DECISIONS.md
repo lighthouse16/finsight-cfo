@@ -152,4 +152,10 @@ This document records key architectural and design decisions for FinSight CFO.
 - **Decision**: Define a thread-safe async function `record_audit_event_best_effort` in `backend/app/services/audit_service.py` that checks the active persistence settings and records database-mode audit rows. Synchronous helpers execute this using `asyncio` loop introspection.
 - **Consequences**: Successfully isolates all route-level auditing concerns, reduces workspaces route complexity, and ensures complete compatibility with existing local/database mode integration tests.
 
+## ADR-024: Extract report CRUD orchestration into report service
+- **Status**: Approved
+- **Context**: Keeping the workspaces router thin and focused requires extracting nested orchestration behaviors. Following the audit service extraction, report CRUD operations are the next extraction candidate.
+- **Decision**: Extract workspace report saving, list fetching, status patching, and soft deleting logic from `routes/workspaces.py` into `backend/app/services/report_service.py`. Enforce error routing using standard HTTPException raises in the service.
+- **Consequences**: Successfully decouples workspace reports CRUD logic, simplifies workspaces route handlers down to single-line service calls, and retains full local/database mode test compatibility.
+
 
