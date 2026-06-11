@@ -188,3 +188,10 @@ This document records key architectural and design decisions for FinSight CFO.
 - **Decision**: Create a lightweight `job_service` module implementing `create_job`, `get_job`, `list_jobs`, `mark_job_running`, `mark_job_completed`, `mark_job_failed`, and `cancel_job`. Enforce strict status transition rules and recursive payload validation to forbid raw file bytes storage in database columns, while keeping the execution inline/sync and avoiding DB session initialization.
 - **Consequences**: Standardizes the job lifecycle and data payload rules at the service layer, preparing the codebase for clean worker prototype integration in later phases.
 
+## ADR-030: Add synchronous report generation job facade before worker runtime
+- **Status**: Approved
+- **Context**: In Phase B of the background processing rollout, we need to coordinate the first workload (Report Generation) with our job lifecycle tracking. To prevent regression, we must implement this mapping synchronously without introducing process executors or background thread overhead.
+- **Decision**: Create a dedicated `report_generation_job_service` implementing `generate_report_with_job`. The facade creates a job, transitions it to running, persists report data using the repository, and marks the job completed (or failed upon exceptions), running 100% synchronously.
+- **Consequences**: Successfully verifies the workflow-to-job execution path and test assertions under local and database persistence, establishing a safe facade that can be offloaded asynchronously in later phases.
+
+

@@ -37,6 +37,8 @@ This board tracks active, planned, and completed tasks for current engineering s
 | **T-123** | `commercial/extract-workspace-service` | **Done** | Backend Engineer | Low |
 | **T-124** | `commercial/job-worker-evaluation-plan` | **Done** | Backend Architect | Low |
 | **T-125** | `commercial/job-facade-contract` | **Done** | Backend Architect | Low |
+| **T-126** | `commercial/report-generation-job-facade` | **Done** | Backend Architect | Low |
+
 
 
 

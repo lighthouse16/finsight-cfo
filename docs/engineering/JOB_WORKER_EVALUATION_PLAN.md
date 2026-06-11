@@ -91,9 +91,9 @@ We propose the following six-step rollout plan:
 * **Phase A: Job Route Contract and Repository Guardrails** [COMPLETED]
   * Establish API route schemas, contracts for listing/getting job statuses, and the service facade layer.
   * Implement mock repositories and service unit tests.
-* **Phase B: Synchronous Job Facade**
-  * Wire the routes to repository adapters but execute workloads *synchronously* inline.
-  * Establishes the end-to-end API and DB persistence flow before making execution async.
+* **Phase B: Synchronous Job Facade** [COMPLETED]
+  * Create a synchronous report generation job facade wrapping report persistence with job lifecycle records.
+  * Establish unit tests validating success and failure state mappings.
 * **Phase C: Background Worker Prototype**
   * Offload Report Generation to `FastAPI.BackgroundTasks` or an in-process worker thread.
   * Test async status updates (`pending` -> `running` -> `completed`).

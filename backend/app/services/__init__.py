@@ -36,6 +36,9 @@ from app.services.job_service import (
     mark_job_failed,
     cancel_job,
 )
+from app.services.report_generation_job_service import (
+    generate_report_with_job,
+)
 
 
 
