@@ -2,9 +2,9 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
-from app.db.models import Workspace, Organization, WorkspaceFile, WorkspaceFileVersion, AnalysisRun as DbAnalysisRun, AuditEvent as DbAuditEvent, Job as DbJob
+from app.db.models import Workspace, Organization, WorkspaceFile, WorkspaceFileVersion, AnalysisRun as DbAnalysisRun, AuditEvent as DbAuditEvent, Job as DbJob, Report as DbReport
 from app.models.workspace import CompanyWorkspace
-from app.persistence.interfaces import WorkspaceRepository, FileMetadataRepository, AnalysisRunRepository, AuditEventRepository, JobRepository
+from app.persistence.interfaces import WorkspaceRepository, FileMetadataRepository, AnalysisRunRepository, AuditEventRepository, JobRepository, ReportRepository
 from app.persistence.errors import PersistenceConfigurationError
 
 class DatabaseWorkspaceRepository(WorkspaceRepository):
@@ -785,5 +785,129 @@ class DatabaseJobRepository(JobRepository):
         Mark job execution as failed with an error message.
         """
         return self.update_job_status(job_id, "failed", error_message=error_message)
+
+
+class DatabaseReportRepository(ReportRepository):
+    """
+    SQLAlchemy-backed implementation of the ReportRepository.
+    Enforcement of tenant isolation and authorization is deferred to future auth/RBAC tasks.
+    """
+    def __init__(self, db_session: Session) -> None:
+        self.session = db_session
+
+    def _to_dict(self, report: DbReport) -> Dict[str, Any]:
+        return {
+            "id": report.id,
+            "workspaceId": report.workspace_id,
+            "organizationId": report.organization_id,
+            "reportType": report.report_type,
+            "title": report.report_name,
+            "status": report.status,
+            "reportPayload": report.report_payload,
+            "storageUri": report.storage_uri,
+            "metadata": report.report_metadata or {},
+            "createdAt": report.created_at.isoformat() if report.created_at else None,
+            "updatedAt": report.updated_at.isoformat() if report.updated_at else None,
+        }
+
+    def save_report(
+        self,
+        workspace_id: str,
+        report_type: str,
+        title: str,
+        report_payload: Optional[Dict[str, Any]] = None,
+        storage_uri: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        workspace = (
+            self.session.query(Workspace)
+            .filter_by(id=workspace_id)
+            .filter(Workspace.deleted_at.is_(None))
+            .filter(Workspace.status != "deleted")
+            .first()
+        )
+        if not workspace:
+            raise PersistenceConfigurationError(f"Workspace '{workspace_id}' does not exist or has been deleted.")
+
+        report_id = f"rep_{uuid.uuid4().hex[:12]}"
+        report = DbReport(
+            id=report_id,
+            workspace_id=workspace_id,
+            organization_id=workspace.organization_id,
+            report_name=title,
+            report_type=report_type,
+            status="completed",
+            report_payload=report_payload,
+            storage_uri=storage_uri,
+            report_metadata=metadata or {},
+        )
+        self.session.add(report)
+        self.session.commit()
+        return self._to_dict(report)
+
+    def get_report(self, report_id: str) -> Optional[Dict[str, Any]]:
+        report = (
+            self.session.query(DbReport)
+            .filter_by(id=report_id)
+            .filter(DbReport.deleted_at.is_(None))
+            .first()
+        )
+        if not report:
+            return None
+        return self._to_dict(report)
+
+    def list_reports(
+        self, workspace_id: str, report_type: Optional[str] = None, limit: int = 100
+    ) -> List[Dict[str, Any]]:
+        query = (
+            self.session.query(DbReport)
+            .filter_by(workspace_id=workspace_id)
+            .filter(DbReport.deleted_at.is_(None))
+        )
+        if report_type is not None:
+            query = query.filter_by(report_type=report_type)
+
+        reports = query.order_by(DbReport.created_at.desc()).limit(limit).all()
+        return [self._to_dict(r) for r in reports]
+
+    def update_report_status(
+        self,
+        report_id: str,
+        status: str,
+        storage_uri: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        report = (
+            self.session.query(DbReport)
+            .filter_by(id=report_id)
+            .filter(DbReport.deleted_at.is_(None))
+            .first()
+        )
+        if not report:
+            raise PersistenceConfigurationError(f"Report '{report_id}' does not exist or has been deleted.")
+
+        report.status = status
+        if storage_uri is not None:
+            report.storage_uri = storage_uri
+        if metadata is not None:
+            report.report_metadata = {**(report.report_metadata or {}), **metadata}
+
+        self.session.commit()
+        return self._to_dict(report)
+
+    def delete_report(self, report_id: str) -> bool:
+        report = (
+            self.session.query(DbReport)
+            .filter_by(id=report_id)
+            .filter(DbReport.deleted_at.is_(None))
+            .first()
+        )
+        if not report:
+            return False
+
+        report.deleted_at = datetime.now(timezone.utc)
+        report.status = "deleted"
+        self.session.commit()
+        return True
 
 

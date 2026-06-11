@@ -187,14 +187,38 @@ class JobRepository(Protocol):
         ...
 
 class ReportRepository(Protocol):
-    def save_report(self, report: Any) -> Any:
+    def save_report(
+        self,
+        workspace_id: str,
+        report_type: str,
+        title: str,
+        report_payload: Optional[Dict[str, Any]] = None,
+        storage_uri: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         """Save generated report details."""
         ...
 
-    def get_report(self, report_id: str) -> Optional[Any]:
+    def get_report(self, report_id: str) -> Optional[Dict[str, Any]]:
         """Get report details by ID."""
         ...
 
-    def list_reports(self, workspace_id: str) -> List[Any]:
+    def list_reports(
+        self, workspace_id: str, report_type: Optional[str] = None, limit: int = 100
+    ) -> List[Dict[str, Any]]:
         """List all generated reports within a workspace."""
+        ...
+
+    def update_report_status(
+        self,
+        report_id: str,
+        status: str,
+        storage_uri: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Update active status of a report."""
+        ...
+
+    def delete_report(self, report_id: str) -> bool:
+        """Delete/soft-delete a report by ID."""
         ...

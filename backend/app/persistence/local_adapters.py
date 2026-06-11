@@ -214,11 +214,33 @@ class LocalJobRepository(JobRepository):
         raise NotImplementedError("LocalJobRepository.mark_job_failed is not implemented.")
 
 class LocalReportRepository(ReportRepository):
-    def save_report(self, report: Any) -> Any:
+    def save_report(
+        self,
+        workspace_id: str,
+        report_type: str,
+        title: str,
+        report_payload: Optional[Dict[str, Any]] = None,
+        storage_uri: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         raise NotImplementedError("LocalReportRepository.save_report is not implemented.")
 
-    def get_report(self, report_id: str) -> Optional[Any]:
+    def get_report(self, report_id: str) -> Optional[Dict[str, Any]]:
         raise NotImplementedError("LocalReportRepository.get_report is not implemented.")
 
-    def list_reports(self, workspace_id: str) -> List[Any]:
+    def list_reports(
+        self, workspace_id: str, report_type: Optional[str] = None, limit: int = 100
+    ) -> List[Dict[str, Any]]:
         raise NotImplementedError("LocalReportRepository.list_reports is not implemented.")
+
+    def update_report_status(
+        self,
+        report_id: str,
+        status: str,
+        storage_uri: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        raise NotImplementedError("LocalReportRepository.update_report_status is not implemented.")
+
+    def delete_report(self, report_id: str) -> bool:
+        raise NotImplementedError("LocalReportRepository.delete_report is not implemented.")

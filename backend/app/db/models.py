@@ -181,16 +181,21 @@ class AnalysisRunArtifact(Base, TimestampMixin):
     # Relationships
     analysis_run: Mapped["AnalysisRun"] = relationship("AnalysisRun", back_populates="artifacts")
 
-class Report(Base, TimestampMixin):
+class Report(Base, TimestampMixin, SoftDeleteMixin):
     __tablename__ = "reports"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     workspace_id: Mapped[str] = mapped_column(String(36), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
     organization_id: Mapped[str] = mapped_column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
     report_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    analysis_run_id: Mapped[str] = mapped_column(String(36), ForeignKey("analysis_runs.id", ondelete="CASCADE"), nullable=False)
+    report_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    status: Mapped[str] = mapped_column(String(50), default="pending", nullable=False)
+    analysis_run_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("analysis_runs.id", ondelete="CASCADE"), nullable=True)
     pdf_storage_key: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    storage_uri: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     created_by_user_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    report_payload: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    report_metadata: Mapped[Optional[dict]] = mapped_column("metadata", JSON, default=dict, nullable=True)
 
     # Relationships
     workspace: Mapped["Workspace"] = relationship("Workspace", back_populates="reports")
