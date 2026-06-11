@@ -51,7 +51,7 @@ To separate concerns, logic should be refactored into the following target servi
 
 To minimize risk, extraction must be completed in sequential, isolated phases:
 
-* **Phase 1: Extract Audit Helper**
+* **Phase 1: Extract Audit Helper** [COMPLETED]
   * Move best-effort route-level logging checks and DB checks into `backend/app/services/audit_service.py`.
 * **Phase 2: Extract Report Service**
   * Move report CRUD operations and validations into `backend/app/services/report_service.py`.

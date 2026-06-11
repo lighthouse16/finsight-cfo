@@ -52,6 +52,8 @@ This document outlines the high-level roadmap for transitioning FinSight CFO fro
     - Add health check validation and guardrails suite checking all active persistence routes.
 18. **Workspace Route Service Extraction Plan** [COMPLETED]
     - Plan and document the service extraction boundaries to clean up workspaces.py before further refactoring.
+19. **Extract Audit Helper Service (Phase 1)** [COMPLETED]
+    - Extract best-effort audit event logging helper from workspaces router into a dedicated audit service.
 
 ---
 
