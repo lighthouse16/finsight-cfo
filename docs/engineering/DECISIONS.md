@@ -175,3 +175,9 @@ This document records key architectural and design decisions for FinSight CFO.
 - **Context**: Phase 5 of the workspace route service extraction plan involves isolating workspace CRUD operations (create, list, get, delete) from the workspaces router into a dedicated service.
 - **Decision**: Extract workspace CRUD orchestration logic from `routes/workspaces.py` into `backend/app/services/workspace_service.py`. The service accepts repository and audit repo dependencies, validates inputs, invokes the workspace and file repository operations, and records audit events, while avoiding DB session creation.
 - **Consequences**: Further simplifies the workspaces route layer, separates HTTP delivery concerns from backend business orchestration, and guarantees zero runtime or response schema deviations.
+
+## ADR-028: Evaluate job/worker rollout before implementing async runtime execution
+- **Status**: Approved
+- **Context**: In Phase 6, we need to design background processing for long-running financial calculations and document processing. However, introducing full worker daemons and messaging brokers directly without a transition strategy poses regression risks to the local developer default mode and demo environments.
+- **Decision**: Formulate a comprehensive evaluation plan detailing lifecycle mappings, candidate async workloads (prioritizing report generation as the safest starting point), queue architecture options (comparing FastAPI BackgroundTasks, async loops, and Celery), and rollout phases. Add a strict docs guardrail test to enforce limits and forbid async runtime code changes or queue library additions in this phase.
+- **Consequences**: Outlines a clear, safe route to production concurrency without disrupting local developer environments, guaranteeing that local-first defaults remain preserved.

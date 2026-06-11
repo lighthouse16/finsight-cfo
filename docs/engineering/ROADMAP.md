@@ -62,6 +62,8 @@ This document outlines the high-level roadmap for transitioning FinSight CFO fro
     - Extract analysis runtime execution and retrieval orchestration logic from workspaces router into a dedicated analysis runtime service.
 23. **Extract Workspace Service (Phase 5)** [COMPLETED]
     - Extract workspace CRUD orchestration logic from workspaces router into a dedicated workspace service.
+24. **Job/Worker Evaluation (Phase 6)** [COMPLETED]
+    - Formulate the evaluation and rollout plan for background processing tasks before implementing async execution.
 
 ---
 
