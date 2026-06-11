@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, Depends
 from sqlalchemy.orm import Session
-from app.persistence.interfaces import WorkspaceRepository, FileMetadataRepository, AnalysisRunRepository
+from app.persistence.interfaces import WorkspaceRepository, FileMetadataRepository, AnalysisRunRepository, ReportRepository
 
 from app.models.workspace import CompanyWorkspace, UploadedFileRecord, FinancialSnapshot, AnalysisRun
 from app.models.financials import CompanyFinancialSnapshot
@@ -127,6 +127,50 @@ def get_analysis_run_repository_dependency(
     from app.core.config import settings
     from app.persistence.factory import get_analysis_run_repository
     return get_analysis_run_repository(settings, db_session=db_session)
+
+def get_report_repository_dependency(
+    db_session: Optional[Session] = Depends(get_db_session_optional)
+) -> ReportRepository:
+    from app.core.config import settings
+    from app.persistence.factory import get_report_repository
+    return get_report_repository(settings, db_session=db_session)
+
+from pydantic import BaseModel, Field
+from typing import Dict, Any
+
+class ReportCreate(BaseModel):
+    reportType: str = Field(..., alias="reportType")
+    title: str
+    reportPayload: Optional[Dict[str, Any]] = Field(default=None, alias="reportPayload")
+    storageUri: Optional[str] = Field(default=None, alias="storageUri")
+    metadata: Optional[Dict[str, Any]] = None
+
+    class Config:
+        populate_by_name = True
+
+class ReportStatusUpdate(BaseModel):
+    status: str
+    storageUri: Optional[str] = Field(default=None, alias="storageUri")
+    metadata: Optional[Dict[str, Any]] = None
+
+    class Config:
+        populate_by_name = True
+
+class WorkspaceReport(BaseModel):
+    id: str
+    workspaceId: str = Field(..., alias="workspaceId")
+    organizationId: str = Field(..., alias="organizationId")
+    reportType: str = Field(..., alias="reportType")
+    title: str
+    status: str
+    reportPayload: Optional[Dict[str, Any]] = Field(default=None, alias="reportPayload")
+    storageUri: Optional[str] = Field(default=None, alias="storageUri")
+    metadata: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    createdAt: Optional[str] = Field(default=None, alias="createdAt")
+    updatedAt: Optional[str] = Field(default=None, alias="updatedAt")
+
+    class Config:
+        populate_by_name = True
 
 def _db_save_run(run_dto: AnalysisRun, run_repo: AnalysisRunRepository, workspace_id: str) -> dict:
     meta = {
@@ -1097,3 +1141,109 @@ def get_workspace_run_by_id(
         if not run or run.workspace_id != workspace_id:
             raise HTTPException(status_code=404, detail="Run not found in this workspace")
         return run
+
+
+@router.post("/{workspace_id}/reports", response_model=WorkspaceReport)
+async def create_workspace_report(
+    workspace_id: str,
+    payload: ReportCreate,
+    workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
+    report_repo: ReportRepository = Depends(get_report_repository_dependency),
+):
+    workspace = workspace_repo.get_workspace(workspace_id)
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    
+    try:
+        report = report_repo.save_report(
+            workspace_id=workspace_id,
+            report_type=payload.reportType,
+            title=payload.title,
+            report_payload=payload.reportPayload,
+            storage_uri=payload.storageUri,
+            metadata=payload.metadata,
+        )
+        return report
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/{workspace_id}/reports/{report_id}", response_model=WorkspaceReport)
+async def get_workspace_report_by_id(
+    workspace_id: str,
+    report_id: str,
+    workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
+    report_repo: ReportRepository = Depends(get_report_repository_dependency),
+):
+    workspace = workspace_repo.get_workspace(workspace_id)
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    
+    report = report_repo.get_report(report_id)
+    if not report or report.get("workspaceId") != workspace_id:
+        raise HTTPException(status_code=404, detail="Report not found in this workspace")
+    return report
+
+
+@router.get("/{workspace_id}/reports", response_model=List[WorkspaceReport])
+async def list_workspace_reports(
+    workspace_id: str,
+    type: Optional[str] = None,
+    workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
+    report_repo: ReportRepository = Depends(get_report_repository_dependency),
+):
+    workspace = workspace_repo.get_workspace(workspace_id)
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    
+    reports = report_repo.list_reports(workspace_id, report_type=type)
+    return reports
+
+
+@router.patch("/{workspace_id}/reports/{report_id}", response_model=WorkspaceReport)
+async def update_workspace_report_status(
+    workspace_id: str,
+    report_id: str,
+    payload: ReportStatusUpdate,
+    workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
+    report_repo: ReportRepository = Depends(get_report_repository_dependency),
+):
+    workspace = workspace_repo.get_workspace(workspace_id)
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    
+    report = report_repo.get_report(report_id)
+    if not report or report.get("workspaceId") != workspace_id:
+        raise HTTPException(status_code=404, detail="Report not found in this workspace")
+    
+    try:
+        updated = report_repo.update_report_status(
+            report_id=report_id,
+            status=payload.status,
+            storage_uri=payload.storageUri,
+            metadata=payload.metadata,
+        )
+        return updated
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/{workspace_id}/reports/{report_id}")
+async def delete_workspace_report(
+    workspace_id: str,
+    report_id: str,
+    workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
+    report_repo: ReportRepository = Depends(get_report_repository_dependency),
+):
+    workspace = workspace_repo.get_workspace(workspace_id)
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    
+    report = report_repo.get_report(report_id)
+    if not report or report.get("workspaceId") != workspace_id:
+        raise HTTPException(status_code=404, detail="Report not found in this workspace")
+    
+    success = report_repo.delete_report(report_id)
+    if not success:
+        raise HTTPException(status_code=400, detail="Failed to delete report")
+    return {"status": "success", "message": "Report deleted successfully"}
