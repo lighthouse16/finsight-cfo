@@ -134,4 +134,10 @@ This document records key architectural and design decisions for FinSight CFO.
 - **Decision**: Implement a dedicated runtime integration health check test suite in `backend/tests/test_runtime_cutover_health.py` validating the entire workspace-file-run-report flow under local and database persistence regimes.
 - **Consequences**: Ensures regression safety, detects accidental file writes or DB engine leakage in local mode, validates response structures, and establishes a solid benchmark before integrating subsequent routes.
 
+## ADR-021: Route audit event persistence through repository factory with best-effort route audit writes
+- **Status**: Approved
+- **Context**: Workspace operations, file management, analysis runs, and reports produce audit event histories. In database mode, we must persist these to the relational database using the repository factory while leaving the legacy local JSON audits store unmodified in local mode.
+- **Decision**: Route workspace, file, run, and report audit events through the `AuditEventRepository` interface returned by the repository factory. Guard all route-level audit logs with a database mode settings check so they only run in database mode to avoid changing local mode behavior and side-effects. Use try/except blocks to make audit writing best-effort, preventing audit failures from blocking primary route actions.
+- **Consequences**: Safely integrates audit event recording for database mode, fully isolates local development mode audits, and keeps the API robust against unexpected audit logging failures.
+
 

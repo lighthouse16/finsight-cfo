@@ -167,7 +167,7 @@ def test_database_mode_route_chain_smoke(db_session, monkeypatch):
     """
     monkeypatch.setattr(settings, "PERSISTENCE_BACKEND", "database")
 
-    from app.db.models import Organization, Workspace as DbWorkspace, WorkspaceFile, AnalysisRun as DbAnalysisRun, Report as DbReport
+    from app.db.models import Organization, Workspace as DbWorkspace, WorkspaceFile, AnalysisRun as DbAnalysisRun, Report as DbReport, AuditEvent as DbAuditEvent
 
     def override_get_db_session():
         set_active_db_session(db_session)
@@ -269,6 +269,14 @@ def test_database_mode_route_chain_smoke(db_session, monkeypatch):
         assert len(reports_list) == 1
         assert reports_list[0]["id"] == report_id
         assert reports_list[0]["reportType"] == "valuation_summary"
+
+        # Verify DB contains the expected audit events from the route chain
+        db_audits = db_session.query(DbAuditEvent).filter_by(workspace_id=ws_id).all()
+        assert len(db_audits) >= 3
+        actions = [a.action for a in db_audits]
+        assert "file.uploaded" in actions
+        assert "analysis.run.created" in actions
+        assert "report.created" in actions
 
         # Clean up physical files
         FileStore.delete_workspace_files(ws_id)

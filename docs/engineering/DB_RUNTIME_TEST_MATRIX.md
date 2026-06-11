@@ -16,7 +16,7 @@ This test matrix outlines the validation suites, current coverage status, and re
 | **Database** | Workspace CRUD | Unit / Integration / Route | High (Adapter + Route tests) | None | Yes | Backend Team / T-112 |
 | **Database** | File Metadata CRUD | Unit / Integration / Route | High (Adapter + Route tests) | S3 path integration | Yes | Backend Team / T-113 |
 | **Database** | Analysis Runs | Unit / Integration / Route | High (Adapter + Route tests) | None | Yes | Backend Team / T-114 |
-| **Database** | Audit Events | Unit / Integration | High (Org filters) | None | Yes | Backend Team / T-108 |
+| **Database / Local** | Audit Events | Unit / Integration / Route | High (Adapter, route, and mode tests) | None | Yes | Backend Team / T-117 |
 | **Database** | Jobs | Unit / Integration | High (Status flows) | Real Celery tasks | No | Platform Team / T-109 |
 | **Database** | Reports | Unit / Integration / Route | High (Adapter + Route tests) | None | Yes | Backend Team / T-110 |
 | **Database** | Integration Health Check | Route / Guardrail | High (Smoke + Side-effect tests) | None | Yes | Backend Team / T-116 |

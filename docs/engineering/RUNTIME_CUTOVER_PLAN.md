@@ -71,7 +71,7 @@ To minimize risk, route wiring will proceed in sequential, isolated PRs:
 3. **Analysis Run Service Integration** [COMPLETED]: Wired `AnalysisRunRepository` into advisory analysis handlers.
 4. **Reports Integration** [COMPLETED]: Wired `ReportRepository` into workspaces report endpoints to handle corporate report metadata/payload lifecycle.
 5. **Runtime Integration Health Check** [COMPLETED]: Added smoke tests verifying the combined route chain (workspace -> file -> run -> report) and guarding local mode against DB engine side-effects.
-6. **Audit Events Integration**: Redirect audit trail operations to `AuditEventRepository`.
+6. **Audit Events Integration** [COMPLETED]: Redirect audit trail operations to `AuditEventRepository`.
 7. **Jobs / Background Processing Integration**: Introduce database-backed async processing task tracking.
 
 ## 8. Feature Flag Strategy
