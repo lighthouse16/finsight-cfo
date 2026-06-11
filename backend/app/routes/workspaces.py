@@ -1,7 +1,9 @@
 import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile, Depends
+from sqlalchemy.orm import Session
+from app.persistence.interfaces import WorkspaceRepository
 
 from app.models.workspace import CompanyWorkspace, UploadedFileRecord, FinancialSnapshot, AnalysisRun
 from app.models.financials import CompanyFinancialSnapshot
@@ -29,6 +31,22 @@ from app.services.analysis_run_service import (
 
 router = APIRouter()
 
+def get_db_session_optional():
+    from app.core.config import settings
+    if settings.normalized_persistence_backend == "database":
+        from app.db.session import get_db_session
+        for session in get_db_session():
+            yield session
+    else:
+        yield None
+
+def get_workspace_repository_dependency(
+    db_session: Optional[Session] = Depends(get_db_session_optional)
+) -> WorkspaceRepository:
+    from app.core.config import settings
+    from app.persistence.factory import get_workspace_repository
+    return get_workspace_repository(settings, db_session=db_session)
+
 # Map record keys to display labels
 RECORD_KEY_LABELS = {
     "pl-statement": "Profit & Loss Statement (P&L)",
@@ -43,6 +61,7 @@ async def create_workspace(
     company_name: str = Form(..., alias="companyName"),
     currency: Optional[str] = Form(None),
     reportingPeriod: Optional[str] = Form(None, alias="reportingPeriod"),
+    repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
 ):
     company_name = company_name.strip()
     if not company_name:
@@ -53,12 +72,14 @@ async def create_workspace(
         metadata["currency"] = currency
     if reportingPeriod:
         metadata["reportingPeriod"] = reportingPeriod
-    workspace = WorkspaceStore.create_workspace(workspace_id, company_name, metadata=metadata)
+    workspace = repo.create_workspace(workspace_id, company_name, metadata=metadata)
     return workspace
 
 @router.get("", response_model=List[CompanyWorkspace])
-async def list_workspaces():
-    return WorkspaceStore.list_workspaces()
+async def list_workspaces(
+    repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
+):
+    return repo.list_workspaces()
 
 @router.get("/config")
 async def get_workspaces_config():
@@ -220,8 +241,11 @@ async def reset_sample_workspace():
 
 
 @router.get("/{workspace_id}", response_model=CompanyWorkspace)
-async def get_workspace(workspace_id: str):
-    workspace = WorkspaceStore.get_workspace(workspace_id)
+async def get_workspace(
+    workspace_id: str,
+    repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
+):
+    workspace = repo.get_workspace(workspace_id)
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
     return workspace
@@ -398,8 +422,11 @@ async def delete_workspace_file(workspace_id: str, file_id: str):
     return {"status": "success", "message": f"File {file_id} deleted successfully"}
 
 @router.delete("/{workspace_id}")
-async def delete_workspace(workspace_id: str):
-    workspace = WorkspaceStore.get_workspace(workspace_id)
+async def delete_workspace(
+    workspace_id: str,
+    repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
+):
+    workspace = repo.get_workspace(workspace_id)
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
         
@@ -407,7 +434,7 @@ async def delete_workspace(workspace_id: str):
     FileStore.delete_workspace_files(workspace_id)
     
     # 2. Cascade workspace metadata, snapshots, runs, audits
-    success = WorkspaceStore.delete_workspace(workspace_id)
+    success = repo.delete_workspace(workspace_id)
     if not success:
         raise HTTPException(status_code=500, detail="Failed to delete workspace")
         

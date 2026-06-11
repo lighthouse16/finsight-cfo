@@ -8,8 +8,9 @@ The transition of FinSight CFO to a database-backed persistence model must be ex
 
 ## 2. Current State
 
-All database schema migrations, repository interfaces, and SQL-backed adapters have been implemented and validated against in-memory SQLite instances in unit and integration tests.
-However, the application runtime routes (e.g. `backend/app/routes/`) still import and invoke the legacy `WorkspaceStore` and other filesystem-based managers directly. The factory functions in `backend/app/persistence/factory.py` are fully functional but are not yet wired into the main HTTP endpoints.
+All database schema migrations, repository interfaces, and SQL-backed adapters have been implemented and validated.
+Workspace CRUD routes in `backend/app/routes/workspaces.py` have been migrated to route through the persistence factory.
+However, other backend handlers still import and invoke their legacy stores directly. The factory functions in `backend/app/persistence/factory.py` are fully functional but are not yet wired into those endpoints.
 
 ## 3. Adapter Inventory
 
@@ -47,8 +48,8 @@ The following persistence repository interfaces are fully implemented and availa
 
 ## 5. What Is Not Ready
 
-* **HTTP Routes / Handler Integration**: The endpoints in `backend/app/routes/` are not yet wired to use the persistence repositories.
-* **Database Session Middleware**: FastAPI dependency injection for DB session lifecycles is not yet integrated into the route modules.
+* **HTTP Routes / Handler Integration**: Workspace CRUD endpoints are integrated. Other handlers (file metadata, analysis runs, audits, reports, jobs) are not yet wired.
+* **Database Session Middleware**: FastAPI dependency injection is integrated in workspaces but not in other route modules.
 * **Data Migration Scripts**: Tools to serialize legacy localized JSON database records and insert them into the relational database.
 * **Tenant Access Rules (RBAC)**: Fine-grained user-to-workspace mapping checks (deferred to a subsequent Auth/RBAC task).
 
@@ -65,7 +66,7 @@ To ensure zero downtime and safe developer workflows:
 
 To minimize risk, route wiring will proceed in sequential, isolated PRs:
 
-1. **Workspace Service Integration**: Wire `WorkspaceRepository` into `routes/workspaces.py` to allow reading/writing workspaces.
+1. **Workspace Service Integration** [COMPLETED]: Wired `WorkspaceRepository` into `routes/workspaces.py` to allow reading/writing workspaces.
 2. **File Metadata Service Integration**: Wire `FileMetadataRepository` into `routes/data_room.py` to handle document registrations.
 3. **Analysis Run Service Integration**: Wire `AnalysisRunRepository` into advisory analysis handlers.
 4. **Audit Events Integration**: Redirect audit trail operations to `AuditEventRepository`.

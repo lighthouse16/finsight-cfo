@@ -23,7 +23,7 @@ This board tracks active, planned, and completed tasks for current engineering s
 | **T-109** | `commercial/job-db-adapter` | **Done** | Backend Engineer | Low |
 | **T-110** | `commercial/report-db-adapter` | **Done** | Backend Engineer | Low |
 | **T-111** | `commercial/runtime-cutover-plan` | **Done** | Backend Architect | Low |
-| **T-112** | `commercial/workspace-service-db-integration` | **Planned** | Backend Engineer | Medium |
+| **T-112** | `commercial/workspace-service-db-integration` | **Done** | Backend Engineer | Medium |
 | **T-113** | `commercial/file-metadata-service-db-integration` | **Planned** | Backend Engineer | Medium |
 | **T-114** | `commercial/analysis-run-service-db-integration` | **Planned** | Backend Engineer | High |
 | **T-115** | `commercial/report-service-db-integration` | **Planned** | Backend Engineer | Low |

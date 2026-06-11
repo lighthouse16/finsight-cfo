@@ -103,3 +103,9 @@ This document records key architectural and design decisions for FinSight CFO.
 - **Context**: Switching the application's runtime routes to database persistence directly risks regressions, connection issues, or dialect mismatch errors in production without a solid transition strategy and verification checklist.
 - **Decision**: Author a comprehensive runtime cutover plan, DB test matrix, and rollback plan to guide future incremental route-to-repository integrations.
 - **Consequences**: Safeguards local-first developer defaults, establishes a clear blueprint for route refactoring, and ensures high observability and zero data loss during rollbacks.
+
+## ADR-016: Route workspace CRUD through repository factory with local default preserved
+- **Status**: Approved
+- **Context**: Integrating routes with the database layer must prevent regressions in the local JSON storage developer mode while allowing database-backed repository adapters when database persistence is enabled.
+- **Decision**: Refactor workspaces router handlers to use repository factory methods via FastAPI dependencies, introducing a conditional database session helper that yields None in local mode to avoid database connection pool/engine initialization side effects.
+- **Consequences**: Retains backward compatibility for local development, provides a tested template for route refactoring, and ensures full SQLite test coverage for workspaces database mode.
