@@ -79,3 +79,9 @@ This document records key architectural and design decisions for FinSight CFO.
 - **Context**: Storing analysis runs in the database requires capturing inputs, outputs, errors, execution durations, and execution metadata. We must expose this capability behind repository interfaces to allow local JSON file storage to remain the default while enabling full database storage capabilities.
 - **Decision**: Implement `DatabaseAnalysisRunRepository` matching the abstract `AnalysisRunRepository` protocol, supporting dynamic duration calculations, status updates, and JSON payloads, while wiring it through the persistence factory.
 - **Consequences**: Enables database-backed analysis runs for tests and future integrations, preserves default local persistence, and prevents regressions in existing runtime routes.
+
+## ADR-012: Persist audit events behind repository adapters before runtime database cutover
+- **Status**: Approved
+- **Context**: The system log audit trail must be recorded securely and queryable at both the workspace level and the organization level. Introducing a database-backed repository allows routing this trail to a relational database during commercialization while leaving the local JSON storage default active.
+- **Decision**: Implement `DatabaseAuditEventRepository` implementing the `AuditEventRepository` interface protocol, allowing optional workspace association and filtering by workspace or organization. Wire it into the persistence factory and configure migrations to align schema tables.
+- **Consequences**: Standardizes audit storage, facilitates organization-wide compliance logging, preserves developer-friendly local default persistence, and prevents regressions.

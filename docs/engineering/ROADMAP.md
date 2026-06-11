@@ -34,6 +34,8 @@ This document outlines the high-level roadmap for transitioning FinSight CFO fro
    - Store file metadata and version pointers in database, keeping physical bytes in local storage / object storage. Ensure ORM schemas and Alembic migrations remain aligned.
 9. **Move Analysis Runs Behind Interface** [COMPLETED]
    - Redirect analysis diagnostic results storage from filesystem JSON files to run artifact DB payloads.
+10. **Add Database Audit Event Adapter & Migration Alignment** [COMPLETED]
+    - Store system and workspace audit trails in the database, with support for organization-level auditing.
 
 ---
 

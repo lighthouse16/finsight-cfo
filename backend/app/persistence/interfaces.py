@@ -115,12 +115,28 @@ class AnalysisRunRepository(Protocol):
         ...
 
 class AuditEventRepository(Protocol):
-    def append_event(self, workspace_id: str, event_type: str, description: str) -> Any:
+    def append_event(
+        self,
+        workspace_id: Optional[str],
+        event_type: str,
+        description: str,
+        actor_user_id: Optional[str] = None,
+        event_payload: Optional[Dict[str, Any]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         """Append an audit event log entry."""
         ...
 
-    def list_events(self, workspace_id: Optional[str] = None, limit: int = 100) -> List[Any]:
+    def get_event(self, event_id: str) -> Optional[Dict[str, Any]]:
+        """Get a specific audit event by ID."""
+        ...
+
+    def list_events(self, workspace_id: Optional[str] = None, limit: int = 100) -> List[Dict[str, Any]]:
         """List audit events under a given workspace (or globally) up to a limit."""
+        ...
+
+    def list_organization_events(self, organization_id: str, limit: int = 100) -> List[Dict[str, Any]]:
+        """List all audit events for a given organization."""
         ...
 
 class JobRepository(Protocol):

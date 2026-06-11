@@ -148,6 +148,12 @@ def test_alembic_migrations_upgrade_downgrade(tmp_path):
             assert "metadata" in runs_cols
             assert "started_at" in runs_cols
             assert "completed_at" in runs_cols
+
+            # Check audit_events
+            audit_cols = {c["name"]: c for c in inspector.get_columns("audit_events")}
+            assert "workspace_id" in audit_cols
+            assert "description" in audit_cols
+            assert "metadata" in audit_cols
             
         # Run downgrade back to base
         command.downgrade(alembic_cfg, "base")

@@ -1,8 +1,8 @@
 from app.core.config import settings, Settings
 from app.persistence.errors import PersistenceConfigurationError, PersistenceAdapterNotImplementedError
-from app.persistence.interfaces import WorkspaceRepository, FileMetadataRepository, AnalysisRunRepository
-from app.persistence.local_adapters import LocalWorkspaceRepository, LocalFileMetadataRepository, LocalAnalysisRunRepository
-from app.persistence.database_adapters import DatabaseWorkspaceRepository, DatabaseFileMetadataRepository, DatabaseAnalysisRunRepository
+from app.persistence.interfaces import WorkspaceRepository, FileMetadataRepository, AnalysisRunRepository, AuditEventRepository
+from app.persistence.local_adapters import LocalWorkspaceRepository, LocalFileMetadataRepository, LocalAnalysisRunRepository, LocalAuditEventRepository
+from app.persistence.database_adapters import DatabaseWorkspaceRepository, DatabaseFileMetadataRepository, DatabaseAnalysisRunRepository, DatabaseAuditEventRepository
 
 def get_persistence_backend_name(app_settings: Settings = settings) -> str:
     """
@@ -70,6 +70,25 @@ def get_analysis_run_repository(app_settings: Settings = settings, db_session=No
                 "Database session is required when database persistence backend is active."
             )
         return DatabaseAnalysisRunRepository(db_session)
+    else:
+        raise PersistenceConfigurationError(f"Unsupported persistence backend: '{backend}'")
+
+def get_audit_event_repository(app_settings: Settings = settings, db_session=None) -> AuditEventRepository:
+    """
+    Factory function returning the active AuditEventRepository adapter.
+    Raises PersistenceConfigurationError if database backend is selected but session is missing.
+    """
+    backend = get_persistence_backend_name(app_settings)
+    if backend == "local":
+        if 'LocalAuditEventRepository' not in globals():
+            raise PersistenceAdapterNotImplementedError("Local audit event repository adapter does not exist.")
+        return LocalAuditEventRepository()
+    elif backend == "database":
+        if db_session is None:
+            raise PersistenceConfigurationError(
+                "Database session is required when database persistence backend is active."
+            )
+        return DatabaseAuditEventRepository(db_session)
     else:
         raise PersistenceConfigurationError(f"Unsupported persistence backend: '{backend}'")
 
