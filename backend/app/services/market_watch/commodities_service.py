@@ -12,13 +12,20 @@ async def get_commodities(
     sector: Optional[str] = None, 
     geography: Optional[str] = None
 ) -> CommoditiesResponse:
+    is_production = settings.APP_MODE == "production" or not settings.ALLOW_DEMO_FALLBACK
     if settings.MARKET_WATCH_USE_FIXTURES:
+        if is_production:
+            from app.models.errors import raise_upstream_unavailable_error
+            raise_upstream_unavailable_error()
         res = get_commodities_fixture(sector=sector, geography=geography)
         _soften_warnings(res)
         return res
 
     api_key = settings.ALPHA_VANTAGE_API_KEY
     if not api_key:
+        if is_production:
+            from app.models.errors import raise_upstream_unavailable_error
+            raise_upstream_unavailable_error("Commodity provider API key is missing.")
         # Key missing: keep fixture response with soft warning
         res = get_commodities_fixture(sector=sector, geography=geography)
         res.metadata.warnings = [

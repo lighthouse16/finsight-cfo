@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
@@ -13,51 +14,30 @@ import {
   Loader2,
   ShieldCheck,
   Activity,
+  Check,
+  Trash2,
+  Sparkles,
 } from 'lucide-react'
 import PageHeader from '../../components/platform/PageHeader'
 import StatusChip from '../../components/platform/StatusChip'
 import MetricDisplay from '../../components/platform/MetricDisplay'
 import SourceInfoTooltip from '../market-watch/components/SourceInfoTooltip'
+import WorkspaceSelector from '../../components/platform/WorkspaceSelector'
+import WorkspaceRunReadiness from '../../components/platform/WorkspaceRunReadiness'
 import {
-  activateDataRoomWorkspacePreviewContext,
-  buildDataRoomSnapshotPreview,
-  clearDataRoomWorkspacePreviewContext,
-  fetchDataRoomReadiness,
-  fetchDataRoomWorkspacePreviewContext,
-  parseDataRoomPreview,
-  uploadDataRoomMetadata,
+  fetchWorkspaceFiles,
+  uploadWorkspaceFile,
+  buildWorkspaceSnapshot,
+  fetchActiveWorkspaceSnapshot,
+  deleteWorkspaceFile,
+  UploadedFileRecord,
 } from './api/dataRoomApi'
-import type {
-  DataRoomParsedRecordSet,
-  DataRoomParseResponse,
-  DataRoomRecord,
-  DataRoomResponse,
-  DataRoomSnapshotPreviewResponse,
-  DataRoomUploadResponse,
-} from './types'
-import {
-  clearDataRoomPreviewState,
-  loadDataRoomPreviewState,
-  saveDataRoomPreviewState,
-} from './utils/dataRoomPreviewStorage'
-import {
-  clearWorkspaceAnalysisContext,
-  loadWorkspaceAnalysisContext,
-  saveWorkspaceAnalysisContext,
-  WORKSPACE_ANALYSIS_CONTEXT_KEY,
-  type WorkspaceAnalysisContext,
-} from './utils/workspaceAnalysisContext'
+import { getFinancialHealthAnalysis } from '../financial-health/financialHealthApi'
+import { API_BASE_URL } from '../../lib/apiBase'
+import { fetchBackendConfig } from '../../lib/workspaceRunHelpers'
 
 type UploadState = {
   uploading: boolean
-  result: DataRoomUploadResponse | null
-  parsePreview: DataRoomParseResponse | null
-  error: string | null
-}
-
-type SnapshotPreviewState = {
-  loading: boolean
-  result: DataRoomSnapshotPreviewResponse | null
   error: string | null
 }
 
@@ -85,325 +65,359 @@ const formatRatioValue = (value: number | null | undefined, key: string) => {
   return value.toLocaleString(undefined, { maximumFractionDigits: 2 })
 }
 
+interface DataRoomRecord {
+  id: string
+  name: string
+  category: string
+  purpose: string
+  status: 'demo_available' | 'missing' | 'connected' | 'optional'
+  requiredFor: string[]
+  lastUpdated?: string | null
+  actionLabel: string
+}
+
+interface DataRoomResponse {
+  records: DataRoomRecord[]
+  dependencies: { recordGroup: string; outputs: string[] }[]
+}
+
 export default function DataRoomPage() {
   const [activeNotification, setActiveNotification] = useState<string | null>(null)
-  const [readinessData, setReadinessData] = useState<DataRoomResponse | null>(null)
-  const [isLoadingReadiness, setIsLoadingReadiness] = useState(true)
+  
+  // Workspace context state
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string>(localStorage.getItem('active_workspace_id') || '')
+  const [activeWorkspaceName, setActiveWorkspaceName] = useState<string>('')
+  
+  // Backend checklist & files state
+  const [checklistTemplate, setChecklistTemplate] = useState<DataRoomResponse | null>(null)
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFileRecord[]>([])
+  const [isLoadingChecklist, setIsLoadingChecklist] = useState(true)
+  
+  // Upload states per record key
   const [uploadStates, setUploadStates] = useState<Record<string, UploadState>>({})
-  const [parsedRecordSets, setParsedRecordSets] = useState<Record<string, DataRoomParsedRecordSet>>({})
-  const [snapshotPreview, setSnapshotPreview] = useState<SnapshotPreviewState>({
-    loading: false,
-    result: null,
-    error: null,
-  })
-  const [hasSavedPreviewState, setHasSavedPreviewState] = useState(false)
-  const [workspaceContext, setWorkspaceContext] = useState<WorkspaceAnalysisContext | null>(null)
-  const [workspaceContextError, setWorkspaceContextError] = useState<string | null>(null)
+  
+  // Snapshot & analysis states
+  const [activeSnapshot, setActiveSnapshot] = useState<any>(null)
+  const [analysisResult, setAnalysisResult] = useState<any>(null)
+  
+  // Build snapshot states
+  const [isBuilding, setIsBuilding] = useState(false)
+  const [buildError, setBuildError] = useState<string | null>(null)
+  
   const [selectedCategory, setSelectedCategory] = useState<string>('All')
+  const [isResetting, setIsResetting] = useState(false)
+  const [showDemoHelper, setShowDemoHelper] = useState(false)
+
+  const handleLoadDemoWorkspace = async () => {
+    setIsResetting(true)
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/workspaces/reset-sample`, {
+        method: 'POST'
+      })
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        throw new Error(errData.detail?.message || 'Failed to initialize sample workspace')
+      }
+      const data = await res.json()
+      localStorage.setItem('active_workspace_id', data.workspaceId)
+      setActiveWorkspaceId(data.workspaceId)
+      window.dispatchEvent(new Event('workspaceChanged'))
+      setActiveNotification('Sample company (Novus Retail Solutions Ltd) successfully initialized and pre-analyzed.')
+      
+      // Force refresh data
+      await reloadWorkspaceData(data.workspaceId)
+    } catch (err: any) {
+      console.error(err)
+      alert(err.message || 'Error initializing sample workspace')
+    } finally {
+      setIsResetting(false)
+    }
+  }
+
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
-  useEffect(() => {
-    const savedPreviewState = loadDataRoomPreviewState()
-    const hydratedUploadStates = Object.entries(savedPreviewState.uploadResultsByKey).reduce<Record<string, UploadState>>(
-      (states, [recordKey, result]) => {
-        states[recordKey] = {
-          uploading: false,
-          result,
-          parsePreview: savedPreviewState.parseResultsByKey[recordKey] ?? null,
-          error: null,
-        }
-        return states
-      },
-      {}
-    )
-
-    setParsedRecordSets(savedPreviewState.parsedRecordSetsByKey)
-    setUploadStates(hydratedUploadStates)
-    setHasSavedPreviewState(
-      Object.keys(savedPreviewState.parsedRecordSetsByKey).length > 0 ||
-        Object.keys(savedPreviewState.uploadResultsByKey).length > 0 ||
-        Object.keys(savedPreviewState.parseResultsByKey).length > 0
-    )
-    const localContext = loadWorkspaceAnalysisContext()
-    setWorkspaceContext(localContext)
-    fetchDataRoomWorkspacePreviewContext()
-      .then((status) => {
-        if (!status.active || !status.context) return
-        const backendContext: WorkspaceAnalysisContext = {
-          source: 'data_room_preview',
-          activatedAt: status.context.activatedAt,
-          companyName: status.context.companyName,
-          reportingPeriod: status.context.reportingPeriod,
-          currency: status.context.currency,
-          snapshotPreviewSummary: {
-            integrityPassedCount: status.context.integrityChecks.filter((check) => check.passed).length,
-            integrityWarningCount: status.context.warnings.length,
-            integrityFailedCount: status.context.integrityChecks.filter((check) => !check.passed).length,
-            ratioKeys: status.context.ratios ? Object.keys(status.context.ratios) : [],
-          },
-          disclaimer: status.context.disclaimer,
-        }
-        saveWorkspaceAnalysisContext(backendContext)
-        setWorkspaceContext(backendContext)
-      })
-      .catch(() => {
-        // Backend preview context is optional; keep local workspace provenance if available.
-      })
+  // Fetch workspaces list on mount to get active workspace metadata
+  const fetchWorkspaceMeta = useCallback(async (wsId: string) => {
+    if (!wsId) return
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/workspaces/${wsId}`)
+      if (res.ok) {
+        const ws = await res.json()
+        setActiveWorkspaceName(ws.companyName || ws.company_name || '')
+      }
+    } catch (err) {
+      console.error('Failed to fetch workspace metadata', err)
+    }
   }, [])
 
+  // Load live files list from workspace
+  const loadWorkspaceFiles = useCallback(async (wsId: string) => {
+    if (!wsId) return
+    try {
+      const files = await fetchWorkspaceFiles(wsId)
+      setUploadedFiles(files)
+    } catch (err) {
+      console.error('Failed to load workspace files', err)
+    }
+  }, [])
+
+  // Load active snapshot metadata
+  const loadActiveSnapshot = useCallback(async (wsId: string) => {
+    if (!wsId) return
+    try {
+      const res = await fetchActiveWorkspaceSnapshot(wsId)
+      if (res.status === 'success') {
+        setActiveSnapshot(res.snapshot)
+      } else {
+        setActiveSnapshot(null)
+      }
+    } catch (err) {
+      console.error('Failed to load active snapshot', err)
+      setActiveSnapshot(null)
+    }
+  }, [])
+
+  // Load live analysis parameters derived from snapshot
+  const loadAnalysis = useCallback(async () => {
+    try {
+      const res = await getFinancialHealthAnalysis()
+      if (res && !('status' in res && res.status === 'insufficient_data')) {
+        setAnalysisResult(res)
+      } else {
+        setAnalysisResult(null)
+      }
+    } catch (err) {
+      console.error('Failed to load financial analysis', err)
+      setAnalysisResult(null)
+    }
+  }, [])
+
+  // Combined function to reload everything for the active workspace
+  const reloadWorkspaceData = useCallback(async (wsId: string) => {
+    if (!wsId) return
+    setIsLoadingChecklist(true)
+    await Promise.all([
+      fetchWorkspaceMeta(wsId),
+      loadWorkspaceFiles(wsId),
+      loadActiveSnapshot(wsId),
+      loadAnalysis(),
+    ])
+    setIsLoadingChecklist(false)
+  }, [fetchWorkspaceMeta, loadWorkspaceFiles, loadActiveSnapshot, loadAnalysis])
+
+  // Fetch checklist template definition once
   useEffect(() => {
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key === WORKSPACE_ANALYSIS_CONTEXT_KEY) {
-        setWorkspaceContext(loadWorkspaceAnalysisContext())
+    const fetchChecklistTemplate = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/data-room/demo-readiness`)
+        if (res.ok) {
+          const data = await res.json()
+          setChecklistTemplate(data)
+        }
+      } catch (err) {
+        console.error('Failed to load readiness checklist template', err)
       }
     }
-
-    window.addEventListener('storage', handleStorage)
-    return () => window.removeEventListener('storage', handleStorage)
+    const checkConfig = async () => {
+      try {
+        const config = await fetchBackendConfig()
+        setShowDemoHelper(!config.isProduction)
+      } catch (e) {
+        console.warn('Failed to load backend config:', e)
+      }
+    }
+    fetchChecklistTemplate()
+    checkConfig()
   }, [])
 
+  // Load workspace data when active workspace changes
   useEffect(() => {
-    let isMounted = true
-
-    fetchDataRoomReadiness().then((data) => {
-      if (!isMounted) return
-      setReadinessData(data)
-      setIsLoadingReadiness(false)
-    })
-
-    return () => {
-      isMounted = false
+    if (activeWorkspaceId) {
+      reloadWorkspaceData(activeWorkspaceId)
     }
+  }, [activeWorkspaceId, reloadWorkspaceData])
+
+  // Listen to workspaceChanged custom events
+  useEffect(() => {
+    const handleWorkspaceChanged = () => {
+      const nextId = localStorage.getItem('active_workspace_id') || ''
+      setActiveWorkspaceId(nextId)
+    }
+    window.addEventListener('workspaceChanged', handleWorkspaceChanged)
+    return () => window.removeEventListener('workspaceChanged', handleWorkspaceChanged)
   }, [])
 
-  const snapshotRecordSets = useMemo(() => Object.values(parsedRecordSets), [parsedRecordSets])
-
-  const locallyMissingRequiredStatements = useMemo(
-    () => REQUIRED_SNAPSHOT_RECORD_KEYS.filter((recordKey) => !parsedRecordSets[recordKey]),
-    [parsedRecordSets]
-  )
-
-  const snapshotRequestKey = useMemo(
-    () => snapshotRecordSets.map((recordSet) => recordSet.recordKey).sort().join('|'),
-    [snapshotRecordSets]
-  )
-
-  useEffect(() => {
-    if (snapshotRecordSets.length === 0 || locallyMissingRequiredStatements.length > 0) {
-      setSnapshotPreview((prev) => ({ ...prev, loading: false, result: null, error: null }))
-      return
-    }
-
-    let isMounted = true
-    setSnapshotPreview((prev) => ({ ...prev, loading: true, error: null }))
-
-    buildDataRoomSnapshotPreview({
-      currency: 'HKD',
-      reportingPeriod: 'FY2025',
-      recordSets: snapshotRecordSets,
+  // Map checklist records with real workspace file records
+  const computedRecords = useMemo(() => {
+    const records = checklistTemplate?.records ?? []
+    return records.map((rec) => {
+      const uploaded = uploadedFiles.find((f) => f.recordKey === rec.id)
+      if (uploaded) {
+        return {
+          ...rec,
+          status: 'connected' as const,
+          lastUpdated: `Uploaded ${new Date(uploaded.uploadedAt).toLocaleDateString(undefined, {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+          })}`,
+          actionLabel: 'Upload' as const, // Support re-upload/overwrite
+        }
+      }
+      return {
+        ...rec,
+        status: rec.status === 'optional' ? ('optional' as const) : ('missing' as const),
+        lastUpdated: rec.status === 'optional' ? 'Not Connected' : 'Pending Record Connection',
+        actionLabel: rec.id === 'pl-statement' || rec.id === 'balance-sheet' || rec.id === 'cash-flow' ? ('Upload' as const) : rec.actionLabel,
+      }
     })
-      .then((result) => {
-        if (!isMounted) return
-        setSnapshotPreview({ loading: false, result, error: null })
-      })
-      .catch(() => {
-        if (!isMounted) return
-        setSnapshotPreview({
-          loading: false,
-          result: null,
-          error: 'Snapshot preview service unavailable. Uploaded metadata and parse preview remain available.',
-        })
-      })
+  }, [checklistTemplate?.records, uploadedFiles])
 
-    return () => {
-      isMounted = false
+  // Computed metrics
+  const totalRequired = useMemo(
+    () => computedRecords.filter((rec) => rec.category !== 'Risk & Treasury' && (rec.status as string) !== 'optional').length,
+    [computedRecords]
+  )
+  const connectedRequired = useMemo(
+    () => computedRecords.filter((rec) => rec.status === 'connected' && (rec.status as string) !== 'optional').length,
+    [computedRecords]
+  )
+  const missingRequired = useMemo(
+    () => computedRecords.filter((rec) => rec.status === 'missing' && (rec.status as string) !== 'optional').length,
+    [computedRecords]
+  )
+  const readinessPercentage = useMemo(
+    () => (totalRequired ? Math.round((connectedRequired / totalRequired) * 100) : 0),
+    [totalRequired, connectedRequired]
+  )
+
+  const locallyMissingRequiredStatements = useMemo(() => {
+    return REQUIRED_SNAPSHOT_RECORD_KEYS.filter(
+      (key) => !uploadedFiles.some((f) => f.recordKey === key)
+    )
+  }, [uploadedFiles])
+
+  // Trigger file dialog
+  const handleUploadClick = useCallback((recordId: string) => {
+    fileInputRefs.current[recordId]?.click()
+  }, [])
+
+  // Upload file physically
+  const handleFileSelected = useCallback(
+    async (record: DataRoomRecord, event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0]
+      if (!file) return
+
+      if (!activeWorkspaceId) {
+        alert('Please select or create a workspace first.')
+        return
+      }
+
+      setUploadStates((prev) => ({
+        ...prev,
+        [record.id]: { uploading: true, error: null },
+      }))
+
+      try {
+        await uploadWorkspaceFile(activeWorkspaceId, record.id, file)
+        
+        // Reload workspace records and files
+        await loadWorkspaceFiles(activeWorkspaceId)
+        
+        setUploadStates((prev) => ({
+          ...prev,
+          [record.id]: { uploading: false, error: null },
+        }))
+
+        setActiveNotification(`Successfully uploaded "${file.name}" to workspace.`)
+        setTimeout(() => setActiveNotification(null), 4000)
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Upload failed.'
+        setUploadStates((prev) => ({
+          ...prev,
+          [record.id]: { uploading: false, error: message },
+        }))
+      }
+
+      // Reset the file input
+      event.target.value = ''
+    },
+    [activeWorkspaceId, loadWorkspaceFiles]
+  )
+
+  // Delete file physically
+  const handleDeleteFile = useCallback(
+    async (recordId: string) => {
+      if (!activeWorkspaceId) return
+      
+      const fileRecord = uploadedFiles.find((f) => f.recordKey === recordId)
+      if (!fileRecord) return
+
+      if (!confirm(`Are you sure you want to delete the uploaded file for ${SNAPSHOT_RECORD_LABELS[recordId] || recordId}?`)) {
+        return
+      }
+
+      try {
+        await deleteWorkspaceFile(activeWorkspaceId, fileRecord.id)
+        
+        // Reload workspace records and files
+        await reloadWorkspaceData(activeWorkspaceId)
+        
+        setActiveNotification(`Successfully deleted statement file.`)
+        setTimeout(() => setActiveNotification(null), 4000)
+      } catch (err) {
+        console.error(err)
+        alert(err instanceof Error ? err.message : 'Failed to delete file.')
+      }
+    },
+    [activeWorkspaceId, uploadedFiles, reloadWorkspaceData]
+  )
+
+  // Compile active financial snapshot
+  const handleBuildSnapshot = async () => {
+    if (!activeWorkspaceId) return
+    setIsBuilding(true)
+    setBuildError(null)
+    try {
+      const res = await buildWorkspaceSnapshot(activeWorkspaceId)
+      if (res.status === 'success') {
+        setActiveNotification('Workspace financial snapshot compiled successfully!')
+        setTimeout(() => setActiveNotification(null), 4000)
+        // Refresh all workspace status
+        await reloadWorkspaceData(activeWorkspaceId)
+      } else {
+        setBuildError(res.warnings?.join(', ') || 'Failed to compile snapshot. Verify uploaded statement data formats.')
+      }
+    } catch (err) {
+      console.error(err)
+      setBuildError(err instanceof Error ? err.message : 'Failed to connect to snapshot builder.')
+    } finally {
+      setIsBuilding(false)
     }
-  }, [locallyMissingRequiredStatements.length, snapshotRecordSets, snapshotRequestKey])
+  }
 
   const handleActionClick = (recordName: string, action: string) => {
     setActiveNotification(
-      `Integration trigger simulated: "${action}" for ${recordName}. Records integration is currently set to demo context. Connection to company servers requires production connectors.`
+      `Connector simulated: "${action}" for ${recordName}. Direct live connector requires enterprise bank integration.`
     )
     setTimeout(() => {
       setActiveNotification(null)
     }, 6000)
   }
 
-  const handleUploadClick = useCallback((recordId: string) => {
-    fileInputRefs.current[recordId]?.click()
-  }, [])
-
-  const handleFileSelected = useCallback(
-    async (record: DataRoomRecord, event: React.ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0]
-      if (!file) return
-
-      setUploadStates((prev) => ({
-        ...prev,
-        [record.id]: { uploading: true, result: null, parsePreview: null, error: null },
-      }))
-
-      try {
-        const result = await uploadDataRoomMetadata(record.id, file)
-        let parsePreview: DataRoomParseResponse | null = null
-        let nextParsedRecordSets = parsedRecordSets
-        if (result.uploadedFile.status !== 'unsupported_type') {
-          const parsedResponse = await parseDataRoomPreview(record.id, file)
-          parsePreview = parsedResponse
-          nextParsedRecordSets = {
-            ...parsedRecordSets,
-            [record.id]: {
-              recordKey: record.id,
-              parsedRecords: parsedResponse.preview.parsedRecords,
-              warnings: [...parsedResponse.preview.warnings, ...parsedResponse.warnings],
-            },
-          }
-          setParsedRecordSets(nextParsedRecordSets)
-        }
-
-        const nextUploadStates = {
-          ...uploadStates,
-          [record.id]: { uploading: false, result, parsePreview, error: null },
-        }
-        setUploadStates(nextUploadStates)
-        saveDataRoomPreviewState({
-          parsedRecordSetsByKey: nextParsedRecordSets,
-          uploadResultsByKey: Object.fromEntries(
-            Object.entries(nextUploadStates)
-              .filter(([, state]) => state.result)
-              .map(([recordKey, state]) => [recordKey, state.result as DataRoomUploadResponse])
-          ),
-          parseResultsByKey: Object.fromEntries(
-            Object.entries(nextUploadStates)
-              .filter(([, state]) => state.parsePreview)
-              .map(([recordKey, state]) => [recordKey, state.parsePreview as DataRoomParseResponse])
-          ),
-        })
-        setHasSavedPreviewState(true)
-      } catch (err) {
-        const message =
-          err instanceof Error
-            ? err.message
-            : 'Upload metadata service unavailable. Please try again later.'
-        setUploadStates((prev) => ({
-          ...prev,
-          [record.id]: { uploading: false, result: null, parsePreview: null, error: message },
-        }))
-      }
-
-      // Reset the file input so the same file can be re-selected
-      event.target.value = ''
-    },
-    [parsedRecordSets, uploadStates]
-  )
-
-  const handleClearPreviewSession = useCallback(() => {
-    clearDataRoomPreviewState()
-    clearWorkspaceAnalysisContext()
-    setParsedRecordSets({})
-    setUploadStates({})
-    setSnapshotPreview({ loading: false, result: null, error: null })
-    setHasSavedPreviewState(false)
-    setWorkspaceContext(null)
-    setWorkspaceContextError(null)
-    void clearDataRoomWorkspacePreviewContext().catch(() => undefined)
-  }, [])
-
-  const handleActivateWorkspaceContext = useCallback(async () => {
-    const preview = snapshotPreview.result
-    if (!preview?.snapshotPreview) return
-
-    const integrityPassedCount = preview.integrityChecks.filter((check) => check.passed).length
-    const integrityFailedCount = preview.integrityChecks.filter((check) => !check.passed).length
-    const context: WorkspaceAnalysisContext = {
-      source: 'data_room_preview',
-      activatedAt: new Date().toISOString(),
-      companyName: preview.companyName,
-      reportingPeriod: preview.reportingPeriod,
-      currency: preview.currency,
-      snapshotPreviewSummary: {
-        integrityPassedCount,
-        integrityWarningCount: preview.warnings.length,
-        integrityFailedCount,
-        ratioKeys: preview.ratios ? Object.keys(preview.ratios) : [],
-      },
-      disclaimer:
-        'Preview context does not update production analysis. Market Watch and Advisory Blueprint will show preview provenance only until backend workspace persistence is added.',
-    }
-
-    saveWorkspaceAnalysisContext(context)
-    setWorkspaceContext(context)
-    setWorkspaceContextError(null)
-
-    try {
-      const backendContext = await activateDataRoomWorkspacePreviewContext({
-        companyId: preview.companyId,
-        companyName: preview.companyName,
-        currency: preview.currency,
-        reportingPeriod: preview.reportingPeriod,
-        snapshotPreview: preview.snapshotPreview,
-        integrityChecks: preview.integrityChecks,
-        ratios: preview.ratios,
-        warnings: preview.warnings,
-      })
-      const syncedContext: WorkspaceAnalysisContext = {
-        ...context,
-        activatedAt: backendContext.activatedAt,
-        disclaimer: backendContext.disclaimer,
-      }
-      saveWorkspaceAnalysisContext(syncedContext)
-      setWorkspaceContext(syncedContext)
-    } catch {
-      setWorkspaceContextError(
-        'Preview context saved locally. Backend preview context is unavailable and can be retried later.'
-      )
-    }
-  }, [snapshotPreview.result])
-
-  const handleResetWorkspaceContext = useCallback(() => {
-    clearWorkspaceAnalysisContext()
-    setWorkspaceContext(null)
-    setWorkspaceContextError(null)
-    void clearDataRoomWorkspacePreviewContext().catch(() => {
-      // Backend context is temporary; local reset should not fail if backend is unavailable.
-    })
-  }, [])
-
   const filteredRecords = useMemo(() => {
-    const list = readinessData?.records ?? []
-    return list.filter((rec) => selectedCategory === 'All' || rec.category === selectedCategory)
-  }, [readinessData?.records, selectedCategory])
-  const dependencies = readinessData?.dependencies ?? []
-  const totalRequired = readinessData?.summary.totalRequired ?? 0
-  const connectedRequired = readinessData?.summary.connectedRequired ?? 0
-  const missingRequired = readinessData?.summary.missingRequired ?? 0
-  const readinessPercentage = readinessData?.summary.readinessPercentage ?? 0
-  const backendMissingRequiredStatements = snapshotPreview.result?.missingRequiredStatements ?? []
-  const displayedMissingRequiredStatements = backendMissingRequiredStatements.length
-    ? backendMissingRequiredStatements
-    : locallyMissingRequiredStatements
-  const passedIntegrityCount = snapshotPreview.result?.integrityChecks.filter((check) => check.passed).length ?? 0
-  const failedIntegrityCount = snapshotPreview.result?.integrityChecks.filter((check) => !check.passed).length ?? 0
-  const warningIntegrityCount = snapshotPreview.result?.integrityChecks.filter((check) => check.message).length ?? 0
-  const previewStatus = snapshotPreview.error
-    ? 'Unavailable'
-    : snapshotPreview.result?.snapshotPreview
-      ? 'Ready'
-      : displayedMissingRequiredStatements.length
-        ? 'Missing statements'
-        : snapshotPreview.loading
-          ? 'Building preview'
-          : 'Awaiting uploads'
+    return computedRecords.filter((rec) => selectedCategory === 'All' || rec.category === selectedCategory)
+  }, [computedRecords, selectedCategory])
+
+  const dependencies = checklistTemplate?.dependencies ?? []
 
   const getStatusChipVariant = (status: string) => {
     switch (status) {
-      case 'demo_available':
       case 'connected':
         return 'signal'
       case 'missing':
         return 'caution'
       case 'optional':
-      case 'coming_soon':
       default:
         return 'neutral'
     }
@@ -411,19 +425,80 @@ export default function DataRoomPage() {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'demo_available':
-        return 'Available'
       case 'connected':
         return 'Connected'
       case 'missing':
         return 'Missing'
       case 'optional':
         return 'Optional'
-      case 'coming_soon':
-        return 'Coming soon'
       default:
         return status
     }
+  }
+
+  if (!activeWorkspaceId) {
+    return (
+      <div className="space-y-8 pb-12">
+        {/* 1. Page Header */}
+        <PageHeader
+          title="Data Room"
+          subtitle="Manage company financial records and upload statements for workspace calibration."
+          actions={
+            <div className="flex items-center gap-3">
+              {showDemoHelper && (
+                <button
+                  onClick={handleLoadDemoWorkspace}
+                  disabled={isResetting}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 border border-white/70 bg-white/60 hover:bg-white text-softform-navy-950 text-xs font-semibold rounded-xl shadow-sm disabled:opacity-50 transition-colors"
+                  title="Safe developer/demo helper to reset and populate sample company statements."
+                >
+                  {isResetting ? (
+                    <Loader2 size={13} className="animate-spin text-softform-teal-deep" />
+                  ) : (
+                    <Sparkles size={13} className="text-softform-teal-deep" />
+                  )}
+                  <span>Initialize Sample Workspace</span>
+                </button>
+              )}
+              <WorkspaceSelector />
+            </div>
+          }
+        />
+        <div className="softform-panel relative overflow-hidden rounded-[32px] p-8 sm:p-10 shadow-floating-panel bg-[linear-gradient(145deg,rgba(255,255,255,0.76),rgba(231,240,244,0.66))] border border-white">
+          <div className="mx-auto flex max-w-lg flex-col items-center text-center relative z-10 py-8">
+            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-[20px] bg-softform-mist-100/80 text-softform-amber-500 ring-4 ring-softform-aqua-300/10 shadow-soft-inner">
+              <Database size={28} strokeWidth={1.5} />
+            </div>
+            <h2 className="mb-2 text-lg font-bold text-softform-navy-950">No Workspace Selected</h2>
+            <p className="mb-6 text-sm leading-relaxed text-softform-text-secondary">
+              To upload financial statements and compile calibration snapshots, you must select an existing workspace or create a new one.
+            </p>
+            <div className="flex flex-col sm:flex-row items-center gap-4">
+              <span className="text-xs text-softform-text-muted">Use the workspace menu to select or create a workspace:</span>
+              <WorkspaceSelector />
+              {showDemoHelper && (
+                <>
+                  <span className="text-xs text-softform-text-muted">or</span>
+                  <button
+                    onClick={handleLoadDemoWorkspace}
+                    disabled={isResetting}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 border border-white/70 bg-white/60 hover:bg-white text-softform-navy-950 text-xs font-semibold rounded-xl shadow-sm disabled:opacity-50 transition-colors"
+                    title="Safe developer/demo helper to reset and populate sample company statements."
+                  >
+                    {isResetting ? (
+                      <Loader2 size={13} className="animate-spin text-softform-teal-deep" />
+                    ) : (
+                      <Sparkles size={13} className="text-softform-teal-deep" />
+                    )}
+                    <span>Initialize Sample Workspace</span>
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -431,34 +506,54 @@ export default function DataRoomPage() {
       {/* 1. Page Header */}
       <PageHeader
         title="Data Room"
-        subtitle="Company records required for production financial analysis and advisory context."
+        subtitle="Manage company financial records and upload statements for workspace calibration."
         titleAddon={
           <SourceInfoTooltip
-            title="Data Room Provenance"
+            title="Data Room Ingestion"
             sources={[
-              { label: 'Company Financial Records', mode: 'workspace-derived' },
-              { label: 'Integration Status Tracker', mode: 'workspace-derived' },
+              { label: 'Workspace Files Storage', mode: 'workspace-derived' },
+              { label: 'Calculated Financial Context', mode: 'workspace-derived' },
             ]}
             ariaLabel="Data room source information"
           />
         }
         chip={
           <StatusChip variant={readinessPercentage === 100 ? 'signal' : 'caution'}>
-            {readinessPercentage}% Connected
+            {activeWorkspaceName ? `${activeWorkspaceName}: ` : ''}{readinessPercentage}% Uploaded
           </StatusChip>
+        }
+        actions={
+          <div className="flex items-center gap-3">
+            {showDemoHelper && (
+              <button
+                onClick={handleLoadDemoWorkspace}
+                disabled={isResetting}
+                className="inline-flex items-center gap-1.5 px-4 py-2 border border-white/70 bg-white/60 hover:bg-white text-softform-navy-950 text-xs font-semibold rounded-xl shadow-sm disabled:opacity-50 transition-colors"
+                title="Safe developer/demo helper to reset and populate sample company statements."
+              >
+                {isResetting ? (
+                  <Loader2 size={13} className="animate-spin text-softform-teal-deep" />
+                ) : (
+                  <Sparkles size={13} className="text-softform-teal-deep" />
+                )}
+                <span>Initialize Sample Workspace</span>
+              </button>
+            )}
+            <WorkspaceSelector />
+          </div>
         }
       />
 
       {/* State Notification Toast */}
       <AnimatePresence>
         {activeNotification && (
-          <div className="fixed bottom-6 right-6 z-50 max-w-md rounded-2xl border border-white/60 bg-white/95 p-4 shadow-floating-panel backdrop-blur-xl transition-all duration-300">
+          <div className="fixed bottom-6 right-6 z-50 max-w-md rounded-2xl border border-white/60 bg-white/95 p-4 shadow-[0_20px_50px_rgba(8,17,31,0.15)] backdrop-blur-xl transition-all duration-300">
             <div className="flex gap-3">
-              <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-softform-mist-100 text-softform-teal-deep">
-                <Database size={12} />
+              <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-softform-teal-50 text-softform-teal-600">
+                <Check size={12} />
               </div>
               <div className="space-y-1">
-                <p className="text-xs font-semibold text-softform-navy-950">System Notification</p>
+                <p className="text-xs font-semibold text-softform-navy-950">Data Room System</p>
                 <p className="text-xs text-softform-text-secondary leading-relaxed">
                   {activeNotification}
                 </p>
@@ -468,35 +563,34 @@ export default function DataRoomPage() {
         )}
       </AnimatePresence>
 
-
-      {/* 3. Data Readiness Overview */}
+      {/* 2. Data Readiness Overview */}
       <section className="grid gap-4 sm:grid-cols-4">
         <div className="softform-metric-card rounded-[22px] p-5 hover-lift">
           <MetricDisplay
-            label="Required Records"
+            label="Workspace Required Records"
             value={totalRequired}
-            description="Specified in parameters"
+            description="Core statements checklist"
           />
         </div>
         <div className="softform-metric-card rounded-[22px] p-5 hover-lift">
           <MetricDisplay
-            label="Connected Records"
+            label="Uploaded Records"
             value={connectedRequired}
-            description="Workspace context active"
+            description="Statements stored in workspace"
           />
         </div>
         <div className="softform-metric-card rounded-[22px] p-5 hover-lift">
           <MetricDisplay
             label="Missing Records"
             value={missingRequired}
-            description="Required for calibration"
+            description="Awaiting ingestion"
           />
         </div>
         <div className="softform-metric-card rounded-[22px] p-5 hover-lift">
           <MetricDisplay
-            label="Production Readiness"
+            label="Ingestion Readiness"
             value={`${readinessPercentage}%`}
-            description="Demo to Production threshold"
+            description="Active snapshot threshold"
           />
         </div>
       </section>
@@ -505,9 +599,9 @@ export default function DataRoomPage() {
       <section className="softform-card rounded-[32px] p-6 sm:p-8 space-y-6">
         <div className="flex flex-col gap-4 border-b border-softform-navy-950/5 pb-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold text-softform-navy-950">Integration Status</h2>
+            <h2 className="text-lg font-semibold text-softform-navy-950">Ingestion Status</h2>
             <span className="text-xs font-medium text-softform-text-muted">
-              {isLoadingReadiness ? 'Loading readiness contract' : 'Required records checklist'}
+              {isLoadingChecklist ? 'Syncing files...' : 'Required statements upload tracker'}
             </span>
           </div>
 
@@ -536,7 +630,7 @@ export default function DataRoomPage() {
         <div className="flex flex-col gap-4">
           {filteredRecords.map((rec) => {
             const uploadState = uploadStates[rec.id]
-            const isConnected = rec.status === 'connected' || rec.status === 'demo_available'
+            const isConnected = rec.status === 'connected'
             const isMissing = rec.status === 'missing'
 
             return (
@@ -564,8 +658,8 @@ export default function DataRoomPage() {
                     type="file"
                     id={`file-input-${rec.id}`}
                     name={`file-input-${rec.id}`}
-                    accept=".pdf,.csv,.xlsx,.xls,.docx"
-                    aria-label={`Upload file for ${rec.name}`}
+                    accept=".csv,.xlsx"
+                    aria-label={`Upload statement for ${rec.name}`}
                     className="sr-only"
                     onChange={(e) => handleFileSelected(rec, e)}
                   />
@@ -610,7 +704,7 @@ export default function DataRoomPage() {
                   {/* Col 2: Dependency Fits */}
                   <div className="space-y-2 lg:pl-4">
                     <span className="block text-[10px] font-medium uppercase tracking-[0.12em] text-softform-text-muted">
-                      Fits Workflow
+                      Feeds outcome engines
                     </span>
                     <div className="flex flex-wrap gap-1.5">
                       {rec.requiredFor.map((rf) => (
@@ -639,25 +733,37 @@ export default function DataRoomPage() {
 
                     <div className="flex flex-col items-end gap-1 shrink-0">
                       {rec.actionLabel === 'Upload' ? (
-                        <button
-                          type="button"
-                          onClick={() => handleUploadClick(rec.id)}
-                          disabled={uploadState?.uploading}
-                          className="inline-flex items-center gap-1.5 rounded-xl bg-softform-navy-900 border-softform-navy-950/10 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-softform-navy-800 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 shadow-sm"
-                        >
-                          {uploadState?.uploading ? (
-                            <Loader2 size={12} className="animate-spin" />
-                          ) : (
-                            <Upload size={12} />
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleUploadClick(rec.id)}
+                            disabled={uploadState?.uploading}
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-softform-navy-900 border-softform-navy-950/10 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-softform-navy-800 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 shadow-sm"
+                          >
+                            {uploadState?.uploading ? (
+                              <Loader2 size={12} className="animate-spin" />
+                            ) : (
+                              <Upload size={12} />
+                            )}
+                            {isConnected ? 'Replace File' : uploadState?.uploading ? 'Uploading...' : 'Upload statement'}
+                          </button>
+                          {isConnected && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteFile(rec.id)}
+                              className="inline-flex items-center justify-center h-8 w-8 rounded-xl bg-white border border-white/60 text-softform-amber-500 hover:bg-red-50 hover:text-red-600 hover:-translate-y-0.5 transition shadow-sm"
+                              title="Delete file"
+                            >
+                              <Trash2 size={14} />
+                            </button>
                           )}
-                          {uploadState?.uploading ? 'Uploading...' : 'Upload'}
-                        </button>
+                        </div>
                       ) : (
                         <button
                           type="button"
                           onClick={() => handleActionClick(rec.name, rec.actionLabel)}
                           className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold transition border shadow-sm ${
-                            rec.actionLabel === 'Review'
+                            rec.actionLabel === 'Connect'
                               ? 'bg-white border-white/60 text-softform-navy-950 hover:bg-white hover:-translate-y-0.5'
                               : 'bg-white/40 border-white/30 text-softform-text-muted cursor-not-allowed'
                           }`}
@@ -675,63 +781,20 @@ export default function DataRoomPage() {
                   </div>
                 </div>
 
-                {/* Inline Upload Results / Parse Preview Drawer inside the card */}
-                {uploadState && (
+                {/* Inline Error drawer */}
+                {uploadState?.error && (
                   <div className="mt-4 pt-4 border-t border-softform-navy-950/5">
-                    {uploadState.uploading && (
-                      <div className="flex items-center gap-2 text-xs text-softform-text-secondary">
-                        <Loader2 size={12} className="animate-spin" />
-                        <span>Receiving metadata...</span>
+                    <div className="rounded-[18px] border border-softform-amber-500/20 bg-softform-cream/30 p-4 space-y-1">
+                      <div className="flex items-center gap-1.5">
+                        <AlertCircle size={14} className="text-softform-amber-500" />
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-softform-text-secondary">
+                          Upload Failed
+                        </span>
                       </div>
-                    )}
-                    {uploadState.result && (
-                      <div className="rounded-[18px] border border-white/60 bg-white/50 p-4 space-y-2 shadow-inner">
-                        <div className="flex items-center gap-1.5">
-                          {uploadState.result.uploadedFile.status === 'unsupported_type' ? (
-                            <AlertCircle size={14} className="text-softform-amber-500" />
-                          ) : (
-                            <CheckSquare size={14} className="text-softform-teal-deep" />
-                          )}
-                          <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-softform-text-secondary">
-                            {uploadState.result.uploadedFile.status === 'unsupported_type'
-                              ? 'Unsupported file'
-                              : 'Metadata received'}
-                          </span>
-                        </div>
-                        <p className="text-xs text-softform-text-secondary leading-relaxed">
-                          {uploadState.result.uploadedFile.status === 'unsupported_type'
-                            ? 'This file type is not supported. Analysis will not be updated.'
-                            : 'File metadata received. Analysis remains unchanged until production ingestion is connected.'}
-                        </p>
-                        {uploadState.parsePreview && (
-                          <div className="rounded-xl bg-softform-mist-100/40 p-3 text-xs text-softform-text-secondary border border-softform-aqua-300/10">
-                            <span className="font-bold text-softform-navy-950">
-                              Structured preview:
-                            </span>{' '}
-                            {uploadState.parsePreview.preview.parsedRecords.length} fields read ·{' '}
-                            {uploadState.parsePreview.preview.missingExpectedFields.length} expected fields missing
-                          </div>
-                        )}
-                        {uploadState.result.warnings.length > 0 && (
-                          <p className="text-xs text-softform-amber-500 font-semibold">
-                            {uploadState.result.warnings[0]}
-                          </p>
-                        )}
-                      </div>
-                    )}
-                    {uploadState.error && (
-                      <div className="rounded-[18px] border border-softform-amber-500/20 bg-softform-cream/30 p-4 space-y-1">
-                        <div className="flex items-center gap-1.5">
-                          <AlertCircle size={14} className="text-softform-amber-500" />
-                          <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-softform-text-secondary">
-                            Unavailable
-                          </span>
-                        </div>
-                        <p className="text-xs text-softform-amber-500 leading-relaxed font-semibold">
-                          {uploadState.error}
-                        </p>
-                      </div>
-                    )}
+                      <p className="text-xs text-softform-amber-500 leading-relaxed font-semibold">
+                        {uploadState.error}
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
@@ -740,106 +803,119 @@ export default function DataRoomPage() {
         </div>
       </section>
 
-      {/* 4. Financial Snapshot Preview */}
+      {/* 4. Financial Snapshot Calibration & Preview */}
       <section className="softform-card rounded-[32px] p-6 sm:p-8 space-y-6">
         <div className="flex flex-col gap-3 border-b border-softform-navy-950/5 pb-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <ShieldCheck size={16} className="text-softform-teal-deep" />
-              <h2 className="text-lg font-semibold text-softform-navy-950">Financial Snapshot Preview</h2>
+              <h2 className="text-lg font-semibold text-softform-navy-950">Financial Snapshot Calibration</h2>
             </div>
             <p className="text-xs text-softform-text-muted leading-relaxed">
-              Preview-only ingestion from structured files. The main financial and advisory analysis remains unchanged.
+              Compile uploaded financial statements into a unified balance sheet and income statement model.
             </p>
-            <p className="text-[11px] text-softform-text-muted leading-relaxed">
-              Preview session stored locally in this browser. Production analysis is not updated.
-            </p>
+            {activeSnapshot ? (
+              <p className="text-[11px] text-softform-teal-deep font-semibold">
+                Active workspace snapshot: Period {activeSnapshot.reportingPeriod || 'FY2025'} ({activeSnapshot.currency || 'HKD'}) is compiled and approved.
+              </p>
+            ) : (
+              <p className="text-[11px] text-softform-amber-500 font-semibold">
+                No active financial snapshot built for this workspace yet. Upload statements to compile calibration models.
+              </p>
+            )}
           </div>
           <div className="flex flex-col items-start gap-2 sm:items-end">
-            <StatusChip variant={snapshotPreview.error ? 'caution' : snapshotPreview.result?.snapshotPreview ? 'signal' : 'neutral'}>
-              {previewStatus}
+            <StatusChip variant={activeSnapshot ? 'signal' : 'caution'}>
+              {activeSnapshot ? 'Snapshot Compiled' : 'Pending Ingestion'}
             </StatusChip>
-            {hasSavedPreviewState && (
-              <button
-                type="button"
-                onClick={handleClearPreviewSession}
-                className="rounded-xl border border-white/70 bg-white/50 px-3 py-1.5 text-xs font-semibold text-softform-text-secondary shadow-sm transition hover:bg-white hover:text-softform-navy-950 focus:outline-none focus:ring-2 focus:ring-softform-aqua-300/60"
-              >
-                Clear preview session
-              </button>
-            )}
           </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-4">
           <div className="rounded-[22px] border border-white/60 bg-white/40 p-4 space-y-1.5">
             <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-softform-text-muted/90">
-              Parsed Statements
+              Uploaded statements
             </p>
             <p className="text-2xl font-bold text-softform-navy-950 tabular-finance">
-              {snapshotRecordSets.length}/{REQUIRED_SNAPSHOT_RECORD_KEYS.length}
+              {uploadedFiles.filter(f => REQUIRED_SNAPSHOT_RECORD_KEYS.includes(f.recordKey as any)).length}/{REQUIRED_SNAPSHOT_RECORD_KEYS.length}
             </p>
-            <p className="text-xs text-softform-text-secondary">Required structured files uploaded</p>
+            <p className="text-xs text-softform-text-secondary">Core required sheets uploaded</p>
           </div>
           <div className="rounded-[22px] border border-white/60 bg-white/40 p-4 space-y-1.5">
             <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-softform-text-muted/90">
-              Integrity Checks
+              Integrity check checks
             </p>
             <p className="text-2xl font-bold text-softform-teal-deep tabular-finance">
-              {passedIntegrityCount}/{snapshotPreview.result?.integrityChecks.length ?? 0}
+              {analysisResult?.integrityChecks ? analysisResult.integrityChecks.filter((check: any) => check.passed).length : 0}
             </p>
-            <p className="text-xs text-softform-text-secondary">Passed in preview response</p>
+            <p className="text-xs text-softform-text-secondary">Checks passed in active analysis</p>
           </div>
           <div className="rounded-[22px] border border-white/60 bg-white/40 p-4 space-y-1.5">
             <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-softform-text-muted/90">
-              Review Signals
+              Calculated warnings
             </p>
             <p className="text-2xl font-bold text-softform-amber-500 tabular-finance">
-              {failedIntegrityCount + warningIntegrityCount}
+              {analysisResult?.warnings ? analysisResult.warnings.length : 0}
             </p>
-            <p className="text-xs text-softform-text-secondary">Failures or backend warnings</p>
+            <p className="text-xs text-softform-text-secondary">System ratio warnings reported</p>
           </div>
           <div className="rounded-[22px] border border-white/60 bg-white/40 p-4 space-y-1.5">
             <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-softform-text-muted/90">
-              Ratios Returned
+              Ratios generated
             </p>
             <p className="text-2xl font-bold text-softform-navy-950 tabular-finance">
-              {snapshotPreview.result?.ratios ? Object.keys(snapshotPreview.result.ratios).length : 0}
+              {analysisResult?.ratios ? Object.keys(analysisResult.ratios).length : 0}
             </p>
-            <p className="text-xs text-softform-text-secondary">Core ratio preview metrics</p>
+            <p className="text-xs text-softform-text-secondary">Ratio metrics generated</p>
           </div>
         </div>
 
-        {snapshotPreview.loading && (
-          <div className="flex items-center gap-2 rounded-2xl border border-softform-aqua-300/25 bg-softform-mist-100/40 px-4 py-3 text-xs font-semibold text-softform-text-secondary">
-            <Loader2 size={14} className="animate-spin text-softform-teal-deep" />
-            Building normalized snapshot preview from parsed structured files...
-          </div>
-        )}
-
-        {snapshotPreview.error && (
-          <div className="flex items-start gap-2 rounded-2xl border border-softform-amber-500/20 bg-softform-cream/30 px-4 py-3 text-xs text-softform-amber-500">
-            <AlertCircle size={14} className="mt-0.5 shrink-0" />
-            <span>{snapshotPreview.error}</span>
-          </div>
-        )}
-
-        {displayedMissingRequiredStatements.length > 0 && !snapshotPreview.error && (
+        {locallyMissingRequiredStatements.length > 0 && (
           <div className="rounded-2xl border border-softform-navy-950/5 bg-white/35 px-4 py-3 text-xs text-softform-text-secondary">
-            <span className="font-semibold text-softform-navy-950">Missing required statements:</span>{' '}
-            {displayedMissingRequiredStatements.map((recordKey) => SNAPSHOT_RECORD_LABELS[recordKey] ?? recordKey).join(', ')}
+            <span className="font-semibold text-softform-navy-950">Missing required core statements for calibration:</span>{' '}
+            {locallyMissingRequiredStatements.map((recordKey) => SNAPSHOT_RECORD_LABELS[recordKey] ?? recordKey).join(', ')}
           </div>
         )}
 
-        {snapshotPreview.result && (
+        {/* Compile Snapshot trigger button */}
+        <div className="flex justify-between items-center bg-softform-mist-100/35 border border-softform-aqua-300/25 p-4 rounded-[22px] gap-4">
+          <div className="space-y-0.5">
+            <p className="text-xs font-semibold text-softform-navy-950">Compile Active Workspace Snapshot</p>
+            <p className="text-[11px] text-softform-text-secondary">
+              Parses the uploaded templates, runs accounting validation checks, and publishes models to outcomes dashboard.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleBuildSnapshot}
+            disabled={isBuilding || locallyMissingRequiredStatements.length > 0}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-softform-navy-900 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-softform-navy-800 disabled:cursor-not-allowed disabled:opacity-45 shadow-sm"
+          >
+            {isBuilding ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : (
+              <Database size={12} />
+            )}
+            {isBuilding ? 'Compiling snapshot...' : 'Compile Snapshot'}
+          </button>
+        </div>
+
+        {buildError && (
+          <div className="flex items-start gap-2 rounded-2xl border border-softform-amber-500/20 bg-softform-cream/30 px-4 py-3 text-xs text-softform-amber-500 font-semibold">
+            <AlertCircle size={14} className="mt-0.5 shrink-0" />
+            <span>{buildError}</span>
+          </div>
+        )}
+
+        {analysisResult && (
           <div className="grid gap-5 lg:grid-cols-[1fr_1.1fr]">
             <div className="rounded-[22px] border border-white/60 bg-white/40 p-5 space-y-3">
               <div className="flex items-center gap-2">
                 <Activity size={14} className="text-softform-teal-deep" />
-                <h3 className="text-sm font-semibold text-softform-navy-950">Integrity Check Preview</h3>
+                <h3 className="text-sm font-semibold text-softform-navy-950">Snapshot Validation Checks</h3>
               </div>
               <div className="space-y-2">
-                {snapshotPreview.result.integrityChecks.slice(0, 4).map((check) => (
+                {analysisResult.integrityChecks.slice(0, 4).map((check: any) => (
                   <div key={check.checkName} className="rounded-xl bg-white/45 px-3 py-2 text-xs">
                     <div className="flex items-center justify-between gap-3">
                       <span className="font-semibold text-softform-navy-950">{check.checkName}</span>
@@ -854,10 +930,10 @@ export default function DataRoomPage() {
             </div>
 
             <div className="rounded-[22px] border border-white/60 bg-white/40 p-5 space-y-3">
-              <h3 className="text-sm font-semibold text-softform-navy-950">Core Ratio Preview</h3>
+              <h3 className="text-sm font-semibold text-softform-navy-950">Workspace Ratio Engine Calibration</h3>
               <div className="grid gap-2 sm:grid-cols-2">
                 {CORE_RATIO_KEYS.map((ratioKey) => {
-                  const ratio = snapshotPreview.result?.ratios?.[ratioKey]
+                  const ratio = analysisResult.ratios?.[ratioKey]
                   return (
                     <div key={ratioKey} className="rounded-xl bg-white/45 px-3 py-2">
                       <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-softform-text-muted">
@@ -874,59 +950,26 @@ export default function DataRoomPage() {
                 })}
               </div>
               <p className="text-[11px] text-softform-text-muted leading-relaxed">
-                {snapshotPreview.result.disclaimer}
+                Calibration is workspace-derived. Projections and valuations recalculate dynamically based on active statements.
               </p>
             </div>
           </div>
         )}
-
-        <div className="rounded-[22px] border border-softform-aqua-300/25 bg-softform-mist-100/35 p-4 space-y-3">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-1">
-              <p className="text-sm font-semibold text-softform-navy-950">Temporary Workspace Context</p>
-              <p className="text-xs text-softform-text-secondary leading-relaxed">
-                Preview context does not update production analysis. Market Watch and Advisory Blueprint will show preview provenance only until backend workspace persistence is added.
-              </p>
-              {workspaceContext && (
-                <p className="text-[11px] font-semibold text-softform-teal-deep">
-                  Workspace context is active locally in this browser.
-                </p>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={handleActivateWorkspaceContext}
-                disabled={!snapshotPreview.result?.snapshotPreview}
-                className="rounded-xl bg-softform-navy-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-softform-navy-800 disabled:cursor-not-allowed disabled:opacity-45"
-              >
-                Use preview for workspace context
-              </button>
-              {workspaceContext && (
-                <button
-                  type="button"
-                  onClick={handleResetWorkspaceContext}
-                  className="rounded-xl border border-white/70 bg-white/60 px-4 py-2 text-xs font-semibold text-softform-text-secondary shadow-sm transition hover:bg-white hover:text-softform-navy-950 focus:outline-none focus:ring-2 focus:ring-softform-aqua-300/60"
-                >
-                  Reset workspace context
-                </button>
-              )}
-            </div>
-          </div>
-          {workspaceContext && (
-            <div className="grid gap-2 text-[11px] text-softform-text-secondary sm:grid-cols-3">
-              <span><span className="font-semibold text-softform-navy-950">Company:</span> {workspaceContext.companyName}</span>
-              <span><span className="font-semibold text-softform-navy-950">Period:</span> {workspaceContext.reportingPeriod}</span>
-              <span><span className="font-semibold text-softform-navy-950">Ratios:</span> {workspaceContext.snapshotPreviewSummary.ratioKeys.length}</span>
-            </div>
-          )}
-          {workspaceContextError && (
-            <div className="rounded-2xl border border-softform-amber-500/20 bg-softform-cream/30 px-4 py-3 text-[11px] font-semibold text-softform-amber-500">
-              {workspaceContextError}
-            </div>
-          )}
-        </div>
       </section>
+
+      {/* Analysis Run Status */}
+      {activeSnapshot && (
+        <section className="flex justify-center">
+          <WorkspaceRunReadiness
+            workspaceId={activeWorkspaceId}
+            onStatusChange={() => {
+              if (activeWorkspaceId) {
+                reloadWorkspaceData(activeWorkspaceId)
+              }
+            }}
+          />
+        </section>
+      )}
 
       {/* 5. Analysis Dependency Map */}
       <section className="softform-card rounded-[32px] p-6 sm:p-8 space-y-6">
@@ -938,7 +981,7 @@ export default function DataRoomPage() {
         </div>
 
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {dependencies.map((feed) => (
+          {dependencies.map((feed: any) => (
             <div
               key={feed.recordGroup}
               className="p-5 rounded-[22px] bg-white/40 border border-white/60 shadow-sm space-y-4 hover-lift"
@@ -952,7 +995,7 @@ export default function DataRoomPage() {
                   Feeds Engine Outcomes
                 </span>
                 <ul className="space-y-2 pt-1">
-                  {feed.outputs.map((out, oIdx) => (
+                  {feed.outputs.map((out: string, oIdx: number) => (
                     <li key={oIdx} className="text-xs text-softform-text-secondary flex items-center gap-2">
                       <span className="h-1.5 w-1.5 rounded-full bg-softform-teal-deep/70 shrink-0" />
                       <span className="font-medium text-softform-navy-900/90">{out}</span>
@@ -965,31 +1008,59 @@ export default function DataRoomPage() {
         </div>
       </section>
 
-      {/* 5. Demo vs Production State */}
+      {/* 6. Active Workspace Environment Details */}
       <section className="softform-card rounded-[32px] p-6 sm:p-8 space-y-5">
         <h2 className="text-base font-semibold text-softform-navy-950">Active Workspace Environment</h2>
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="p-5 rounded-[22px] bg-white/40 border border-white/60 text-xs space-y-2 hover-lift">
-            <span className="font-medium text-softform-navy-950 block">Analysis Context</span>
-            <span className="text-softform-teal-deep font-semibold">Demo financial analysis active</span>
+            <span className="font-medium text-softform-navy-950 block">Active Workspace</span>
+            <span className="text-softform-teal-deep font-bold block truncate">
+              {activeWorkspaceName || 'Unnamed Workspace'}
+            </span>
+            <span className="text-[10px] text-softform-text-secondary block">
+              ID: {activeWorkspaceId}
+            </span>
           </div>
           <div className="p-5 rounded-[22px] bg-white/40 border border-white/60 text-xs space-y-2 hover-lift">
-            <span className="font-medium text-softform-navy-950 block">Market Indicators</span>
-            <span className="text-softform-teal-deep font-semibold">Provider-backed market data active</span>
+            <span className="font-medium text-softform-navy-950 block">Snapshot Parameters</span>
+            {activeSnapshot ? (
+              <>
+                <span className="text-softform-teal-deep font-bold block">
+                  {activeSnapshot.currency || 'HKD'} • {activeSnapshot.reportingPeriod || 'FY2025'}
+                </span>
+                <span className="text-[10px] text-softform-text-secondary block">
+                  Built: {activeSnapshot.metadata?.built_at ? new Date(activeSnapshot.metadata.built_at).toLocaleString() : 'N/A'}
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="text-softform-amber-500 font-bold block">
+                  No Snapshot Active
+                </span>
+                <span className="text-[10px] text-softform-text-secondary block">
+                  Awaiting statement upload
+                </span>
+              </>
+            )}
           </div>
           <div className="p-5 rounded-[22px] bg-white/40 border border-white/60 text-xs space-y-2 hover-lift">
-            <span className="font-medium text-softform-navy-950 block">Requirement Level</span>
-            <span className="text-softform-amber-500 font-semibold">Company records required for production mode</span>
+            <span className="font-medium text-softform-navy-950 block">Connected Ingestion Streams</span>
+            <span className="text-softform-teal-deep font-bold block">
+              {uploadedFiles.length} of {REQUIRED_SNAPSHOT_RECORD_KEYS.length + 1} Files Connected
+            </span>
+            <span className="text-[10px] text-softform-text-secondary block">
+              Data mode: Ingestion active
+            </span>
           </div>
         </div>
       </section>
 
-      {/* 6. Link to Advisory Blueprint & Market Watch */}
+      {/* 7. Link to Advisory Blueprint & Market Watch */}
       <section className="flex flex-col sm:flex-row gap-6 items-center justify-between p-8 rounded-[36px] border border-white/70 bg-gradient-to-r from-softform-mist-100/50 to-white/50 backdrop-blur-md shadow-base-card">
         <div className="space-y-1.5 text-center sm:text-left max-w-2xl">
           <h3 className="font-semibold text-softform-navy-950 text-base">Explore Workspace Modules</h3>
           <p className="text-xs leading-relaxed text-softform-text-secondary">
-            After previewing records here, review context-only market signals and the advisory readiness brief.
+            After compiling records here, review context-only market signals and the advisory readiness brief.
           </p>
         </div>
         <div className="flex gap-3.5 shrink-0 w-full sm:w-auto justify-center sm:justify-end">
@@ -1014,7 +1085,7 @@ export default function DataRoomPage() {
       {/* Footer Info */}
       <footer className="pt-6 border-t border-softform-navy-950/5 text-center space-y-2">
         <p className="text-xs text-softform-text-muted">
-          Demo analysis is currently active. Connect company records to transition to production-ready analysis.
+          {activeSnapshot ? `Workspace records active for ${activeWorkspaceName}.` : `Awaiting statement ingestion for ${activeWorkspaceName}.`}
         </p>
         <p className="text-xs text-softform-text-muted">
           FinSight CFO Workspace • Powered by softform design token system.

@@ -1,5 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, ShieldCheck, Coins, TrendingUp, AlertTriangle } from 'lucide-react'
+import { CheckCircle2, ShieldCheck, Coins, TrendingUp, AlertTriangle, Loader2, RefreshCw, Play } from 'lucide-react'
 import PageHeader from '../../components/platform/PageHeader'
 import StatusChip from '../../components/platform/StatusChip'
 import SectionBlock from '../../components/platform/SectionBlock'
@@ -9,10 +10,14 @@ import ServiceErrorState from '../../components/platform/ServiceErrorState'
 import NavyHeroSection from '../../components/platform/NavyHeroSection'
 import PageLoadingSkeleton from '../../components/platform/PageLoadingSkeleton'
 import WorkflowFooter from '../../components/platform/WorkflowFooter'
-import type { FinancialAnalysisResponse, FinancialSignal, IntegrityCheckResult, RatioMetric } from '../market-watch/types'
+import type { FinancialSignal, IntegrityCheckResult, RatioMetric } from '../market-watch/types'
 import { getFinancialHealthAnalysis } from './financialHealthApi'
 import { motion } from 'framer-motion'
 import { formatNumber, formatHKD, formatBand, bandVariant } from '../../lib/formatters'
+import RunMetadataBadge from '../../components/platform/RunMetadataBadge'
+import { fetchLatestRunSafe, triggerAnalysisRun } from '../../lib/workspaceRunHelpers'
+
+import WorkspaceInsufficientDataState from '../../components/platform/WorkspaceInsufficientDataState'
 
 type MetricCard = {
   key: string
@@ -32,16 +37,56 @@ const staggerItem = {
 }
 
 export default function FinancialHealthPage() {
-  const [analysis, setAnalysis] = useState<FinancialAnalysisResponse | null>(null)
+  const [analysis, setAnalysis] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [hasSnapshotButNoRun, setHasSnapshotButNoRun] = useState(false)
+  const [isRunning, setIsRunning] = useState(false)
 
   const loadAnalysis = async () => {
     setLoading(true)
     setError(null)
+    setHasSnapshotButNoRun(false)
     try {
-      const data = await getFinancialHealthAnalysis()
-      setAnalysis(data)
+      // 1. Check legacy/direct analysis status first to determine if we have insufficient data
+      const legacyData = await getFinancialHealthAnalysis()
+      if (legacyData && legacyData.status === 'insufficient_data') {
+        setAnalysis(legacyData)
+        return
+      }
+
+      // 2. We have a workspace and active snapshot! Now check for latest run
+      const workspaceId = localStorage.getItem('active_workspace_id')
+      if (workspaceId) {
+        const latestRun = await fetchLatestRunSafe(workspaceId, 'financial_health')
+        if (latestRun) {
+          const analysisData = {
+            ...latestRun.results,
+            run_metadata: {
+              id: latestRun.id,
+              runId: latestRun.id,
+              snapshotId: latestRun.snapshotId,
+              status: latestRun.status,
+              runType: latestRun.runType,
+              createdAt: latestRun.createdAt,
+              logicVersion: latestRun.logicVersion,
+              warningsCount: latestRun.warnings?.length ?? 0
+            }
+          }
+          setAnalysis(analysisData)
+        } else {
+          // Snapshot exists, but no run yet
+          setHasSnapshotButNoRun(true)
+          setAnalysis(legacyData) // store legacyData just in case
+        }
+      } else {
+        // No workspace selected
+        setAnalysis({
+          status: 'insufficient_data',
+          missingRequirements: ['Please select or create a workspace in the Data Room.'],
+          nextActions: ['Go to the Data Room']
+        })
+      }
     } catch (e) {
       console.error('Financial health load failed', e)
       setError('Financial Health is currently unavailable. Please check the backend connection.')
@@ -50,12 +95,31 @@ export default function FinancialHealthPage() {
     }
   }
 
+  const handleRunAnalysis = async () => {
+    const workspaceId = localStorage.getItem('active_workspace_id')
+    if (!workspaceId) return
+    setIsRunning(true)
+    try {
+      await triggerAnalysisRun(workspaceId, 'financial_health')
+      await loadAnalysis()
+    } catch (err: any) {
+      console.error('Failed to trigger analysis run:', err)
+      alert(`Failed to run analysis: ${err.message || err}`)
+    } finally {
+      setIsRunning(false)
+    }
+  }
+
   useEffect(() => {
     loadAnalysis()
   }, [])
 
+  const isInsufficientData = useMemo(() => {
+    return analysis && analysis.status === 'insufficient_data'
+  }, [analysis])
+
   const metrics = useMemo<MetricCard[]>(() => {
-    if (!analysis) return []
+    if (!analysis || isInsufficientData) return []
     return [
       { key: 'current', label: 'Current Ratio', metric: analysis.ratios.currentRatio, suffix: 'x', hint: 'Short-term liquidity buffer' },
       { key: 'quick', label: 'Quick Ratio', metric: analysis.ratios.quickRatio, suffix: 'x', hint: 'Liquid asset coverage' },
@@ -66,10 +130,59 @@ export default function FinancialHealthPage() {
       { key: 'dso', label: 'DSO', metric: analysis.ratios.dso, suffix: ' days', hint: 'Collection cycle quality' },
       { key: 'wcgap', label: 'Working Capital Gap', metric: analysis.ratios.workingCapitalGap, hint: 'Estimated funding gap' },
     ]
-  }, [analysis])
+  }, [analysis, isInsufficientData])
 
   if (loading) {
     return <PageLoadingSkeleton layout="health" />
+  }
+
+  if (isInsufficientData) {
+    return (
+      <div className="space-y-8 pb-12">
+        <PageHeader
+          title="Financial Health"
+          subtitle="Liquidity, leverage, coverage, receivables, projection, and valuation diagnostics from the active financial snapshot."
+        />
+        <WorkspaceInsufficientDataState
+          missingRequirements={analysis?.missingRequirements}
+          nextActions={analysis?.nextActions}
+        />
+      </div>
+    )
+  }
+
+  if (hasSnapshotButNoRun) {
+    return (
+      <div className="space-y-8 pb-12">
+        <PageHeader
+          title="Financial Health"
+          subtitle="Liquidity, leverage, coverage, receivables, projection, and valuation diagnostics from the active financial snapshot."
+        />
+        <div className="flex flex-col items-center justify-center p-8 sm:p-12 bg-white/40 dark:bg-slate-900/40 border border-white/60 dark:border-slate-800/60 rounded-3xl backdrop-blur-md shadow-sm max-w-2xl mx-auto text-center space-y-6">
+          <div className="w-16 h-16 rounded-full bg-softform-teal-deep/10 dark:bg-softform-aqua-300/10 flex items-center justify-center text-softform-teal-deep dark:text-softform-aqua-300">
+            <TrendingUp size={28} />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Financial Health Analysis Needed</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+              An active workspace snapshot exists, but no financial health analysis run has been triggered for this snapshot yet. Run the analysis to generate diagnostics.
+            </p>
+          </div>
+          <button
+            onClick={handleRunAnalysis}
+            disabled={isRunning}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 text-sm font-semibold rounded-full shadow-sm disabled:opacity-50 transition-colors"
+          >
+            {isRunning ? (
+              <Loader2 size={16} className="animate-spin text-softform-teal-deep dark:text-softform-aqua-300" />
+            ) : (
+              <Play size={16} fill="currentColor" className="ml-0.5" />
+            )}
+            <span>Run Financial Health Analysis</span>
+          </button>
+        </div>
+      </div>
+    )
   }
 
   if (error || !analysis) {
@@ -105,6 +218,24 @@ export default function FinancialHealthPage() {
           </StatusChip>
         }
       />
+
+      <div className="flex flex-wrap items-center gap-3">
+        <RunMetadataBadge metadata={analysis?.run_metadata} />
+        {analysis?.run_metadata && (
+          <button
+            onClick={handleRunAnalysis}
+            disabled={isRunning}
+            className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 text-xs font-semibold rounded-full shadow-sm transition-colors disabled:opacity-50"
+          >
+            {isRunning ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : (
+              <RefreshCw size={12} />
+            )}
+            <span>Rerun Analysis</span>
+          </button>
+        )}
+      </div>
 
       {/* Summary Cockpit Hero Section in Premium Navy Contrast Card */}
       <NavyHeroSection
@@ -200,7 +331,7 @@ export default function FinancialHealthPage() {
           className="rounded-[28px] p-6 sm:p-8 space-y-5"
         >
           <div className="space-y-3">
-            {analysis.integrityChecks.slice(0, 5).map((check) => (
+            {analysis.integrityChecks.slice(0, 5).map((check: any) => (
               <div key={check.checkName} className="rounded-xl border border-white/60 bg-white/45 px-4 py-3 text-sm flex gap-3 items-start justify-between">
                 <div className="space-y-1">
                   <p className="font-semibold text-softform-navy-950">{check.checkName}</p>
@@ -242,7 +373,7 @@ export default function FinancialHealthPage() {
           {summary?.watchItems && summary.watchItems.length > 0 && (
             <div className="space-y-2 border-t border-softform-navy-950/5 pt-3">
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-softform-text-muted">Watch items</p>
-              {summary.watchItems.slice(0, 4).map((item, idx) => (
+              {summary.watchItems.slice(0, 4).map((item: any, idx: number) => (
                 <p key={idx} className="rounded-xl border border-white/60 bg-white/45 px-4 py-3 text-xs leading-relaxed text-softform-text-secondary">
                   {item}
                 </p>

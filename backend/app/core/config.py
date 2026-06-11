@@ -5,6 +5,10 @@ class Settings(BaseSettings):
     MARKET_WATCH_USE_FIXTURES: bool = False
     HTTP_TIMEOUT_SECONDS: int = 10
     
+    # Ingestion & Production Mode Configs
+    APP_MODE: str = "development"
+    ALLOW_DEMO_FALLBACK: bool = True
+    
     # Cache TTL settings
     rates_ttl_seconds: int = 21600
     liquidity_ttl_seconds: int = 21600
