@@ -96,16 +96,36 @@ async def reset_sample_workspace():
         metadata={"currency": "HKD", "reportingPeriod": "FY2025"}
     )
     
-    # 3. Write all 5 CSV statement contents
-    statements = {
-        "pl-statement": ("pl.csv", b"metric,value\nRevenue,5400000\nCOGS,2100000\nGross Profit,3300000\nOperating Expenses,1800000\nDepreciation & Amortization,200000\nEBITDA,1500000\nEBIT,1300000\nInterest Expense,120000\nEBT,1180000\nTaxes,180000\nNet Income,1000000\n"),
-        "balance-sheet": ("bs.csv", b"metric,value\nCash,450000\nAccounts Receivable,650000\nInventory,800000\nPrepaid,100000\nCurrent Assets,2000000\nPPE Net,1500000\nTotal Assets,3500000\nAccounts Payable,400000\nAccrued,100000\nShort-Term Debt,200000\nCurrent Portion Long-Term Debt,150000\nLong-Term Debt,1000000\nLease Liabilities,150000\nCurrent Liabilities,1000000\nTotal Liabilities,2000000\nEquity,1500000\nRetained Earnings,800000\n"),
-        "cash-flow": ("cf.csv", b"metric,value\nCFO,1200000\nCapEx,300000\nDebt Issued,250000\nDebt Repaid,200000\nDividends,100000\nNet Change Cash,850000\n"),
-        "debt-schedule": ("debt.csv", b"metric,value\nScheduled Interest,120000\nScheduled Principal,200000\nMonthly Debt Service,26667\n"),
-        "receivables-aging": ("receivables.csv", b"metric,value\n0-30 Days,400000\n31-60 Days,150000\n61-90 Days,70000\n90+ Days,30000\n"),
+    # 3. Read all 5 CSV statements from demo_data
+    import os
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    repo_root = os.path.abspath(os.path.join(current_dir, "..", "..", ".."))
+    demo_data_dir = os.path.join(repo_root, "demo_data")
+    
+    file_mapping = {
+        "pl-statement": ("pl.csv", "pl.csv"),
+        "balance-sheet": ("bs.csv", "bs.csv"),
+        "cash-flow": ("cf.csv", "cf.csv"),
+        "debt-schedule": ("debt.csv", "debt.csv"),
+        "receivables-aging": ("receivables.csv", "receivables.csv"),
     }
     
-    for key, (filename, content_bytes) in statements.items():
+    for key, (filename, demo_filename) in file_mapping.items():
+        filepath = os.path.join(demo_data_dir, demo_filename)
+        if not os.path.exists(filepath):
+            raise HTTPException(
+                status_code=500,
+                detail=f"Internal setup error: Required sample data file {demo_filename} is missing from demo_data folder."
+            )
+        try:
+            with open(filepath, "rb") as f:
+                content_bytes = f.read()
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Internal setup error: Failed to read sample data file {demo_filename}. Error: {str(e)}"
+            )
+            
         FileStore.save_file(
             workspace_id,
             key,
