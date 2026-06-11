@@ -18,9 +18,9 @@ This document outlines the high-level roadmap for transitioning FinSight CFO fro
 
 1. **Design Docs (Design-Only)** [COMPLETED]
    - Establish table proposals, migration plans, and repository specifications.
-2. **Add DB Dependencies and Migration Tooling** [PLANNED]
+2. **Add DB Dependencies and Migration Tooling** [COMPLETED]
    - Add SQLAlchemy, SQLModel, Alembic, and database drivers to python dependencies.
-3. **Add Schema Models** [PLANNED]
+3. **Add Schema Models** [COMPLETED]
    - Write declarative SQLAlchemy/SQLModel models representing all entities (Workspaces, Snapshots, AnalysisRuns).
 4. **Add Repository Interfaces** [PLANNED]
    - Create abstract class signatures specifying CRUD actions.

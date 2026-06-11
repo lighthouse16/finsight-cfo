@@ -44,3 +44,10 @@ This document records key architectural and design decisions for FinSight CFO.
 - **Context**: Database relational systems are poorly suited for storing large file binaries (like uploaded CSVs or PDFs), which increases database backup size and memory consumption.
 - **Decision**: Relational schemas will only store file metadata and locations (S3 path). The physical bytes will remain on disk or live in object storage (e.g. S3).
 - **Consequences**: Optimizes database sizing and enables leveraging direct-upload and content-delivery cloud networks.
+
+## ADR-006: Use SQLAlchemy 2.0 ORM plus Alembic for commercial database foundation
+- **Status**: Approved
+- **Context**: The database persistence layer requires clean model mapping, transactions, metadata registry, and modular migrations to deploy schema alterations cleanly on SQLite and PostgreSQL.
+- **Decision**: Standardize backend ORM mapping on SQLAlchemy 2.0 declarative styles (`Mapped[]` and `mapped_column()`) and manage database migrations using Alembic.
+- **Consequences**: Ensures clean, standardized, static-type-friendly Python-to-SQL mapping, structured migrations histories, and straightforward local SQLite/production PostgreSQL compatibility.
+
