@@ -68,4 +68,11 @@ This document records key architectural and design decisions for FinSight CFO.
 - **Decision**: Persist only logical file metadata (e.g., workspace association, status) and file version pointers (e.g., storage URI, size, SHA256 checksum) in the database. Keep physical file bytes in localized disks (for local dev) or cloud object storage (e.g., S3 in production).
 - **Consequences**: Keeps the database lean, allows direct-upload capabilities, simplifies logical file histories/versioning, and separates metadata queries from binary file content reading.
 
+## ADR-010: Keep ORM and Alembic migrations aligned before adding more DB adapters
+- **Status**: Approved
+- **Context**: Discrepancies between the SQLAlchemy ORM models and physical Alembic migrations can lead to runtime errors when deploying schema adjustments in staging/production environments.
+- **Decision**: Perform schema drift checks and execute Alembic migrations on in-memory/temporary SQLite databases during testing to verify that schema state matches model declarations before introducing further persistence features.
+- **Consequences**: Assures database upgrade/downgrade consistency, catches schema anomalies early, and maintains clean git history.
+
+
 
