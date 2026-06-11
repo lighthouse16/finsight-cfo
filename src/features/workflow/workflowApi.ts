@@ -39,11 +39,13 @@ export type BochkWorkflowRun = {
   disclaimer: string
 }
 
-import { API_BASE_URL } from '../../lib/apiBase'
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { API_BASE_URL, getWorkspaceHeaders } from '../../lib/apiBase'
 
 
-export async function getBochkWorkflowRun(): Promise<BochkWorkflowRun> {
+export async function getBochkWorkflowRun(): Promise<any> {
   const response = await fetch(`${API_BASE_URL}/api/workflow/run`, {
+    headers: getWorkspaceHeaders(),
     signal: AbortSignal.timeout(10000),
   })
 
@@ -53,3 +55,4 @@ export async function getBochkWorkflowRun(): Promise<BochkWorkflowRun> {
 
   return response.json()
 }
+

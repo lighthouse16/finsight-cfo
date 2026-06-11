@@ -8,72 +8,61 @@ import {
 } from '../types'
 import type { FinancialAnalysisResponse } from '../../market-watch/types'
 
-import { API_BASE_URL } from '../../../lib/apiBase'
+import { API_BASE_URL, getWorkspaceHeaders, handleApiResponse } from '../../../lib/apiBase'
 
 
 export async function getAdvisoryBlueprint(): Promise<AdvisoryBlueprintResponse> {
   const res = await fetch(`${API_BASE_URL}/api/advisory/demo-blueprint`, {
+    headers: getWorkspaceHeaders(),
     signal: AbortSignal.timeout(8000),
   })
-  if (!res.ok) {
-    throw new Error(`Blueprint API returned status ${res.status}`)
-  }
-  return res.json()
+  return handleApiResponse(res)
 }
 
 export async function getAdvisoryPrecheck(): Promise<HardGatePrecheckResult> {
   const res = await fetch(`${API_BASE_URL}/api/advisory/demo-precheck`, {
+    headers: getWorkspaceHeaders(),
     signal: AbortSignal.timeout(8000),
   })
-  if (!res.ok) {
-    throw new Error(`Precheck API returned status ${res.status}`)
-  }
-  return res.json()
+  return handleApiResponse(res)
 }
 
 export async function getAdvisoryRiskScore(): Promise<UnifiedRiskScoreResult> {
   const res = await fetch(`${API_BASE_URL}/api/advisory/demo-risk-score`, {
+    headers: getWorkspaceHeaders(),
     signal: AbortSignal.timeout(8000),
   })
-  if (!res.ok) {
-    throw new Error(`Risk Score API returned status ${res.status}`)
-  }
-  return res.json()
+  return handleApiResponse(res)
 }
 
 export async function getCreditScore(): Promise<CreditScoringResult> {
   const res = await fetch(`${API_BASE_URL}/api/advisory/credit-score`, {
+    headers: getWorkspaceHeaders(),
     signal: AbortSignal.timeout(8000),
   })
-  if (!res.ok) {
-    throw new Error(`Credit Score API returned status ${res.status}`)
-  }
-  return res.json()
+  return handleApiResponse(res)
 }
 
 export async function getAdvisoryStressTests(): Promise<StressTestingResponse> {
   const res = await fetch(`${API_BASE_URL}/api/advisory/demo-stress-tests`, {
+    headers: getWorkspaceHeaders(),
     signal: AbortSignal.timeout(8000),
   })
-  if (!res.ok) {
-    throw new Error(`Stress Tests API returned status ${res.status}`)
-  }
-  return res.json()
+  return handleApiResponse(res)
 }
 
 export async function getAdvisoryFacilityStructures(): Promise<FacilityStructuringResponse> {
   const res = await fetch(`${API_BASE_URL}/api/advisory/demo-facility-structures`, {
+    headers: getWorkspaceHeaders(),
     signal: AbortSignal.timeout(8000),
   })
-  if (!res.ok) {
-    throw new Error(`Facility Structures API returned status ${res.status}`)
-  }
-  return res.json()
+  return handleApiResponse(res)
 }
 
 export async function getFinancialPreviewAnalysis(): Promise<FinancialAnalysisResponse | null> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/financials/preview-analysis`, {
+      headers: getWorkspaceHeaders(),
       signal: AbortSignal.timeout(5000),
     })
     if (res.status === 404) {

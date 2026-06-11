@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
@@ -10,12 +11,23 @@ import {
   Landmark,
   RotateCw,
   ShieldCheck,
+  Loader2,
+  Play,
+  CheckCircle2,
 } from 'lucide-react'
 import PageHeader from '../../components/platform/PageHeader'
 import StatusChip from '../../components/platform/StatusChip'
 import SectionBlock from '../../components/platform/SectionBlock'
 import MetricDisplay from '../../components/platform/MetricDisplay'
 import SkeletonLoader from '../../components/platform/SkeletonLoader'
+import WorkspaceInsufficientDataState from '../../components/platform/WorkspaceInsufficientDataState'
+import {
+  triggerAnalysisRun,
+  fetchAllRunStatuses,
+  getRunStatusLabel,
+  fetchBackendConfig,
+} from '../../lib/workspaceRunHelpers'
+import { API_BASE_URL } from '../../lib/apiBase'
 import { getFinancialHealthAnalysis } from '../financial-health/financialHealthApi'
 import {
   getAdvisoryBlueprint,
@@ -103,6 +115,15 @@ function reportDate() {
   }).format(new Date())
 }
 
+const requiredKeys = ['financial_health', 'valuation', 'credit_score', 'funding_strategy', 'advisory_blueprint']
+const runLabels: Record<string, string> = {
+  financial_health: 'Financial Health',
+  valuation: 'Valuation',
+  credit_score: 'Credit Readiness',
+  funding_strategy: 'Funding Strategy',
+  advisory_blueprint: 'Advisory Blueprint',
+}
+
 export default function ReportsPage() {
   const [state, setState] = useState<ReportState>({
     financial: null,
@@ -114,11 +135,61 @@ export default function ReportsPage() {
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  
+  // Readiness gate states
+  const [runStatuses, setRunStatuses] = useState<Record<string, any | null>>({})
+  const [hasSnapshot, setHasSnapshot] = useState<boolean | null>(null)
+  const [isProdMode, setIsProdMode] = useState(false)
+  const [runningType, setRunningType] = useState<string | null>(null)
+  const [checkingReadiness, setCheckingReadiness] = useState(true)
 
-  const loadReports = async () => {
+  const activeSnapshotId = useMemo(() => {
+    for (const key of requiredKeys) {
+      const run = runStatuses[key]
+      if (run && run.snapshotId) {
+        return run.snapshotId
+      }
+    }
+    if (state.financial && (state.financial as any).run_metadata?.snapshotId) {
+      return (state.financial as any).run_metadata.snapshotId
+    }
+    return 'N/A'
+  }, [runStatuses, state.financial])
+
+  const loadAll = async () => {
     setLoading(true)
+    setCheckingReadiness(true)
     setError(null)
+    const workspaceId = localStorage.getItem('active_workspace_id')
+    if (!workspaceId) {
+      setHasSnapshot(false)
+      setCheckingReadiness(false)
+      setLoading(false)
+      return
+    }
+
     try {
+      // 1. Fetch backend config
+      const config = await fetchBackendConfig()
+      setIsProdMode(config.isProduction)
+
+      // 2. Fetch active snapshot
+      const snapshotRes = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/snapshot/active`, {
+        headers: { 'x-workspace-id': workspaceId }
+      })
+      if (!snapshotRes.ok) {
+        setHasSnapshot(false)
+        setCheckingReadiness(false)
+        setLoading(false)
+        return
+      }
+      setHasSnapshot(true)
+
+      // 3. Fetch run statuses
+      const statuses = await fetchAllRunStatuses(workspaceId)
+      setRunStatuses(statuses)
+
+      // 4. Fetch legacy reports data
       const [financial, credit, blueprint, facilities, funding, macro] = await Promise.all([
         getFinancialHealthAnalysis().catch((e) => {
           console.warn('Report financial context unavailable', e)
@@ -151,11 +222,44 @@ export default function ReportsPage() {
       setError('Reports are currently unavailable. Please check the backend connection.')
     } finally {
       setLoading(false)
+      setCheckingReadiness(false)
+    }
+  }
+
+  const handleTriggerRunInGate = async (runType: string) => {
+    const workspaceId = localStorage.getItem('active_workspace_id')
+    if (!workspaceId) return
+    setRunningType(runType)
+    try {
+      await triggerAnalysisRun(workspaceId, runType)
+      // Refresh statuses and report data
+      const statuses = await fetchAllRunStatuses(workspaceId)
+      setRunStatuses(statuses)
+      
+      // Reload matching legacy data
+      if (runType === 'financial_health' || runType === 'valuation') {
+        const financial = await getFinancialHealthAnalysis().catch(() => null)
+        setState(prev => ({ ...prev, financial }))
+      } else if (runType === 'credit_score') {
+        const credit = await getCreditScore().catch(() => null)
+        setState(prev => ({ ...prev, credit }))
+      } else if (runType === 'funding_strategy') {
+        const funding = await getFundingChannelRanking().catch(() => null)
+        setState(prev => ({ ...prev, funding }))
+      } else if (runType === 'advisory_blueprint') {
+        const blueprint = await getAdvisoryBlueprint().catch(() => null)
+        setState(prev => ({ ...prev, blueprint }))
+      }
+    } catch (err: any) {
+      console.error(`Failed to trigger run for ${runType}:`, err)
+      alert(`Failed to run ${runType}: ${err.message || err}`)
+    } finally {
+      setRunningType(null)
     }
   }
 
   useEffect(() => {
-    loadReports()
+    loadAll()
   }, [])
 
   const valuation =
@@ -175,6 +279,15 @@ export default function ReportsPage() {
       snapshot?.metadata?.previewOnly ||
       snapshot?.metadata?.source === 'data_room_workspace_preview',
   )
+
+  const isInsufficientData = useMemo(() => {
+    return (
+      (state.financial && 'status' in state.financial && state.financial.status === 'insufficient_data') ||
+      (state.credit && 'status' in state.credit && state.credit.status === 'insufficient_data') ||
+      (state.blueprint && 'status' in state.blueprint && state.blueprint.status === 'insufficient_data') ||
+      (state.funding && 'status' in state.funding && state.funding.status === 'insufficient_data')
+    )
+  }, [state])
 
   const reportSections = useMemo(() => {
     return [
@@ -211,7 +324,7 @@ export default function ReportsPage() {
     ]
   }, [state.financial, state.credit, state.funding, state.blueprint, valuation, topChannel])
 
-  if (loading) {
+  if (loading || checkingReadiness) {
     return (
       <div className="space-y-8 pb-12">
         {/* Header Skeleton */}
@@ -236,6 +349,35 @@ export default function ReportsPage() {
     )
   }
 
+  if (hasSnapshot === false) {
+    return (
+      <div className="space-y-8 pb-12">
+        <PageHeader
+          title="Reports"
+          subtitle="Generate lender-ready reports and compliance packs."
+        />
+        <div className="flex flex-col items-center justify-center p-8 sm:p-12 bg-white/40 dark:bg-slate-900/40 border border-white/60 dark:border-slate-800/60 rounded-3xl backdrop-blur-md shadow-sm max-w-2xl mx-auto text-center space-y-6">
+          <div className="w-16 h-16 rounded-full bg-softform-teal-deep/10 dark:bg-softform-aqua-300/10 flex items-center justify-center text-softform-teal-deep dark:text-softform-aqua-300">
+            <FileText size={28} />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">No Active Financial Snapshot</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+              You need to select a workspace, upload financial statements, and compile an active financial snapshot before you can generate reports.
+            </p>
+          </div>
+          <Link
+            to="/platform/data-room"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 text-sm font-semibold rounded-full shadow-sm transition-colors"
+          >
+            <span>Go to Data Room</span>
+            <ArrowRight size={14} />
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
   if (error) {
     return (
       <div className="softform-card rounded-[32px] p-8 sm:p-10 text-center">
@@ -247,13 +389,114 @@ export default function ReportsPage() {
           <p className="mb-6 text-sm text-softform-text-secondary leading-relaxed">{error}</p>
           <button
             type="button"
-            onClick={loadReports}
+            onClick={loadAll}
             className="inline-flex items-center gap-2 rounded-xl bg-softform-navy-900 px-5 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-softform-navy-800 transition"
           >
             <RotateCw size={14} />
             Retry Connection
           </button>
         </div>
+      </div>
+    )
+  }
+
+  if (isInsufficientData) {
+    const missing = (state.financial && 'missingRequirements' in state.financial ? (state.financial.missingRequirements as string[]) : undefined) ||
+                    (state.credit && 'missingRequirements' in state.credit ? (state.credit.missingRequirements as string[]) : undefined) ||
+                    (state.blueprint && 'missingRequirements' in state.blueprint ? (state.blueprint.missingRequirements as string[]) : undefined) ||
+                    (state.funding && 'missingRequirements' in state.funding ? (state.funding.missingRequirements as string[]) : undefined)
+    const nextAct = (state.financial && 'nextActions' in state.financial ? (state.financial.nextActions as string[]) : undefined) ||
+                    (state.credit && 'nextActions' in state.credit ? (state.credit.nextActions as string[]) : undefined) ||
+                    (state.blueprint && 'nextActions' in state.blueprint ? (state.blueprint.nextActions as string[]) : undefined) ||
+                    (state.funding && 'nextActions' in state.funding ? (state.funding.nextActions as string[]) : undefined)
+    return (
+      <div className="space-y-8 pb-12">
+        <PageHeader
+          title="Reports"
+          subtitle="CFO snapshot and lender-facing brief generated from the active workspace context."
+        />
+        <WorkspaceInsufficientDataState
+          missingRequirements={missing}
+          nextActions={nextAct}
+        />
+      </div>
+    )
+  }
+
+  const completedCoreCount = requiredKeys.filter(key => getRunStatusLabel(runStatuses[key]) === 'completed').length
+  const readinessPercentage = Math.round((completedCoreCount / requiredKeys.length) * 100)
+  const isReady = completedCoreCount === requiredKeys.length
+
+  const renderReadinessGate = () => {
+    return (
+      <div className="bg-white/40 dark:bg-slate-900/40 border border-white/60 dark:border-slate-800/60 rounded-3xl backdrop-blur-md shadow-sm p-6 mb-8 w-full space-y-6">
+        <div>
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100 font-medium">Reports Readiness Gate</h3>
+            <span className="text-sm font-bold text-softform-teal-deep dark:text-softform-aqua-300 bg-softform-teal-deep/10 dark:bg-softform-aqua-300/10 px-2.5 py-1 rounded-full">
+              {readinessPercentage}% Ready
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
+            {isProdMode 
+              ? 'Required analysis runs are missing. In production mode, you must run all core analyses before the generated report can be displayed.' 
+              : 'Required analysis runs are missing. The report is displayed in demo/development mode, but running all core analyses is recommended.'}
+          </p>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {requiredKeys.map((key) => {
+            const status = getRunStatusLabel(runStatuses[key])
+            const label = runLabels[key]
+            const isExecuting = runningType === key
+            
+            return (
+              <div 
+                key={key} 
+                className={`flex items-center justify-between p-3.5 rounded-2xl border ${
+                  status === 'completed' 
+                    ? 'bg-emerald-50/20 dark:bg-emerald-950/5 border-emerald-100/30 dark:border-emerald-900/10' 
+                    : 'bg-slate-50/30 dark:bg-slate-800/10 border-slate-150/40 dark:border-slate-800/30'
+                }`}
+              >
+                <div className="flex flex-col">
+                  <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 font-medium">{label}</span>
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-bold tracking-wide mt-0.5">
+                    {status === 'completed' ? '✓ Completed' : '⚠ Missing'}
+                  </span>
+                </div>
+                {status !== 'completed' && (
+                  <button
+                    onClick={() => handleTriggerRunInGate(key)}
+                    disabled={!!runningType || loading}
+                    className="flex items-center justify-center w-7 h-7 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-250 dark:border-slate-700 rounded-full shadow-sm hover:shadow transition-shadow disabled:opacity-55"
+                    title="Run Analysis"
+                  >
+                    {isExecuting ? (
+                      <Loader2 size={12} className="animate-spin text-softform-teal-deep dark:text-softform-aqua-300" />
+                    ) : (
+                      <Play size={11} fill="currentColor" className="ml-0.5" />
+                    )}
+                  </button>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
+  // Hard gate in production: if not ready, block showing any reports content
+  if (isProdMode && !isReady) {
+    return (
+      <div className="space-y-8 pb-12">
+        <PageHeader
+          title="Reports"
+          subtitle="CFO snapshot and lender-facing brief generated from the active workspace context."
+          chip={<StatusChip variant="caution">Context not ready</StatusChip>}
+        />
+        {renderReadinessGate()}
       </div>
     )
   }
@@ -265,6 +508,16 @@ export default function ReportsPage() {
         subtitle="CFO snapshot and lender-facing brief generated from the active workspace context."
         chip={<StatusChip variant={isPreview ? 'signal' : 'neutral'}>{isPreview ? 'Workspace preview' : 'Workspace report'}</StatusChip>}
       />
+
+      {/* Render soft gate warning if runs are missing in dev/demo mode */}
+      {!isReady && renderReadinessGate()}
+
+      {isReady && (
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-250/30 rounded-full text-xs font-semibold backdrop-blur-sm shadow-sm mb-2">
+          <CheckCircle2 size={13} className="text-emerald-500" />
+          <span>Report fully verified from workspace runs (100% ready)</span>
+        </div>
+      )}
 
       {/* CFO Report Package Hero Section in Premium Navy Contrast Card */}
       <section className="softform-navy-card rounded-[32px] p-8 space-y-6 relative overflow-hidden">
@@ -477,8 +730,56 @@ export default function ReportsPage() {
         </SectionBlock>
       )}
 
+      {/* Report Audit & Traceability Metadata and Disclaimer */}
+      <section className="bg-white/40 dark:bg-slate-900/40 border border-white/60 dark:border-slate-800/60 rounded-[32px] p-6 sm:p-8 backdrop-blur-md shadow-sm space-y-6">
+        <div>
+          <h3 className="text-sm font-semibold text-softform-navy-950 uppercase tracking-wider">Report Traceability & Compliance Audit</h3>
+          <p className="text-[11px] text-softform-text-muted mt-1">
+            Cryptographic mapping and run identifiers for banking audit compliance.
+          </p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+          <div className="rounded-xl border border-white/65 bg-white/50 p-4 text-xs space-y-1">
+            <span className="block text-[10px] uppercase font-bold text-softform-text-muted">Active Workspace</span>
+            <p className="font-semibold text-softform-navy-950 truncate">{localStorage.getItem('active_workspace_id') || 'N/A'}</p>
+          </div>
+          <div className="rounded-xl border border-white/65 bg-white/50 p-4 text-xs space-y-1">
+            <span className="block text-[10px] uppercase font-bold text-softform-text-muted">Active Snapshot ID</span>
+            <p className="font-semibold text-softform-navy-950 truncate">{activeSnapshotId}</p>
+          </div>
+          <div className="rounded-xl border border-white/65 bg-white/50 p-4 text-xs space-y-1">
+            <span className="block text-[10px] uppercase font-bold text-softform-text-muted">Generated At</span>
+            <p className="font-semibold text-softform-navy-950">{new Date().toLocaleString()}</p>
+          </div>
+        </div>
+
+        <div className="border-t border-softform-navy-950/5 pt-4">
+          <span className="block text-[10px] uppercase font-bold text-softform-text-muted mb-2">Verification Run Signatures</span>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            {requiredKeys.map((key) => {
+              const run = runStatuses[key]
+              const runId = run?.id || 'N/A'
+              const label = runLabels[key]
+              return (
+                <div key={key} className="rounded-xl border border-white/50 bg-white/30 p-3 text-[11px]">
+                  <span className="block font-semibold text-softform-text-secondary truncate">{label}</span>
+                  <p className="font-mono text-[10px] text-softform-text-muted mt-0.5 truncate" title={runId}>{runId}</p>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="border-t border-softform-navy-950/5 pt-4 bg-softform-cream/10 p-4 rounded-2xl border border-softform-amber-300/10">
+          <p className="text-[11px] leading-relaxed text-softform-text-secondary">
+            <strong className="text-softform-navy-950 uppercase tracking-wide">Important Disclaimer:</strong> This workspace report is prepared automatically for analysis and diagnostic preparation support only. It does not constitute credit approval, a binding lending commitment, investment advice, or a formal underwriting recommendation. Financing outcomes are not guaranteed and all indicators remain subject to commercial bank review and credit policy check.
+          </p>
+        </div>
+      </section>
+
       {/* Navigation Footer */}
-      <section className="flex flex-col sm:flex-row gap-6 items-center justify-between p-8 rounded-[36px] border border-white/70 bg-gradient-to-r from-softform-mist-100/50 to-white/50 backdrop-blur-md shadow-base-card">
+      <section className="flex flex-col sm:flex-row gap-6 items-center justify-between p-8 rounded-[36px] border border-white/70 bg-gradient-to-r from-softform-mist-100/50 to-white/50 backdrop-blur-md shadow-base-card no-print">
         <div className="space-y-1.5 text-center sm:text-left max-w-2xl">
           <p className="font-semibold text-softform-navy-950 text-base">Refine the source analysis</p>
           <p className="text-xs leading-relaxed text-softform-text-secondary">

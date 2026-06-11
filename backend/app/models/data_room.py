@@ -85,8 +85,8 @@ class DataRoomUploadedFile(BaseModel):
 
 
 class DataRoomUploadResponse(BaseModel):
-    companyId: str = "demo-company"
-    companyName: str = "Harbour & Finch Trading Ltd."
+    companyId: Optional[str] = None
+    companyName: Optional[str] = None
     uploadedFile: DataRoomUploadedFile
     warnings: List[str] = Field(default_factory=list)
     disclaimer: str = (
@@ -119,8 +119,8 @@ class DataRoomParsePreview(BaseModel):
 
 
 class DataRoomParseResponse(BaseModel):
-    companyId: str = "demo-company"
-    companyName: str = "Harbour & Finch Trading Ltd."
+    companyId: Optional[str] = None
+    companyName: Optional[str] = None
     uploadedFile: DataRoomUploadedFile
     preview: DataRoomParsePreview
     disclaimer: str = (
@@ -139,8 +139,8 @@ class DataRoomParsedRecordSet(BaseModel):
 
 
 class DataRoomSnapshotPreviewInput(BaseModel):
-    companyId: Optional[str] = "demo-company"
-    companyName: Optional[str] = "Harbour & Finch Trading Ltd."
+    companyId: Optional[str] = None
+    companyName: Optional[str] = None
     currency: str = "HKD"
     reportingPeriod: Optional[str] = "FY2025"
     recordSets: List[DataRoomParsedRecordSet] = Field(default_factory=list)
@@ -165,8 +165,8 @@ class DataRoomSnapshotPreviewResponse(BaseModel):
 
 
 class DataRoomWorkspacePreviewContextInput(BaseModel):
-    companyId: str = "demo-company"
-    companyName: str = "Harbour & Finch Trading Ltd."
+    companyId: Optional[str] = None
+    companyName: Optional[str] = None
     currency: str = "HKD"
     reportingPeriod: str = "FY2025"
     snapshotPreview: dict

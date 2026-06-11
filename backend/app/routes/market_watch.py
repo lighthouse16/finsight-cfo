@@ -1,5 +1,5 @@
 from typing import Optional
-from fastapi import APIRouter
+from fastapi import APIRouter, Header
 from app.models.market_watch import (
     RatesLiquidityResponse,
     FxGbaResponse,
@@ -70,13 +70,35 @@ async def get_industry_health_endpoint(
 ):
     return await get_industry_health(sector=sector, geography=geography)
 
-@router.get("/funding-channel-ranking", response_model=FundingChannelRankingResponse)
-async def get_funding_channel_ranking_endpoint():
-    return await get_funding_channel_ranking()
+@router.get("/funding-channel-ranking")
+async def get_funding_channel_ranking_endpoint(
+    x_workspace_id: Optional[str] = Header(None, alias="x-workspace-id"),
+    workspace_id: Optional[str] = None
+):
+    ws_id = workspace_id or x_workspace_id
+    if ws_id:
+        from app.services.analysis_run_service import execute_funding_strategy_run
+        run = await execute_funding_strategy_run(ws_id)
+        res = dict(run.results)
+        res["run_metadata"] = {
+            "id": run.id,
+            "runId": run.id,
+            "snapshotId": run.snapshot_id,
+            "status": run.status,
+            "runType": run.run_type,
+            "createdAt": run.created_at,
+            "logicVersion": run.logic_version,
+            "warningsCount": len(run.warnings)
+        }
+        return res
+    return await get_funding_channel_ranking(ws_id)
 
 @router.get("/cross-border-funding-context", response_model=CrossBorderFundingContextResponse)
-async def get_cross_border_funding_context_endpoint():
-    return await get_cross_border_funding_context()
+async def get_cross_border_funding_context_endpoint(
+    x_workspace_id: Optional[str] = Header(None, alias="x-workspace-id"),
+    workspace_id: Optional[str] = None
+):
+    return await get_cross_border_funding_context(workspace_id or x_workspace_id)
 
 @router.get("/red-flags-macro-summary", response_model=RedFlagsMacroSummaryResponse)
 async def get_red_flags_macro_summary_endpoint():
@@ -128,20 +150,14 @@ async def refresh_endpoint(request: RefreshRequest):
 
 
 from app.models.market_watch import CompanyContextResponse
-from app.services.market_watch.company_context import (
-    get_demo_company_profile,
-    get_company_exposures
-)
+from app.services.market_watch.company_context import get_company_context
 
 @router.get("/company-context", response_model=CompanyContextResponse)
-async def get_company_context_endpoint():
-    profile = get_demo_company_profile()
-    exposures = get_company_exposures()
-    return CompanyContextResponse(
-        profile=profile,
-        exposures=exposures,
-        dataMode="demo_workspace"
-    )
+async def get_company_context_endpoint(
+    x_workspace_id: Optional[str] = Header(None, alias="x-workspace-id"),
+    workspace_id: Optional[str] = None
+):
+    return get_company_context(workspace_id or x_workspace_id)
 
 
 

@@ -4,6 +4,8 @@ from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
+from app.core.config import settings
+from app.models.errors import raise_cdi_unavailable_error
 
 router = APIRouter()
 
@@ -92,6 +94,8 @@ DISCLAIMER = (
 @router.post("/mock-consent", response_model=CdiConsentSession)
 def create_mock_cdi_consent(payload: CdiConsentCreateRequest) -> CdiConsentSession:
     """Create a deterministic mock consent session for the trust-bridge demo."""
+    if settings.APP_MODE == "production" or not settings.ALLOW_DEMO_FALLBACK:
+        raise_cdi_unavailable_error()
     requested_scopes = payload.requested_scopes or DEFAULT_SCOPES
     now = datetime.now(timezone.utc)
     consent_id = f"mock_cdi_{uuid4().hex[:12]}"
@@ -121,6 +125,8 @@ def get_mock_cdi_consent(consent_id: str) -> CdiConsentSession:
 @router.get("/mock-data/{consent_id}", response_model=CdiMockDataResponse)
 def get_mock_cdi_data(consent_id: str) -> CdiMockDataResponse:
     """Return mock consent-based CDI signals for credit/funding demonstration."""
+    if settings.APP_MODE == "production" or not settings.ALLOW_DEMO_FALLBACK:
+        raise_cdi_unavailable_error()
     session = _consent_sessions.get(consent_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Mock CDI consent session not found")

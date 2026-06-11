@@ -40,12 +40,14 @@ _WARNING_BASE = (
 )
 
 
-async def get_funding_channel_ranking() -> FundingChannelRankingResponse:
+async def get_funding_channel_ranking(workspace_id: Optional[str] = None) -> FundingChannelRankingResponse:
     """Build context-only funding channel ranking from available workspace context."""
 
     # --- Get underlying context ---
-    profile = get_demo_company_profile()
-    exposures = get_company_exposures()
+    from app.services.market_watch.company_context import get_company_context
+    context_res = get_company_context(workspace_id)
+    profile = context_res.profile
+    exposures = context_res.exposures
 
     timing: TimingSignalResponse = await get_timing_signal()
     industry: IndustryHealthResponse = await get_industry_health()
@@ -69,7 +71,7 @@ async def get_funding_channel_ranking() -> FundingChannelRankingResponse:
         companyName=profile.companyName,
         sector=profile.sector,
         geography=profile.geography,
-        dataMode="demo_workspace",
+        dataMode=context_res.dataMode,
         dscr=dscr,
         floatingRateExposure=floating_rate_note,
         workingCapitalGap=f"HKD {profile.workingCapitalGapHkd:,}" if profile.workingCapitalGapHkd else None,
