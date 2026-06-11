@@ -97,3 +97,9 @@ This document records key architectural and design decisions for FinSight CFO.
 - **Context**: The report persistence system needs to record compiled corporate report metadata and payloads securely behind database-backed repository interfaces to allow developer environments to function using local storage by default.
 - **Decision**: Implement `DatabaseReportRepository` conforming to the abstract `ReportRepository` interface protocol, supporting report saving, status updates, and soft deletion. Wire it through the persistence factory and align database schemas via migrations.
 - **Consequences**: Standardizes report history tracking, enables database-backed report metadata querying, preserves local JSON file storage default, and prevents regressions in existing api routes.
+
+## ADR-015: Plan runtime database cutover before route integration
+- **Status**: Approved
+- **Context**: Switching the application's runtime routes to database persistence directly risks regressions, connection issues, or dialect mismatch errors in production without a solid transition strategy and verification checklist.
+- **Decision**: Author a comprehensive runtime cutover plan, DB test matrix, and rollback plan to guide future incremental route-to-repository integrations.
+- **Consequences**: Safeguards local-first developer defaults, establishes a clear blueprint for route refactoring, and ensures high observability and zero data loss during rollbacks.
