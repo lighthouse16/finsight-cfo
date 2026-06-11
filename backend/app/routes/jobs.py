@@ -7,8 +7,12 @@ from app.routes.workspaces import (
     get_db_session_optional,
     get_workspace_repository_dependency,
 )
-from app.services.job_service import get_job as service_get_job, list_jobs as service_list_jobs
-from app.models.job import JobResponse
+from app.services.job_service import (
+    get_job as service_get_job,
+    list_jobs as service_list_jobs,
+    create_job as service_create_job,
+)
+from app.models.job import JobResponse, ReportGenerationJobCreateRequest
 
 router = APIRouter()
 
@@ -95,3 +99,54 @@ async def get_workspace_job(
             status_code=501,
             detail="Background jobs are not supported under local persistence mode."
         )
+
+@router.post("/{workspace_id}/jobs/report-generation", response_model=JobResponse, status_code=201)
+async def create_report_generation_job(
+    workspace_id: str,
+    req: ReportGenerationJobCreateRequest,
+    workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
+    job_repo: JobRepository = Depends(get_job_repository_dependency),
+):
+    """
+    Creates a pending report.generation job for the workspace.
+    """
+    # 1. Validate workspace existence
+    workspace = workspace_repo.get_workspace(workspace_id)
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+
+    try:
+        # 2. Build payload
+        payload = {
+            "workspace_id": workspace_id,
+            "report_type": req.report_type,
+            "report_payload": req.report_payload,
+        }
+        if req.storage_uri:
+            payload["storage_uri"] = req.storage_uri
+
+        # 3. Build metadata
+        metadata = {
+            "source": "api",
+            **(req.metadata or {}),
+        }
+        if req.max_attempts is not None:
+            metadata["max_attempts"] = req.max_attempts
+
+        # 4. Call service layer
+        job = service_create_job(
+            job_type="report.generation",
+            workspace_id=workspace_id,
+            payload=payload,
+            metadata=metadata,
+            job_repo=job_repo,
+        )
+
+        # 5. Sanitize and serialize response
+        return JobResponse.from_dict(sanitize_payload(job))
+    except NotImplementedError:
+        raise HTTPException(
+            status_code=501,
+            detail="Background jobs are not supported under local persistence mode."
+        )
+

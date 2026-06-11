@@ -107,12 +107,17 @@ We propose the following six-step rollout plan:
   * Define retry eligibility rules (failed status, attempts < max_attempts).
   * Wire report worker prototype to increment attempts and record progress milestones (5%, 50%, 100%).
   * Keep automatic retry/backoff and worker daemon runtime deferred.
-* **Phase F: Process Supervision & Celery Setup**
+* **Phase F: Report Job Trigger Route Contract** [COMPLETED]
+  * Add POST route to create a pending report.generation job.
+  * Enforce payload structure checks and raw bytes validation.
+  * Keep background workers, queues, and execution deferred.
+* **Phase G: Process Supervision & Celery Setup**
   * Integrate Redis and Celery.
   * Separate the web container from the worker container in deployment configurations.
-* **Phase G: Observability & Monitoring**
+* **Phase H: Observability & Monitoring**
   * Expose Prometheus metrics for job latency, throughput, and error rates.
   * Hook up Slack/PagerDuty alerts for critical task failures.
+
 
 
 ## Guardrails
