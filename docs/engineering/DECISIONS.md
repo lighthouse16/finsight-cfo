@@ -140,4 +140,10 @@ This document records key architectural and design decisions for FinSight CFO.
 - **Decision**: Route workspace, file, run, and report audit events through the `AuditEventRepository` interface returned by the repository factory. Guard all route-level audit logs with a database mode settings check so they only run in database mode to avoid changing local mode behavior and side-effects. Use try/except blocks to make audit writing best-effort, preventing audit failures from blocking primary route actions.
 - **Consequences**: Safely integrates audit event recording for database mode, fully isolates local development mode audits, and keeps the API robust against unexpected audit logging failures.
 
+## ADR-022: Plan service extraction boundaries for workspace runtime routes before further cutover
+- **Status**: Approved
+- **Context**: The `routes/workspaces.py` route module has grown excessively large by managing file system operations, calculation orchestrations, report CRUD, DB sessions, and monkeypatches. In order to keep the router clean and testable, we need a formal extraction strategy.
+- **Decision**: Define six service extraction phases (Audits, Reports, Files, Analysis, Workspaces, and Jobs) and implement contract guardrails enforcing route registration paths, HTTP methods, and DB initialization isolation. Production router changes are deferred to individual, isolated PRs.
+- **Consequences**: Provides a safe blueprint for incremental router cleanup while guaranteeing zero API regression, zero frontend impacts, and zero DB session leaks in local mode.
+
 

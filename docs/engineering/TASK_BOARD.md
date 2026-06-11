@@ -29,5 +29,6 @@ This board tracks active, planned, and completed tasks for current engineering s
 | **T-115** | `commercial/report-service-db-integration` | **Done** | Backend Engineer | Low |
 | **T-116** | `commercial/runtime-integration-health-check` | **Done** | Backend Engineer | Low |
 | **T-117** | `commercial/audit-event-service-db-integration` | **Done** | Backend Engineer | Low |
+| **T-118** | `commercial/workspace-route-service-extraction-plan` | **Done** | Backend Architect | Low |
 
 
