@@ -209,7 +209,7 @@ export default function DataRoomPage() {
   useEffect(() => {
     const fetchChecklistTemplate = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/data-room/demo-readiness`)
+        const res = await fetch(`${API_BASE_URL}/api/data-room/readiness-template`)
         if (res.ok) {
           const data = await res.json()
           setChecklistTemplate(data)

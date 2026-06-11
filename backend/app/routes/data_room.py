@@ -39,6 +39,11 @@ async def get_demo_readiness_endpoint():
     return get_demo_data_room_readiness()
 
 
+@router.get("/readiness-template", response_model=DataRoomResponse)
+async def get_readiness_template_endpoint():
+    return get_demo_data_room_readiness()
+
+
 def _classify_upload(file: UploadFile, record_key: str) -> DataRoomUploadedFile:
     """Build the upload metadata response without persisting or parsing the file.
 
