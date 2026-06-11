@@ -11,6 +11,8 @@ from app.routes.workflow import router as workflow_router
 from app.routes.cdi import router as cdi_router
 from app.routes.gap_remediation import router as gap_remediation_router
 from app.routes.workspaces import router as workspaces_router
+from app.routes.jobs import router as jobs_router
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -41,3 +43,4 @@ app.include_router(workflow_router, prefix="/api/workflow")
 app.include_router(cdi_router, prefix="/api/cdi")
 app.include_router(gap_remediation_router, prefix="/api/gap-remediation")
 app.include_router(workspaces_router, prefix="/api/workspaces")
+app.include_router(jobs_router, prefix="/api/workspaces")
