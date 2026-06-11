@@ -34,3 +34,25 @@ class JobResponse(BaseModel):
             startedAt=data.get("startedAt") or data.get("started_at"),
             completedAt=data.get("completedAt") or data.get("completed_at"),
         )
+
+class ReportGenerationJobCreateRequest(BaseModel):
+    report_type: str = Field(..., alias="reportType")
+    report_payload: Dict[str, Any] = Field(default_factory=dict, alias="reportPayload")
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    storage_uri: Optional[str] = Field(None, alias="storageUri")
+    max_attempts: Optional[int] = Field(None, alias="maxAttempts")
+
+    class Config:
+        populate_by_name = True
+
+    from pydantic import model_validator
+
+    @model_validator(mode="after")
+    def check_bytes(self):
+        from app.services.job_service import _check_no_file_bytes
+        if self.report_payload:
+            _check_no_file_bytes(self.report_payload)
+        if self.metadata:
+            _check_no_file_bytes(self.metadata)
+        return self
+

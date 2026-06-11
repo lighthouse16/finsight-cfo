@@ -212,4 +212,11 @@ This document records key architectural and design decisions for FinSight CFO.
 - Decision: Add helper functions `increment_job_attempt`, `can_retry_job`, `mark_job_progress`, and `prepare_job_retry` in `job_service.py`. Enforce bounded progress metrics, type checking, and binary safety validations. Integrate these helpers inside `report_worker_service.py` to trace processing attempts and record milestone progress (5%, 50%, 100%) during generation.
 - Consequences: Safely establishes retry rules and progress tracking capability at the service layer, preparing for clean error recovery and status monitoring when running Celery/Redis workers in future phases.
 
+## ADR-034: Add report job trigger route contract without worker execution
+- Status: Approved
+- Context: In Phase F of the background processing rollout, we need to add a minimal backend route contract to create/trigger a report generation job for a workspace, without running the worker automatically and without changing existing report routes.
+- Decision: Add API endpoint `POST /api/workspaces/{workspace_id}/jobs/report-generation` in `backend/app/routes/jobs.py` and implement request model `ReportGenerationJobCreateRequest` in `backend/app/models/job.py` with custom Pydantic byte validators. The endpoint registers the job in `"pending"` status and delegates creation to `job_service.create_job`. Preserve the 501 Not Implemented response for local mode.
+- Consequences: Successfully completes the API flow to create pending jobs, enabling status checking via existing GET status routes and offline processing via the service worker prototype without introducing background thread/queue runners.
+
+
 

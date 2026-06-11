@@ -53,6 +53,17 @@ def test_local_mode_jobs_endpoint_throws_501(monkeypatch):
         assert res_get.status_code == 501
         assert "Background jobs are not supported" in res_get.json()["detail"]
 
+        res_post = client.post(
+            "/api/workspaces/ws_local_123/jobs/report-generation",
+            json={
+                "reportType": "financial_health",
+                "reportPayload": {"revenue": 10000},
+                "metadata": {"title": "Q3 Reports"}
+            }
+        )
+        assert res_post.status_code == 501
+        assert "Background jobs are not supported" in res_post.json()["detail"]
+
         # Ensure no DB engine/session was initialized
         assert db_session_mod._engine is None
         assert db_session_mod.SessionLocal is None
@@ -291,5 +302,106 @@ def test_job_routes_metadata_exposure(db_session, monkeypatch):
 
     finally:
         app.dependency_overrides.clear()
+
+
+def test_create_report_generation_job_route(db_session, monkeypatch):
+    """
+    In database mode:
+    1. POST workspace report-generation job creates pending job and returns 201.
+    2. Input payload matches request input.
+    3. Metadata contains source="api" and max_attempts.
+    4. Created job can be retrieved via GET endpoint.
+    5. Does not call worker or persist reports.
+    """
+    monkeypatch.setattr(settings, "PERSISTENCE_BACKEND", "database")
+
+    def override_get_db_session():
+        set_active_db_session(db_session)
+        try:
+            yield db_session
+        finally:
+            set_active_db_session(None)
+
+    app.dependency_overrides[get_db_session_optional] = override_get_db_session
+    client = TestClient(app)
+
+    try:
+        from app.db.models import Organization, Workspace as DbWorkspace, Report as DbReport
+        
+        # Setup Organization
+        org = Organization(id="org_test", name="Test Org")
+        db_session.add(org)
+        
+        # Setup Workspace
+        ws1 = DbWorkspace(id="ws_1", organization_id="org_test", name="Workspace One", status="active")
+        db_session.add(ws1)
+        db_session.commit()
+
+        # Check report count before
+        report_count_before = db_session.query(DbReport).count()
+        assert report_count_before == 0
+
+        # POST create report generation job
+        post_data = {
+            "reportType": "financial_health",
+            "reportPayload": {"revenue": 120000, "expenses": 90000},
+            "metadata": {"title": "Q4 Monthly Report"},
+            "storageUri": "s3://my-bucket/reports/q4.pdf",
+            "maxAttempts": 5
+        }
+        res = client.post("/api/workspaces/ws_1/jobs/report-generation", json=post_data)
+        assert res.status_code == 201
+        
+        job_data = res.json()
+        assert job_data["id"] is not None
+        assert job_data["status"] == "pending"
+        assert job_data["jobType"] == "report.generation"
+        assert job_data["inputPayload"]["report_type"] == "financial_health"
+        assert job_data["inputPayload"]["report_payload"] == {"revenue": 120000, "expenses": 90000}
+        assert job_data["inputPayload"]["storage_uri"] == "s3://my-bucket/reports/q4.pdf"
+        assert job_data["metadata"]["source"] == "api"
+        assert job_data["metadata"]["max_attempts"] == 5
+        assert job_data["metadata"]["title"] == "Q4 Monthly Report"
+
+        # Check that no report record was created
+        report_count_after = db_session.query(DbReport).count()
+        assert report_count_after == 0
+
+        # Retrieve individual job by ID
+        get_res = client.get(f"/api/workspaces/ws_1/jobs/{job_data['id']}")
+        assert get_res.status_code == 200
+        get_data = get_res.json()
+        assert get_data["id"] == job_data["id"]
+        assert get_data["status"] == "pending"
+
+        # List jobs
+        list_res = client.get("/api/workspaces/ws_1/jobs")
+        assert list_res.status_code == 200
+        jobs_list = list_res.json()
+        assert len(jobs_list) == 1
+        assert jobs_list[0]["id"] == job_data["id"]
+
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_create_request_model_rejects_bytes():
+    from app.models.job import ReportGenerationJobCreateRequest
+    from fastapi import HTTPException
+    
+    with pytest.raises(HTTPException) as exc:
+        ReportGenerationJobCreateRequest(
+            reportType="financial_health",
+            reportPayload={"pdf": b"binary PDF data"}
+        )
+    assert exc.value.status_code == 422
+
+    with pytest.raises(HTTPException) as exc:
+        ReportGenerationJobCreateRequest(
+            reportType="financial_health",
+            metadata={"file": bytearray(b"binary data")}
+        )
+    assert exc.value.status_code == 422
+
 
 
