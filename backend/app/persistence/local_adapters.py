@@ -32,16 +32,44 @@ class LocalWorkspaceRepository(WorkspaceRepository):
 
 class LocalFileMetadataRepository(FileMetadataRepository):
     def list_file_records(self, workspace_id: str) -> List[Dict[str, Any]]:
-        raise NotImplementedError("LocalFileMetadataRepository.list_file_records is not implemented.")
+        from app.storage.file_store import FileStore
+        records = FileStore.list_file_records(workspace_id)
+        return [r.model_dump(by_alias=True) for r in records]
 
     def get_file_record(self, file_id: str) -> Optional[Dict[str, Any]]:
-        raise NotImplementedError("LocalFileMetadataRepository.get_file_record is not implemented.")
+        from app.storage.file_store import FileStore
+        record = FileStore.get_file_record(file_id)
+        return record.model_dump(by_alias=True) if record else None
 
-    def save_file_record(self, file_record: Dict[str, Any]) -> Dict[str, Any]:
-        raise NotImplementedError("LocalFileMetadataRepository.save_file_record is not implemented.")
+    def save_file_record(
+        self,
+        workspace_id: str,
+        record_key: str,
+        filename: str,
+        content_type: str,
+        file_size_bytes: int,
+        storage_uri: str,
+        checksum_sha256: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        raise NotImplementedError("LocalFileMetadataRepository.save_file_record is not implemented. Use FileStore directly in local mode.")
 
     def delete_file_record(self, file_id: str) -> bool:
-        raise NotImplementedError("LocalFileMetadataRepository.delete_file_record is not implemented.")
+        from app.storage.file_store import FileStore
+        return FileStore.delete_file(file_id)
+
+    def list_file_versions(self, file_id: str) -> List[Dict[str, Any]]:
+        return []
+
+    def save_file_version(
+        self,
+        file_id: str,
+        version_number: int,
+        storage_uri: str,
+        checksum_sha256: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        raise NotImplementedError("LocalFileMetadataRepository.save_file_version is not implemented.")
 
 class LocalFinancialSnapshotRepository(FinancialSnapshotRepository):
     def get_active_snapshot(self, workspace_id: str) -> Optional[FinancialSnapshot]:

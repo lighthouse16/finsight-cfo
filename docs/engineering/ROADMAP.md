@@ -44,8 +44,10 @@ This document outlines the high-level roadmap for transitioning FinSight CFO fro
     - Establish a concrete cutover roadmap, rollback plan, and test matrix before route integrations.
 14. **Workspace Route Database Integration** [COMPLETED]
     - Route workspace CRUD requests through persistence repository factory with backward-compatible local mode default.
-15. **Other Route Database Integrations** [PLANNED]
-    - Sequentially integrate file metadata, analysis runs, and reports endpoints with database persistence.
+15. **File Metadata Route Database Integration** [COMPLETED]
+    - Route file metadata requests through persistence repository factory with backward-compatible local mode default.
+16. **Other Route Database Integrations** [PLANNED]
+    - Sequentially integrate analysis runs and reports endpoints with database persistence.
 
 ---
 

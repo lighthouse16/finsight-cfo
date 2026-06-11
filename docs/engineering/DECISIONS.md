@@ -109,3 +109,9 @@ This document records key architectural and design decisions for FinSight CFO.
 - **Context**: Integrating routes with the database layer must prevent regressions in the local JSON storage developer mode while allowing database-backed repository adapters when database persistence is enabled.
 - **Decision**: Refactor workspaces router handlers to use repository factory methods via FastAPI dependencies, introducing a conditional database session helper that yields None in local mode to avoid database connection pool/engine initialization side effects.
 - **Consequences**: Retains backward compatibility for local development, provides a tested template for route refactoring, and ensures full SQLite test coverage for workspaces database mode.
+
+## ADR-017: Route file metadata persistence through repository factory while keeping file bytes outside the database
+- **Status**: Approved
+- **Context**: Uploaded files (CSVs, Excel sheets) require both physical byte storage and logical metadata registration. Database relational engines should not store raw binary blobs, and runtime cutover of file handlers must preserve the default offline local file storage behavior.
+- **Decision**: Integrate file metadata routes in `backend/app/routes/workspaces.py` with `FileMetadataRepository` factory dependencies. In database mode, file bytes are written to the local uploads directory and metadata is registered in the relational database, bypassing the local JSON metadata file. In local mode, the endpoint delegates directly to legacy `FileStore` helpers.
+- **Consequences**: Avoids storing file blobs in the database, provides transaction-safe file tracking for the database persistence mode, and maintains 100% backward compatibility with local developer storage.

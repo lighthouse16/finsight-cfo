@@ -14,7 +14,7 @@ This test matrix outlines the validation suites, current coverage status, and re
 | **Local** | AI CFO | Integration / UI | High (Session mocks) | Multi-turn persistence | No | AI Team |
 | **Local** | Market Data Fallback | Integration | High (Fixtures) | None | Yes | Dev Team |
 | **Database** | Workspace CRUD | Unit / Integration / Route | High (Adapter + Route tests) | None | Yes | Backend Team / T-112 |
-| **Database** | File Metadata CRUD | Unit / Integration | High (Version checks) | S3 path integration | Yes | Backend Team / T-105 |
+| **Database** | File Metadata CRUD | Unit / Integration / Route | High (Adapter + Route tests) | S3 path integration | Yes | Backend Team / T-113 |
 | **Database** | Analysis Runs | Unit / Integration | High (Artifact stores) | Payload formatting | Yes | Backend Team / T-107 |
 | **Database** | Audit Events | Unit / Integration | High (Org filters) | None | Yes | Backend Team / T-108 |
 | **Database** | Jobs | Unit / Integration | High (Status flows) | Real Celery tasks | No | Platform Team / T-109 |
