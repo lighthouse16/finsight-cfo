@@ -128,4 +128,10 @@ This document records key architectural and design decisions for FinSight CFO.
 - **Decision**: Integrate workspace report routes with `ReportRepository` factory dependencies in `backend/app/routes/workspaces.py`. In database mode, reports are saved to and read from the relational database, bypassing local `reports.json` writes. CamelCase API compatibility and response shapes are strictly preserved.
 - **Consequences**: Safely persists and retrieves workspace report metadata and payloads in the database, preserving local-first default behavior with zero DB engine/session initialization when running in local mode.
 
+## ADR-020: Add runtime cutover health checks before further route integration
+- **Status**: Approved
+- **Context**: The codebase underwent multiple incremental database persistence migrations. We need to verify that all integrated routes behave stably, preserve camelCase schemas, run correctly on in-memory DB setups, and that local mode has zero database engine initialization side-effects.
+- **Decision**: Implement a dedicated runtime integration health check test suite in `backend/tests/test_runtime_cutover_health.py` validating the entire workspace-file-run-report flow under local and database persistence regimes.
+- **Consequences**: Ensures regression safety, detects accidental file writes or DB engine leakage in local mode, validates response structures, and establishes a solid benchmark before integrating subsequent routes.
+
 

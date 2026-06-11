@@ -19,6 +19,7 @@ This test matrix outlines the validation suites, current coverage status, and re
 | **Database** | Audit Events | Unit / Integration | High (Org filters) | None | Yes | Backend Team / T-108 |
 | **Database** | Jobs | Unit / Integration | High (Status flows) | Real Celery tasks | No | Platform Team / T-109 |
 | **Database** | Reports | Unit / Integration / Route | High (Adapter + Route tests) | None | Yes | Backend Team / T-110 |
+| **Database** | Integration Health Check | Route / Guardrail | High (Smoke + Side-effect tests) | None | Yes | Backend Team / T-116 |
 | **Database** | Migration Upgrade | DB Integration | High (Alembic `head`) | Postgres syntax check | Yes | DB Admin / T-102 |
 | **Database** | Migration Downgrade | DB Integration | High (Alembic `base`) | Postgres batch drops | Yes | DB Admin / T-102 |
 | **Database** | Empty DB Bootstrap | Integration | High (Startup check) | Seed script tests | Yes | Platform Team / T-106 |

@@ -94,6 +94,15 @@ WorkspaceStore.get_workspace = classmethod(_db_safe_get_workspace)
 router = APIRouter()
 
 def get_db_session_optional():
+    """
+    Yields a database session only if database persistence mode is active.
+    
+    Safety features:
+    1. Returns None when PERSISTENCE_BACKEND="local", avoiding initialization
+       of the SQLAlchemy engine/connection pool or any database connections.
+    2. Keeps database sessions strictly scoped to the request lifecycle.
+    3. Populates _active_db_session registry for any calculation tasks running in same thread.
+    """
     global _active_db_session
     from app.core.config import settings
     if settings.normalized_persistence_backend == "database":
