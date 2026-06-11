@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, Depends
 from sqlalchemy.orm import Session
-from app.persistence.interfaces import WorkspaceRepository
+from app.persistence.interfaces import WorkspaceRepository, FileMetadataRepository
 
 from app.models.workspace import CompanyWorkspace, UploadedFileRecord, FinancialSnapshot, AnalysisRun
 from app.models.financials import CompanyFinancialSnapshot
@@ -46,6 +46,13 @@ def get_workspace_repository_dependency(
     from app.core.config import settings
     from app.persistence.factory import get_workspace_repository
     return get_workspace_repository(settings, db_session=db_session)
+
+def get_file_metadata_repository_dependency(
+    db_session: Optional[Session] = Depends(get_db_session_optional)
+) -> FileMetadataRepository:
+    from app.core.config import settings
+    from app.persistence.factory import get_file_metadata_repository
+    return get_file_metadata_repository(settings, db_session=db_session)
 
 # Map record keys to display labels
 RECORD_KEY_LABELS = {
@@ -255,8 +262,10 @@ async def upload_workspace_file(
     workspace_id: str,
     recordKey: str = Form(...),
     file: UploadFile = File(...),
+    workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
+    file_repo: FileMetadataRepository = Depends(get_file_metadata_repository_dependency),
 ):
-    workspace = WorkspaceStore.get_workspace(workspace_id)
+    workspace = workspace_repo.get_workspace(workspace_id)
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
     
@@ -269,34 +278,81 @@ async def upload_workspace_file(
     file_bytes = await file.read()
     content_type = file.content_type or "application/octet-stream"
     
-    record = FileStore.save_file(
-        workspace_id=workspace_id,
-        record_key=record_key,
-        file_name=file.filename,
-        file_bytes=file_bytes,
-        content_type=content_type,
-    )
-    return record
+    from app.core.config import settings
+    if settings.normalized_persistence_backend == "database":
+        import os
+        from app.storage.workspace_store import STORAGE_DIR
+        upload_root = os.path.join(STORAGE_DIR, "uploads")
+        workspace_dir = os.path.join(upload_root, workspace_id)
+        os.makedirs(workspace_dir, exist_ok=True)
+        ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else "bin"
+        dest_filename = f"{record_key}.{ext}"
+        file_path = os.path.join(workspace_dir, dest_filename)
+        
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except Exception:
+                pass
+        with open(file_path, "wb") as f:
+            f.write(file_bytes)
+            
+        res_dict = file_repo.save_file_record(
+            workspace_id=workspace_id,
+            record_key=record_key,
+            filename=file.filename,
+            content_type=content_type,
+            file_size_bytes=len(file_bytes),
+            storage_uri=file_path,
+        )
+        return UploadedFileRecord.model_validate(res_dict)
+    else:
+        record = FileStore.save_file(
+            workspace_id=workspace_id,
+            record_key=record_key,
+            file_name=file.filename,
+            file_bytes=file_bytes,
+            content_type=content_type,
+        )
+        return record
 
 @router.get("/{workspace_id}/files", response_model=List[UploadedFileRecord])
-async def list_workspace_files(workspace_id: str):
-    workspace = WorkspaceStore.get_workspace(workspace_id)
+async def list_workspace_files(
+    workspace_id: str,
+    workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
+    file_repo: FileMetadataRepository = Depends(get_file_metadata_repository_dependency),
+):
+    workspace = workspace_repo.get_workspace(workspace_id)
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
-    return FileStore.list_file_records(workspace_id)
+    
+    from app.core.config import settings
+    if settings.normalized_persistence_backend == "database":
+        records = file_repo.list_file_records(workspace_id)
+        return [UploadedFileRecord.model_validate(r) for r in records]
+    else:
+        return FileStore.list_file_records(workspace_id)
 
 @router.post("/{workspace_id}/snapshot/build")
 async def build_workspace_snapshot(
     workspace_id: str,
     currency: Optional[str] = None,
     reportingPeriod: Optional[str] = None,
+    workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
+    file_repo: FileMetadataRepository = Depends(get_file_metadata_repository_dependency),
 ):
-    workspace = WorkspaceStore.get_workspace(workspace_id)
+    workspace = workspace_repo.get_workspace(workspace_id)
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
     
     # 1. Retrieve file records
-    file_records = FileStore.list_file_records(workspace_id)
+    from app.core.config import settings
+    if settings.normalized_persistence_backend == "database":
+        db_records = file_repo.list_file_records(workspace_id)
+        file_records = [UploadedFileRecord.model_validate(r) for r in db_records]
+    else:
+        file_records = FileStore.list_file_records(workspace_id)
+        
     files_by_key = {r.record_key: r for r in file_records}
     
     # 2. Check missing required core statements
@@ -310,7 +366,21 @@ async def build_workspace_snapshot(
     warnings: List[str] = []
     
     for key, file_rec in files_by_key.items():
-        file_bytes = FileStore.get_file_content(file_rec.id)
+        if settings.normalized_persistence_backend == "database":
+            import os
+            file_rec_dict = file_repo.get_file_record(file_rec.id)
+            file_bytes = None
+            if file_rec_dict and file_rec_dict.get("filePath"):
+                file_path = file_rec_dict["filePath"]
+                if os.path.exists(file_path):
+                    try:
+                        with open(file_path, "rb") as f:
+                            file_bytes = f.read()
+                    except Exception:
+                        pass
+        else:
+            file_bytes = FileStore.get_file_content(file_rec.id)
+            
         if not file_bytes:
             continue
             
@@ -406,35 +476,81 @@ async def get_active_workspace_snapshot(workspace_id: str):
     }
 
 @router.delete("/{workspace_id}/files/{file_id}")
-async def delete_workspace_file(workspace_id: str, file_id: str):
-    workspace = WorkspaceStore.get_workspace(workspace_id)
+async def delete_workspace_file(
+    workspace_id: str,
+    file_id: str,
+    workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
+    file_repo: FileMetadataRepository = Depends(get_file_metadata_repository_dependency),
+):
+    workspace = workspace_repo.get_workspace(workspace_id)
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
         
-    file_record = FileStore.get_file_record(file_id)
-    if not file_record or file_record.workspace_id != workspace_id:
-        raise HTTPException(status_code=404, detail="File not found in this workspace")
-        
-    success = FileStore.delete_file(file_id)
-    if not success:
-        raise HTTPException(status_code=500, detail="Failed to delete file")
-        
+    from app.core.config import settings
+    if settings.normalized_persistence_backend == "database":
+        import os
+        file_record = file_repo.get_file_record(file_id)
+        if not file_record or file_record.get("workspaceId") != workspace_id:
+            raise HTTPException(status_code=404, detail="File not found in this workspace")
+            
+        file_path = file_record.get("filePath")
+        if file_path and os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except Exception:
+                pass
+                
+        success = file_repo.delete_file_record(file_id)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to delete file")
+    else:
+        file_record = FileStore.get_file_record(file_id)
+        if not file_record or file_record.workspace_id != workspace_id:
+            raise HTTPException(status_code=404, detail="File not found in this workspace")
+            
+        success = FileStore.delete_file(file_id)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to delete file")
+            
     return {"status": "success", "message": f"File {file_id} deleted successfully"}
 
 @router.delete("/{workspace_id}")
 async def delete_workspace(
     workspace_id: str,
-    repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
+    workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
+    file_repo: FileMetadataRepository = Depends(get_file_metadata_repository_dependency),
 ):
-    workspace = repo.get_workspace(workspace_id)
+    workspace = workspace_repo.get_workspace(workspace_id)
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
         
     # 1. Cascade physical files and file metadata
-    FileStore.delete_workspace_files(workspace_id)
+    from app.core.config import settings
+    if settings.normalized_persistence_backend == "database":
+        import os
+        import shutil
+        db_records = file_repo.list_file_records(workspace_id)
+        for r in db_records:
+            fid = r.get("id")
+            fpath = r.get("filePath")
+            if fpath and os.path.exists(fpath):
+                try:
+                    os.remove(fpath)
+                except Exception:
+                    pass
+            file_repo.delete_file_record(fid)
+            
+        ws_dir = os.path.join(FileStore._upload_root, workspace_id)
+        if os.path.exists(ws_dir):
+            try:
+                shutil.rmtree(ws_dir)
+            except Exception:
+                pass
+    else:
+        FileStore.delete_workspace_files(workspace_id)
     
     # 2. Cascade workspace metadata, snapshots, runs, audits
-    success = repo.delete_workspace(workspace_id)
+    success = workspace_repo.delete_workspace(workspace_id)
     if not success:
         raise HTTPException(status_code=500, detail="Failed to delete workspace")
         

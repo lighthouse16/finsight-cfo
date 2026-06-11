@@ -48,8 +48,8 @@ The following persistence repository interfaces are fully implemented and availa
 
 ## 5. What Is Not Ready
 
-* **HTTP Routes / Handler Integration**: Workspace CRUD endpoints are integrated. Other handlers (file metadata, analysis runs, audits, reports, jobs) are not yet wired.
-* **Database Session Middleware**: FastAPI dependency injection is integrated in workspaces but not in other route modules.
+* **HTTP Routes / Handler Integration**: Workspace CRUD and File Metadata endpoints are integrated. Other handlers (analysis runs, audits, reports, jobs) are not yet wired.
+* **Database Session Middleware**: FastAPI dependency injection is integrated in workspaces.
 * **Data Migration Scripts**: Tools to serialize legacy localized JSON database records and insert them into the relational database.
 * **Tenant Access Rules (RBAC)**: Fine-grained user-to-workspace mapping checks (deferred to a subsequent Auth/RBAC task).
 
@@ -67,7 +67,7 @@ To ensure zero downtime and safe developer workflows:
 To minimize risk, route wiring will proceed in sequential, isolated PRs:
 
 1. **Workspace Service Integration** [COMPLETED]: Wired `WorkspaceRepository` into `routes/workspaces.py` to allow reading/writing workspaces.
-2. **File Metadata Service Integration**: Wire `FileMetadataRepository` into `routes/data_room.py` to handle document registrations.
+2. **File Metadata Service Integration** [COMPLETED]: Wired `FileMetadataRepository` into `routes/workspaces.py` file endpoints to handle document metadata registrations and file listings.
 3. **Analysis Run Service Integration**: Wire `AnalysisRunRepository` into advisory analysis handlers.
 4. **Audit Events Integration**: Redirect audit trail operations to `AuditEventRepository`.
 5. **Reports Integration**: Wire `ReportRepository` into advisory blueprint export endpoints.
