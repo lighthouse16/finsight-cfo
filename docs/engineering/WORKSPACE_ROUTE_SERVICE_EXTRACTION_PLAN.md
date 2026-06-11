@@ -57,7 +57,7 @@ To minimize risk, extraction must be completed in sequential, isolated phases:
   * Move report CRUD operations and validations into `backend/app/services/report_service.py`.
 * **Phase 3: Extract File Metadata Service** [COMPLETED]
   * Move file save/delete logic and repository registrations into `backend/app/services/file_metadata_service.py`.
-* **Phase 4: Extract Analysis Runtime Service**
+* **Phase 4: Extract Analysis Runtime Service** [COMPLETED]
   * Move execution wrap and `_db_save_run` orchestration into `backend/app/services/analysis_runtime_service.py`.
 * **Phase 5: Extract Workspace Service**
   * Move workspace CRUD operations into `backend/app/services/workspace_service.py`.

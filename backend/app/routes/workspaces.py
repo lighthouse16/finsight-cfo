@@ -20,6 +20,13 @@ from app.services.file_metadata_service import (
     get_workspace_file_bytes,
     cascade_delete_workspace_files,
 )
+from app.services.analysis_runtime_service import (
+    run_analysis_stage,
+    get_latest_analysis_stage,
+    list_workspace_runs as service_list_workspace_runs,
+    get_workspace_run_latest_generic as service_get_workspace_run_latest_generic,
+    get_workspace_run_by_id as service_get_workspace_run_by_id,
+)
 
 from app.models.workspace import CompanyWorkspace, UploadedFileRecord, FinancialSnapshot, AnalysisRun
 from app.models.financials import CompanyFinancialSnapshot
@@ -278,56 +285,7 @@ class WorkspaceReport(BaseModel):
     class Config:
         populate_by_name = True
 
-def _db_save_run(run_dto: AnalysisRun, run_repo: AnalysisRunRepository, workspace_id: str) -> dict:
-    meta = {
-        "run_id": run_dto.id,
-        "snapshot_id": run_dto.snapshot_id,
-        "source_trace": run_dto.source_trace,
-        "logic_version": run_dto.logic_version,
-        "duration_ms": run_dto.duration_ms
-    }
-    summary = {
-        "warnings": run_dto.warnings,
-        "errors": run_dto.errors
-    }
-    res = run_repo.save_run(
-        workspace_id=workspace_id,
-        run_type=run_dto.run_type,
-        status=run_dto.status,
-        input_payload=run_dto.inputs,
-        output_payload=run_dto.results,
-        summary=summary,
-        error_message="; ".join(run_dto.errors) if run_dto.errors else None,
-        metadata=meta
-    )
-    try:
-        from app.persistence.factory import get_audit_event_repository
-        from app.core.config import settings
-        import asyncio
-        audit_repo = get_audit_event_repository(settings, db_session=run_repo.session)
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = None
-        if loop and loop.is_running():
-            loop.create_task(record_audit_event_best_effort(
-                audit_repo=audit_repo,
-                settings=settings,
-                workspace_id=workspace_id,
-                action="analysis.run.created",
-                description=f"Analysis run of type '{run_dto.run_type}' was saved."
-            ))
-        else:
-            asyncio.run(record_audit_event_best_effort(
-                audit_repo=audit_repo,
-                settings=settings,
-                workspace_id=workspace_id,
-                action="analysis.run.created",
-                description=f"Analysis run of type '{run_dto.run_type}' was saved."
-            ))
-    except Exception:
-        pass
-    return res
+# Analysis runs persistence helper moved to analysis_runtime_service
 
 # Map record keys to display labels
 RECORD_KEY_LABELS = {
@@ -764,22 +722,20 @@ async def delete_workspace(
 
 
 @router.post("/{workspace_id}/analysis/financial-health/run", response_model=AnalysisRun)
-def trigger_financial_health_run(
+async def trigger_financial_health_run(
     workspace_id: str,
     snapshot_id: Optional[str] = None,
     workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     run_repo: AnalysisRunRepository = Depends(get_analysis_run_repository_dependency),
 ):
-    workspace = workspace_repo.get_workspace(workspace_id)
-    if not workspace:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-    from app.core.config import settings
-    if settings.normalized_persistence_backend == "database":
-        run_dto = execute_financial_health_run(workspace_id, snapshot_id)
-        res_dict = _db_save_run(run_dto, run_repo, workspace_id)
-        return AnalysisRun.model_validate(res_dict)
-    else:
-        return execute_financial_health_run(workspace_id, snapshot_id)
+    return await run_analysis_stage(
+        workspace_id=workspace_id,
+        snapshot_id=snapshot_id,
+        execution_fn=execute_financial_health_run,
+        run_repo=run_repo,
+        workspace_repo=workspace_repo,
+        settings=settings,
+    )
 
 
 @router.get("/{workspace_id}/analysis/financial-health/latest", response_model=AnalysisRun)
@@ -788,40 +744,30 @@ def get_latest_financial_health_run(
     workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     run_repo: AnalysisRunRepository = Depends(get_analysis_run_repository_dependency),
 ):
-    workspace = workspace_repo.get_workspace(workspace_id)
-    if not workspace:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-    from app.core.config import settings
-    if settings.normalized_persistence_backend == "database":
-        runs = run_repo.list_runs(workspace_id)
-        latest_run = next((r for r in runs if r.get("runType") == "financial_health"), None)
-        if not latest_run:
-            raise HTTPException(status_code=404, detail="No financial health runs found for this workspace")
-        return AnalysisRun.model_validate(latest_run)
-    else:
-        run = WorkspaceStore.get_latest_run_by_type(workspace_id, "financial_health")
-        if not run:
-            raise HTTPException(status_code=404, detail="No financial health runs found for this workspace")
-        return run
+    return get_latest_analysis_stage(
+        workspace_id=workspace_id,
+        run_type="financial_health",
+        workspace_repo=workspace_repo,
+        run_repo=run_repo,
+        settings=settings,
+    )
 
 
 @router.post("/{workspace_id}/analysis/valuation/run", response_model=AnalysisRun)
-def trigger_valuation_run(
+async def trigger_valuation_run(
     workspace_id: str,
     snapshot_id: Optional[str] = None,
     workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     run_repo: AnalysisRunRepository = Depends(get_analysis_run_repository_dependency),
 ):
-    workspace = workspace_repo.get_workspace(workspace_id)
-    if not workspace:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-    from app.core.config import settings
-    if settings.normalized_persistence_backend == "database":
-        run_dto = execute_valuation_run(workspace_id, snapshot_id)
-        res_dict = _db_save_run(run_dto, run_repo, workspace_id)
-        return AnalysisRun.model_validate(res_dict)
-    else:
-        return execute_valuation_run(workspace_id, snapshot_id)
+    return await run_analysis_stage(
+        workspace_id=workspace_id,
+        snapshot_id=snapshot_id,
+        execution_fn=execute_valuation_run,
+        run_repo=run_repo,
+        workspace_repo=workspace_repo,
+        settings=settings,
+    )
 
 
 @router.get("/{workspace_id}/analysis/valuation/latest", response_model=AnalysisRun)
@@ -830,40 +776,30 @@ def get_latest_valuation_run(
     workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     run_repo: AnalysisRunRepository = Depends(get_analysis_run_repository_dependency),
 ):
-    workspace = workspace_repo.get_workspace(workspace_id)
-    if not workspace:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-    from app.core.config import settings
-    if settings.normalized_persistence_backend == "database":
-        runs = run_repo.list_runs(workspace_id)
-        latest_run = next((r for r in runs if r.get("runType") == "valuation"), None)
-        if not latest_run:
-            raise HTTPException(status_code=404, detail="No valuation runs found for this workspace")
-        return AnalysisRun.model_validate(latest_run)
-    else:
-        run = WorkspaceStore.get_latest_run_by_type(workspace_id, "valuation")
-        if not run:
-            raise HTTPException(status_code=404, detail="No valuation runs found for this workspace")
-        return run
+    return get_latest_analysis_stage(
+        workspace_id=workspace_id,
+        run_type="valuation",
+        workspace_repo=workspace_repo,
+        run_repo=run_repo,
+        settings=settings,
+    )
 
 
 @router.post("/{workspace_id}/analysis/advisory-precheck/run", response_model=AnalysisRun)
-def trigger_advisory_precheck_run(
+async def trigger_advisory_precheck_run(
     workspace_id: str,
     snapshot_id: Optional[str] = None,
     workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     run_repo: AnalysisRunRepository = Depends(get_analysis_run_repository_dependency),
 ):
-    workspace = workspace_repo.get_workspace(workspace_id)
-    if not workspace:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-    from app.core.config import settings
-    if settings.normalized_persistence_backend == "database":
-        run_dto = execute_advisory_precheck_run(workspace_id, snapshot_id)
-        res_dict = _db_save_run(run_dto, run_repo, workspace_id)
-        return AnalysisRun.model_validate(res_dict)
-    else:
-        return execute_advisory_precheck_run(workspace_id, snapshot_id)
+    return await run_analysis_stage(
+        workspace_id=workspace_id,
+        snapshot_id=snapshot_id,
+        execution_fn=execute_advisory_precheck_run,
+        run_repo=run_repo,
+        workspace_repo=workspace_repo,
+        settings=settings,
+    )
 
 
 @router.get("/{workspace_id}/analysis/advisory-precheck/latest", response_model=AnalysisRun)
@@ -872,40 +808,30 @@ def get_latest_advisory_precheck_run(
     workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     run_repo: AnalysisRunRepository = Depends(get_analysis_run_repository_dependency),
 ):
-    workspace = workspace_repo.get_workspace(workspace_id)
-    if not workspace:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-    from app.core.config import settings
-    if settings.normalized_persistence_backend == "database":
-        runs = run_repo.list_runs(workspace_id)
-        latest_run = next((r for r in runs if r.get("runType") == "advisory_precheck"), None)
-        if not latest_run:
-            raise HTTPException(status_code=404, detail="No advisory precheck runs found for this workspace")
-        return AnalysisRun.model_validate(latest_run)
-    else:
-        run = WorkspaceStore.get_latest_run_by_type(workspace_id, "advisory_precheck")
-        if not run:
-            raise HTTPException(status_code=404, detail="No advisory precheck runs found for this workspace")
-        return run
+    return get_latest_analysis_stage(
+        workspace_id=workspace_id,
+        run_type="advisory_precheck",
+        workspace_repo=workspace_repo,
+        run_repo=run_repo,
+        settings=settings,
+    )
 
 
 @router.post("/{workspace_id}/analysis/credit-score/run", response_model=AnalysisRun)
-def trigger_credit_score_run(
+async def trigger_credit_score_run(
     workspace_id: str,
     snapshot_id: Optional[str] = None,
     workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     run_repo: AnalysisRunRepository = Depends(get_analysis_run_repository_dependency),
 ):
-    workspace = workspace_repo.get_workspace(workspace_id)
-    if not workspace:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-    from app.core.config import settings
-    if settings.normalized_persistence_backend == "database":
-        run_dto = execute_credit_score_run(workspace_id, snapshot_id)
-        res_dict = _db_save_run(run_dto, run_repo, workspace_id)
-        return AnalysisRun.model_validate(res_dict)
-    else:
-        return execute_credit_score_run(workspace_id, snapshot_id)
+    return await run_analysis_stage(
+        workspace_id=workspace_id,
+        snapshot_id=snapshot_id,
+        execution_fn=execute_credit_score_run,
+        run_repo=run_repo,
+        workspace_repo=workspace_repo,
+        settings=settings,
+    )
 
 
 @router.get("/{workspace_id}/analysis/credit-score/latest", response_model=AnalysisRun)
@@ -914,40 +840,30 @@ def get_latest_credit_score_run(
     workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     run_repo: AnalysisRunRepository = Depends(get_analysis_run_repository_dependency),
 ):
-    workspace = workspace_repo.get_workspace(workspace_id)
-    if not workspace:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-    from app.core.config import settings
-    if settings.normalized_persistence_backend == "database":
-        runs = run_repo.list_runs(workspace_id)
-        latest_run = next((r for r in runs if r.get("runType") == "credit_score"), None)
-        if not latest_run:
-            raise HTTPException(status_code=404, detail="No credit score runs found for this workspace")
-        return AnalysisRun.model_validate(latest_run)
-    else:
-        run = WorkspaceStore.get_latest_run_by_type(workspace_id, "credit_score")
-        if not run:
-            raise HTTPException(status_code=404, detail="No credit score runs found for this workspace")
-        return run
+    return get_latest_analysis_stage(
+        workspace_id=workspace_id,
+        run_type="credit_score",
+        workspace_repo=workspace_repo,
+        run_repo=run_repo,
+        settings=settings,
+    )
 
 
 @router.post("/{workspace_id}/analysis/stress-test/run", response_model=AnalysisRun)
-def trigger_stress_test_run(
+async def trigger_stress_test_run(
     workspace_id: str,
     snapshot_id: Optional[str] = None,
     workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     run_repo: AnalysisRunRepository = Depends(get_analysis_run_repository_dependency),
 ):
-    workspace = workspace_repo.get_workspace(workspace_id)
-    if not workspace:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-    from app.core.config import settings
-    if settings.normalized_persistence_backend == "database":
-        run_dto = execute_stress_test_run(workspace_id, snapshot_id)
-        res_dict = _db_save_run(run_dto, run_repo, workspace_id)
-        return AnalysisRun.model_validate(res_dict)
-    else:
-        return execute_stress_test_run(workspace_id, snapshot_id)
+    return await run_analysis_stage(
+        workspace_id=workspace_id,
+        snapshot_id=snapshot_id,
+        execution_fn=execute_stress_test_run,
+        run_repo=run_repo,
+        workspace_repo=workspace_repo,
+        settings=settings,
+    )
 
 
 @router.get("/{workspace_id}/analysis/stress-test/latest", response_model=AnalysisRun)
@@ -956,40 +872,30 @@ def get_latest_stress_test_run(
     workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     run_repo: AnalysisRunRepository = Depends(get_analysis_run_repository_dependency),
 ):
-    workspace = workspace_repo.get_workspace(workspace_id)
-    if not workspace:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-    from app.core.config import settings
-    if settings.normalized_persistence_backend == "database":
-        runs = run_repo.list_runs(workspace_id)
-        latest_run = next((r for r in runs if r.get("runType") == "stress_test"), None)
-        if not latest_run:
-            raise HTTPException(status_code=404, detail="No stress test runs found for this workspace")
-        return AnalysisRun.model_validate(latest_run)
-    else:
-        run = WorkspaceStore.get_latest_run_by_type(workspace_id, "stress_test")
-        if not run:
-            raise HTTPException(status_code=404, detail="No stress test runs found for this workspace")
-        return run
+    return get_latest_analysis_stage(
+        workspace_id=workspace_id,
+        run_type="stress_test",
+        workspace_repo=workspace_repo,
+        run_repo=run_repo,
+        settings=settings,
+    )
 
 
 @router.post("/{workspace_id}/analysis/facility-structuring/run", response_model=AnalysisRun)
-def trigger_facility_structuring_run(
+async def trigger_facility_structuring_run(
     workspace_id: str,
     snapshot_id: Optional[str] = None,
     workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     run_repo: AnalysisRunRepository = Depends(get_analysis_run_repository_dependency),
 ):
-    workspace = workspace_repo.get_workspace(workspace_id)
-    if not workspace:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-    from app.core.config import settings
-    if settings.normalized_persistence_backend == "database":
-        run_dto = execute_facility_structuring_run(workspace_id, snapshot_id)
-        res_dict = _db_save_run(run_dto, run_repo, workspace_id)
-        return AnalysisRun.model_validate(res_dict)
-    else:
-        return execute_facility_structuring_run(workspace_id, snapshot_id)
+    return await run_analysis_stage(
+        workspace_id=workspace_id,
+        snapshot_id=snapshot_id,
+        execution_fn=execute_facility_structuring_run,
+        run_repo=run_repo,
+        workspace_repo=workspace_repo,
+        settings=settings,
+    )
 
 
 @router.get("/{workspace_id}/analysis/facility-structuring/latest", response_model=AnalysisRun)
@@ -998,21 +904,13 @@ def get_latest_facility_structuring_run(
     workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     run_repo: AnalysisRunRepository = Depends(get_analysis_run_repository_dependency),
 ):
-    workspace = workspace_repo.get_workspace(workspace_id)
-    if not workspace:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-    from app.core.config import settings
-    if settings.normalized_persistence_backend == "database":
-        runs = run_repo.list_runs(workspace_id)
-        latest_run = next((r for r in runs if r.get("runType") == "facility_structuring"), None)
-        if not latest_run:
-            raise HTTPException(status_code=404, detail="No facility structuring runs found for this workspace")
-        return AnalysisRun.model_validate(latest_run)
-    else:
-        run = WorkspaceStore.get_latest_run_by_type(workspace_id, "facility_structuring")
-        if not run:
-            raise HTTPException(status_code=404, detail="No facility structuring runs found for this workspace")
-        return run
+    return get_latest_analysis_stage(
+        workspace_id=workspace_id,
+        run_type="facility_structuring",
+        workspace_repo=workspace_repo,
+        run_repo=run_repo,
+        settings=settings,
+    )
 
 
 @router.post("/{workspace_id}/analysis/funding-strategy/run", response_model=AnalysisRun)
@@ -1022,16 +920,14 @@ async def trigger_funding_strategy_run(
     workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     run_repo: AnalysisRunRepository = Depends(get_analysis_run_repository_dependency),
 ):
-    workspace = workspace_repo.get_workspace(workspace_id)
-    if not workspace:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-    from app.core.config import settings
-    if settings.normalized_persistence_backend == "database":
-        run_dto = await execute_funding_strategy_run(workspace_id, snapshot_id)
-        res_dict = _db_save_run(run_dto, run_repo, workspace_id)
-        return AnalysisRun.model_validate(res_dict)
-    else:
-        return await execute_funding_strategy_run(workspace_id, snapshot_id)
+    return await run_analysis_stage(
+        workspace_id=workspace_id,
+        snapshot_id=snapshot_id,
+        execution_fn=execute_funding_strategy_run,
+        run_repo=run_repo,
+        workspace_repo=workspace_repo,
+        settings=settings,
+    )
 
 
 @router.get("/{workspace_id}/analysis/funding-strategy/latest", response_model=AnalysisRun)
@@ -1040,40 +936,30 @@ def get_latest_funding_strategy_run(
     workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     run_repo: AnalysisRunRepository = Depends(get_analysis_run_repository_dependency),
 ):
-    workspace = workspace_repo.get_workspace(workspace_id)
-    if not workspace:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-    from app.core.config import settings
-    if settings.normalized_persistence_backend == "database":
-        runs = run_repo.list_runs(workspace_id)
-        latest_run = next((r for r in runs if r.get("runType") == "funding_strategy"), None)
-        if not latest_run:
-            raise HTTPException(status_code=404, detail="No funding strategy runs found for this workspace")
-        return AnalysisRun.model_validate(latest_run)
-    else:
-        run = WorkspaceStore.get_latest_run_by_type(workspace_id, "funding_strategy")
-        if not run:
-            raise HTTPException(status_code=404, detail="No funding strategy runs found for this workspace")
-        return run
+    return get_latest_analysis_stage(
+        workspace_id=workspace_id,
+        run_type="funding_strategy",
+        workspace_repo=workspace_repo,
+        run_repo=run_repo,
+        settings=settings,
+    )
 
 
 @router.post("/{workspace_id}/analysis/advisory-blueprint/run", response_model=AnalysisRun)
-def trigger_advisory_blueprint_run(
+async def trigger_advisory_blueprint_run(
     workspace_id: str,
     snapshot_id: Optional[str] = None,
     workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     run_repo: AnalysisRunRepository = Depends(get_analysis_run_repository_dependency),
 ):
-    workspace = workspace_repo.get_workspace(workspace_id)
-    if not workspace:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-    from app.core.config import settings
-    if settings.normalized_persistence_backend == "database":
-        run_dto = execute_advisory_blueprint_run(workspace_id, snapshot_id)
-        res_dict = _db_save_run(run_dto, run_repo, workspace_id)
-        return AnalysisRun.model_validate(res_dict)
-    else:
-        return execute_advisory_blueprint_run(workspace_id, snapshot_id)
+    return await run_analysis_stage(
+        workspace_id=workspace_id,
+        snapshot_id=snapshot_id,
+        execution_fn=execute_advisory_blueprint_run,
+        run_repo=run_repo,
+        workspace_repo=workspace_repo,
+        settings=settings,
+    )
 
 
 @router.get("/{workspace_id}/analysis/advisory-blueprint/latest", response_model=AnalysisRun)
@@ -1082,21 +968,13 @@ def get_latest_advisory_blueprint_run(
     workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     run_repo: AnalysisRunRepository = Depends(get_analysis_run_repository_dependency),
 ):
-    workspace = workspace_repo.get_workspace(workspace_id)
-    if not workspace:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-    from app.core.config import settings
-    if settings.normalized_persistence_backend == "database":
-        runs = run_repo.list_runs(workspace_id)
-        latest_run = next((r for r in runs if r.get("runType") == "advisory_blueprint"), None)
-        if not latest_run:
-            raise HTTPException(status_code=404, detail="No advisory blueprint runs found for this workspace")
-        return AnalysisRun.model_validate(latest_run)
-    else:
-        run = WorkspaceStore.get_latest_run_by_type(workspace_id, "advisory_blueprint")
-        if not run:
-            raise HTTPException(status_code=404, detail="No advisory blueprint runs found for this workspace")
-        return run
+    return get_latest_analysis_stage(
+        workspace_id=workspace_id,
+        run_type="advisory_blueprint",
+        workspace_repo=workspace_repo,
+        run_repo=run_repo,
+        settings=settings,
+    )
 
 
 @router.post("/{workspace_id}/analysis/workflow/run", response_model=AnalysisRun)
@@ -1106,16 +984,14 @@ async def trigger_workflow_run(
     workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     run_repo: AnalysisRunRepository = Depends(get_analysis_run_repository_dependency),
 ):
-    workspace = workspace_repo.get_workspace(workspace_id)
-    if not workspace:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-    from app.core.config import settings
-    if settings.normalized_persistence_backend == "database":
-        run_dto = await execute_workflow_run(workspace_id, snapshot_id)
-        res_dict = _db_save_run(run_dto, run_repo, workspace_id)
-        return AnalysisRun.model_validate(res_dict)
-    else:
-        return await execute_workflow_run(workspace_id, snapshot_id)
+    return await run_analysis_stage(
+        workspace_id=workspace_id,
+        snapshot_id=snapshot_id,
+        execution_fn=execute_workflow_run,
+        run_repo=run_repo,
+        workspace_repo=workspace_repo,
+        settings=settings,
+    )
 
 
 @router.get("/{workspace_id}/analysis/workflow/latest", response_model=AnalysisRun)
@@ -1124,21 +1000,13 @@ def get_latest_workflow_run(
     workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     run_repo: AnalysisRunRepository = Depends(get_analysis_run_repository_dependency),
 ):
-    workspace = workspace_repo.get_workspace(workspace_id)
-    if not workspace:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-    from app.core.config import settings
-    if settings.normalized_persistence_backend == "database":
-        runs = run_repo.list_runs(workspace_id)
-        latest_run = next((r for r in runs if r.get("runType") == "workflow_run"), None)
-        if not latest_run:
-            raise HTTPException(status_code=404, detail="No workflow runs found for this workspace")
-        return AnalysisRun.model_validate(latest_run)
-    else:
-        run = WorkspaceStore.get_latest_run_by_type(workspace_id, "workflow_run")
-        if not run:
-            raise HTTPException(status_code=404, detail="No workflow runs found for this workspace")
-        return run
+    return get_latest_analysis_stage(
+        workspace_id=workspace_id,
+        run_type="workflow_run",
+        workspace_repo=workspace_repo,
+        run_repo=run_repo,
+        settings=settings,
+    )
 
 
 @router.get("/{workspace_id}/runs", response_model=List[AnalysisRun])
@@ -1148,17 +1016,13 @@ def list_workspace_runs(
     workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     run_repo: AnalysisRunRepository = Depends(get_analysis_run_repository_dependency),
 ):
-    workspace = workspace_repo.get_workspace(workspace_id)
-    if not workspace:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-    from app.core.config import settings
-    if settings.normalized_persistence_backend == "database":
-        runs = run_repo.list_runs(workspace_id)
-        if type:
-            runs = [r for r in runs if r.get("runType") == type]
-        return [AnalysisRun.model_validate(r) for r in runs]
-    else:
-        return WorkspaceStore.list_runs(workspace_id, run_type=type)
+    return service_list_workspace_runs(
+        workspace_id=workspace_id,
+        run_type=type,
+        workspace_repo=workspace_repo,
+        run_repo=run_repo,
+        settings=settings,
+    )
 
 
 @router.get("/{workspace_id}/runs/latest", response_model=AnalysisRun)
@@ -1168,21 +1032,13 @@ def get_latest_workspace_run_generic(
     workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     run_repo: AnalysisRunRepository = Depends(get_analysis_run_repository_dependency),
 ):
-    workspace = workspace_repo.get_workspace(workspace_id)
-    if not workspace:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-    from app.core.config import settings
-    if settings.normalized_persistence_backend == "database":
-        runs = run_repo.list_runs(workspace_id)
-        latest_run = next((r for r in runs if r.get("runType") == type), None)
-        if not latest_run:
-            raise HTTPException(status_code=404, detail=f"No run found of type {type} for this workspace")
-        return AnalysisRun.model_validate(latest_run)
-    else:
-        run = WorkspaceStore.get_latest_run_by_type(workspace_id, type)
-        if not run:
-            raise HTTPException(status_code=404, detail=f"No run found of type {type} for this workspace")
-        return run
+    return service_get_workspace_run_latest_generic(
+        workspace_id=workspace_id,
+        run_type=type,
+        workspace_repo=workspace_repo,
+        run_repo=run_repo,
+        settings=settings,
+    )
 
 
 @router.get("/{workspace_id}/runs/{run_id}", response_model=AnalysisRun)
@@ -1192,20 +1048,13 @@ def get_workspace_run_by_id(
     workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     run_repo: AnalysisRunRepository = Depends(get_analysis_run_repository_dependency),
 ):
-    workspace = workspace_repo.get_workspace(workspace_id)
-    if not workspace:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-    from app.core.config import settings
-    if settings.normalized_persistence_backend == "database":
-        run = run_repo.get_run(run_id)
-        if not run or run.get("workspaceId") != workspace_id:
-            raise HTTPException(status_code=404, detail="Run not found in this workspace")
-        return AnalysisRun.model_validate(run)
-    else:
-        run = WorkspaceStore.get_run(run_id)
-        if not run or run.workspace_id != workspace_id:
-            raise HTTPException(status_code=404, detail="Run not found in this workspace")
-        return run
+    return service_get_workspace_run_by_id(
+        workspace_id=workspace_id,
+        run_id=run_id,
+        workspace_repo=workspace_repo,
+        run_repo=run_repo,
+        settings=settings,
+    )
 
 
 @router.post("/{workspace_id}/reports", response_model=WorkspaceReport)
