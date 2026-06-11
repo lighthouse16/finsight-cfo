@@ -42,8 +42,10 @@ This document outlines the high-level roadmap for transitioning FinSight CFO fro
     - Store compiled corporate report metadata and payloads securely in the database, with soft delete capability.
 13. **Runtime Database Cutover Plan** [COMPLETED]
     - Establish a concrete cutover roadmap, rollback plan, and test matrix before route integrations.
-14. **Incremental Route Database Integrations** [PLANNED]
-    - Sequentially integrate workspace, file metadata, analysis runs, and reports endpoints with database persistence.
+14. **Workspace Route Database Integration** [COMPLETED]
+    - Route workspace CRUD requests through persistence repository factory with backward-compatible local mode default.
+15. **Other Route Database Integrations** [PLANNED]
+    - Sequentially integrate file metadata, analysis runs, and reports endpoints with database persistence.
 
 ---
 
