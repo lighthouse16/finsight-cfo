@@ -72,8 +72,8 @@ To minimize risk, route wiring will proceed in sequential, isolated PRs:
 4. **Reports Integration** [COMPLETED]: Wired `ReportRepository` into workspaces report endpoints to handle corporate report metadata/payload lifecycle.
 5. **Runtime Integration Health Check** [COMPLETED]: Added smoke tests verifying the combined route chain (workspace -> file -> run -> report) and guarding local mode against DB engine side-effects.
 6. **Audit Events Integration** [COMPLETED]: Redirect audit trail operations to `AuditEventRepository`.
-7. **Jobs / Background Processing Integration**: Introduce database-backed async processing task tracking.
-8. **Workspace Route Service Extraction Plan** [COMPLETED]: Plan and document service boundaries for workspaces route.
+7. **Workspace Route Service Extractions (Phases 1-5)** [COMPLETED]: Extracted audits, reports, file metadata, analysis runs, and workspace CRUD logic from router into dedicated service modules.
+8. **Jobs / Background Processing Evaluation (Phase 6)** [COMPLETED]: Formulated the evaluation and rollout plan for background processing tasks before implementing async execution.
 
 ## 8. Feature Flag Strategy
 
