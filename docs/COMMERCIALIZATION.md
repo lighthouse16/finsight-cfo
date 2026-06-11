@@ -49,6 +49,10 @@ graph TD
 - Replace the workspace file-store repository with a relational database repository.
 - Design database schemas for `CompanyWorkspace`, `UploadedFileRecord`, and `AnalysisRun`.
 - Introduce Alembic for database migration tracking.
+- Detailed specifications are available in the design docs:
+  - [DB Persistence Design](file:///d:/projects/finsight-cfo-v3/docs/engineering/DB_PERSISTENCE_DESIGN.md)
+  - [DB Schema Proposal](file:///d:/projects/finsight-cfo-v3/docs/engineering/DB_SCHEMA_PROPOSAL.md)
+  - [Local-to-DB Migration Plan](file:///d:/projects/finsight-cfo-v3/docs/engineering/MIGRATION_PLAN_LOCAL_TO_DB.md)
 
 ### Step 3: Auth & RBAC
 - Add authentication middleware to validate JWTs.

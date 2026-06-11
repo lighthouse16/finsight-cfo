@@ -12,6 +12,31 @@ This document outlines the high-level roadmap for transitioning FinSight CFO fro
 - Implement enterprise-grade tenant isolation for all stored financials and models.
 - Set up secure, S3-compatible object storage for uploaded files in the Data Room.
 
+---
+
+## Sprint 1 Detailed Plan — Database Persistence Design and Foundation
+
+1. **Design Docs (Design-Only)** [COMPLETED]
+   - Establish table proposals, migration plans, and repository specifications.
+2. **Add DB Dependencies and Migration Tooling** [PLANNED]
+   - Add SQLAlchemy, SQLModel, Alembic, and database drivers to python dependencies.
+3. **Add Schema Models** [PLANNED]
+   - Write declarative SQLAlchemy/SQLModel models representing all entities (Workspaces, Snapshots, AnalysisRuns).
+4. **Add Repository Interfaces** [PLANNED]
+   - Create abstract class signatures specifying CRUD actions.
+5. **Add Local Adapter Compatibility Tests** [PLANNED]
+   - Write test contract suites checking existing file storage logic against repository interface constraints.
+6. **Add Database Adapter Tests** [PLANNED]
+   - Verify DB repositories pass the exact same unit test assertions using an in-memory SQLite backend.
+7. **Move Workspace Persistence Behind Interface** [PLANNED]
+   - Refactor workspaces endpoints to fetch and save using the new interface contract.
+8. **Move File Metadata Behind Interface** [PLANNED]
+   - Decouple workspace preview uploads from physical location paths, moving index records to DB tables.
+9. **Move Analysis Runs Behind Interface** [PLANNED]
+   - Redirect analysis diagnostic results storage from filesystem JSON files to run artifact DB payloads.
+
+---
+
 ## Phase 3: Authentication & Multi-Tenancy
 - Integrate production identity providers (OIDC/OAuth2/SAML).
 - Add Role-Based Access Control (RBAC) (e.g., CFO, Analyst, Auditor).
