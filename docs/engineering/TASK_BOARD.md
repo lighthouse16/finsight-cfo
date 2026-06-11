@@ -14,7 +14,7 @@ This board tracks active, planned, and completed tasks for current engineering s
 | :--- | :--- | :--- | :--- | :--- |
 | **T-101** | `commercial/db-persistence-design` | **Done** | Backend Architect | Low |
 | **T-102** | `commercial/db-schema-migrations` | **Done** | Backend Engineer | Medium |
-| **T-103** | `commercial/persistence-repository-interfaces` | **Planned** | Backend Engineer | Low |
+| **T-103** | `commercial/persistence-repository-interfaces` | **Done** | Backend Engineer | Low |
 | **T-104** | `commercial/workspace-db-adapter` | **Planned** | Backend Engineer | Medium |
 | **T-105** | `commercial/file-metadata-db-adapter` | **Planned** | Backend Engineer | Medium |
 | **T-106** | `commercial/analysis-run-db-adapter` | **Planned** | Backend Engineer | High |

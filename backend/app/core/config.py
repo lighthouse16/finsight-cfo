@@ -31,8 +31,12 @@ class Settings(BaseSettings):
     DATABASE_ECHO: bool = False
 
     @property
+    def normalized_persistence_backend(self) -> str:
+        return (self.PERSISTENCE_BACKEND or "local").strip().lower()
+
+    @property
     def is_database_persistence_enabled(self) -> bool:
-        return self.PERSISTENCE_BACKEND == "database"
+        return self.normalized_persistence_backend == "database"
 
     @property
     def parsed_cors_origins(self) -> list[str]:
