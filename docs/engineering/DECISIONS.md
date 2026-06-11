@@ -181,3 +181,10 @@ This document records key architectural and design decisions for FinSight CFO.
 - **Context**: In Phase 6, we need to design background processing for long-running financial calculations and document processing. However, introducing full worker daemons and messaging brokers directly without a transition strategy poses regression risks to the local developer default mode and demo environments.
 - **Decision**: Formulate a comprehensive evaluation plan detailing lifecycle mappings, candidate async workloads (prioritizing report generation as the safest starting point), queue architecture options (comparing FastAPI BackgroundTasks, async loops, and Celery), and rollout phases. Add a strict docs guardrail test to enforce limits and forbid async runtime code changes or queue library additions in this phase.
 - **Consequences**: Outlines a clear, safe route to production concurrency without disrupting local developer environments, guaranteeing that local-first defaults remain preserved.
+
+## ADR-029: Add job service facade contract before worker runtime implementation
+- **Status**: Approved
+- **Context**: In Phase A of the background processing rollout, we must stabilize job lifecycle behavior and API payloads. Introducing background runner engines before routing and payload contracts are stable risks runtime failures.
+- **Decision**: Create a lightweight `job_service` module implementing `create_job`, `get_job`, `list_jobs`, `mark_job_running`, `mark_job_completed`, `mark_job_failed`, and `cancel_job`. Enforce strict status transition rules and recursive payload validation to forbid raw file bytes storage in database columns, while keeping the execution inline/sync and avoiding DB session initialization.
+- **Consequences**: Standardizes the job lifecycle and data payload rules at the service layer, preparing the codebase for clean worker prototype integration in later phases.
+
