@@ -66,6 +66,8 @@ This document outlines the high-level roadmap for transitioning FinSight CFO fro
     - Formulate the evaluation and rollout plan for background processing tasks before implementing async execution.
 25. **Job Service Facade Contract (Phase 7)** [COMPLETED]
     - Implement the job service/facade layer to enforce valid status transitions and payload validations without runtime concurrency or worker dependencies.
+26. **Synchronous Report Generation Job Facade (Phase 8)** [COMPLETED]
+    - Introduce a synchronous job execution facade around report generation and persistence, coordinating lifecycle status checks and database saving.
 
 ---
 
