@@ -40,6 +40,10 @@ This document outlines the high-level roadmap for transitioning FinSight CFO fro
     - Store background job executions and statuses in the database to support async tasks and status querying.
 12. **Add Database Report Adapter & Migration Alignment** [COMPLETED]
     - Store compiled corporate report metadata and payloads securely in the database, with soft delete capability.
+13. **Runtime Database Cutover Plan** [COMPLETED]
+    - Establish a concrete cutover roadmap, rollback plan, and test matrix before route integrations.
+14. **Incremental Route Database Integrations** [PLANNED]
+    - Sequentially integrate workspace, file metadata, analysis runs, and reports endpoints with database persistence.
 
 ---
 

@@ -94,7 +94,7 @@ Please refer to the comprehensive [DEMO.md](file:///d:/projects/finsight-cfo-v3/
 
 ## Commercialization note
 
-This repository is currently a challenge-ready MVP. It demonstrates the end-to-end CFO intelligence workflow but is not yet a bank-production or commercial SaaS deployment. See [docs/COMMERCIALIZATION.md](file:///d:/projects/finsight-cfo-v3/docs/COMMERCIALIZATION.md) for the production hardening roadmap.
+This repository is currently a challenge-ready MVP. It demonstrates the end-to-end CFO intelligence workflow but is not yet a bank-production or commercial SaaS deployment. See [docs/COMMERCIALIZATION.md](file:///d:/projects/finsight-cfo-v3/docs/COMMERCIALIZATION.md) for the production hardening roadmap and the [Runtime Database Cutover Plan](file:///d:/projects/finsight-cfo-v3/docs/engineering/RUNTIME_CUTOVER_PLAN.md) for details on the current database transition status.
 
 ## Finance guardrails for future development
 

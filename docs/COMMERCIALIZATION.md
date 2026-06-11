@@ -49,6 +49,10 @@ graph TD
 - Replace the workspace file-store repository with a relational database repository.
 - Design database schemas for `CompanyWorkspace`, `UploadedFileRecord`, and `AnalysisRun`.
 - Introduce Alembic for database migration tracking.
+- Author planning documentation for cutover safety:
+  - [Runtime Database Cutover Plan](file:///d:/projects/finsight-cfo-v3/docs/engineering/RUNTIME_CUTOVER_PLAN.md)
+  - [Database Runtime Test Matrix](file:///d:/projects/finsight-cfo-v3/docs/engineering/DB_RUNTIME_TEST_MATRIX.md)
+  - [Rollback Plan](file:///d:/projects/finsight-cfo-v3/docs/engineering/ROLLBACK_PLAN.md)
 - Detailed specifications are available in the design docs:
   - [DB Persistence Design](file:///d:/projects/finsight-cfo-v3/docs/engineering/DB_PERSISTENCE_DESIGN.md)
   - [DB Schema Proposal](file:///d:/projects/finsight-cfo-v3/docs/engineering/DB_SCHEMA_PROPOSAL.md)
