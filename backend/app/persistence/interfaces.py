@@ -140,16 +140,50 @@ class AuditEventRepository(Protocol):
         ...
 
 class JobRepository(Protocol):
-    def create_job(self, task_name: str, arguments: Optional[Dict[str, Any]] = None) -> Any:
+    def create_job(
+        self,
+        job_type: str,
+        workspace_id: Optional[str] = None,
+        payload: Optional[Dict[str, Any]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         """Register a background job task execution record."""
         ...
 
-    def get_job(self, job_id: str) -> Optional[Any]:
+    def get_job(self, job_id: str) -> Optional[Dict[str, Any]]:
         """Get job execution details by ID."""
         ...
 
-    def update_job_status(self, job_id: str, status: str, error_log: Optional[str] = None) -> Any:
+    def list_jobs(
+        self,
+        workspace_id: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: int = 100,
+    ) -> List[Dict[str, Any]]:
+        """List background jobs with optional workspace/status filtering."""
+        ...
+
+    def update_job_status(
+        self,
+        job_id: str,
+        status: str,
+        result_payload: Optional[Dict[str, Any]] = None,
+        error_message: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         """Update active status of a background job."""
+        ...
+
+    def mark_job_started(self, job_id: str) -> Dict[str, Any]:
+        """Mark job execution as active/started."""
+        ...
+
+    def mark_job_completed(self, job_id: str, result_payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Mark job execution as successfully completed."""
+        ...
+
+    def mark_job_failed(self, job_id: str, error_message: str) -> Dict[str, Any]:
+        """Mark job execution as failed with an error message."""
         ...
 
 class ReportRepository(Protocol):

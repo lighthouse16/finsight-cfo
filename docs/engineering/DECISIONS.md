@@ -85,3 +85,9 @@ This document records key architectural and design decisions for FinSight CFO.
 - **Context**: The system log audit trail must be recorded securely and queryable at both the workspace level and the organization level. Introducing a database-backed repository allows routing this trail to a relational database during commercialization while leaving the local JSON storage default active.
 - **Decision**: Implement `DatabaseAuditEventRepository` implementing the `AuditEventRepository` interface protocol, allowing optional workspace association and filtering by workspace or organization. Wire it into the persistence factory and configure migrations to align schema tables.
 - **Consequences**: Standardizes audit storage, facilitates organization-wide compliance logging, preserves developer-friendly local default persistence, and prevents regressions.
+
+## ADR-013: Persist job metadata behind repository adapters before implementing background workers
+- **Status**: Approved
+- **Context**: The background jobs system needs to record executions, payloads, results, and error details securely across multiple tenants. To build this logic safely, we must first abstract metadata storage behind job repository adapters without triggering any async workers or changing runtime persistence configurations.
+- **Decision**: Implement `DatabaseJobRepository` conforming to the abstract `JobRepository` interface protocol, supporting job creation, updates, and terminal/transition status mappings. Wire it through the persistence factory and align database schemas through migrations.
+- **Consequences**: Standardizes job metadata tracking, decouples task state monitoring from worker runtimes, preserves local developer storage, and prevents regressions.

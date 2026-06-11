@@ -1,8 +1,8 @@
 from app.core.config import settings, Settings
 from app.persistence.errors import PersistenceConfigurationError, PersistenceAdapterNotImplementedError
-from app.persistence.interfaces import WorkspaceRepository, FileMetadataRepository, AnalysisRunRepository, AuditEventRepository
-from app.persistence.local_adapters import LocalWorkspaceRepository, LocalFileMetadataRepository, LocalAnalysisRunRepository, LocalAuditEventRepository
-from app.persistence.database_adapters import DatabaseWorkspaceRepository, DatabaseFileMetadataRepository, DatabaseAnalysisRunRepository, DatabaseAuditEventRepository
+from app.persistence.interfaces import WorkspaceRepository, FileMetadataRepository, AnalysisRunRepository, AuditEventRepository, JobRepository
+from app.persistence.local_adapters import LocalWorkspaceRepository, LocalFileMetadataRepository, LocalAnalysisRunRepository, LocalAuditEventRepository, LocalJobRepository
+from app.persistence.database_adapters import DatabaseWorkspaceRepository, DatabaseFileMetadataRepository, DatabaseAnalysisRunRepository, DatabaseAuditEventRepository, DatabaseJobRepository
 
 def get_persistence_backend_name(app_settings: Settings = settings) -> str:
     """
@@ -89,6 +89,25 @@ def get_audit_event_repository(app_settings: Settings = settings, db_session=Non
                 "Database session is required when database persistence backend is active."
             )
         return DatabaseAuditEventRepository(db_session)
+    else:
+        raise PersistenceConfigurationError(f"Unsupported persistence backend: '{backend}'")
+
+def get_job_repository(app_settings: Settings = settings, db_session=None) -> JobRepository:
+    """
+    Factory function returning the active JobRepository adapter.
+    Raises PersistenceConfigurationError if database backend is selected but session is missing.
+    """
+    backend = get_persistence_backend_name(app_settings)
+    if backend == "local":
+        if 'LocalJobRepository' not in globals():
+            raise PersistenceAdapterNotImplementedError("Local job repository adapter does not exist.")
+        return LocalJobRepository()
+    elif backend == "database":
+        if db_session is None:
+            raise PersistenceConfigurationError(
+                "Database session is required when database persistence backend is active."
+            )
+        return DatabaseJobRepository(db_session)
     else:
         raise PersistenceConfigurationError(f"Unsupported persistence backend: '{backend}'")
 
