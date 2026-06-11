@@ -139,6 +139,15 @@ def test_alembic_migrations_upgrade_downgrade(tmp_path):
             versions_cols = {c["name"]: c for c in inspector.get_columns("workspace_file_versions")}
             assert "sha256_hash" in versions_cols
             assert versions_cols["sha256_hash"]["nullable"] is True
+
+            # Check analysis_runs
+            runs_cols = {c["name"]: c for c in inspector.get_columns("analysis_runs")}
+            assert "input_payload" in runs_cols
+            assert "output_payload" in runs_cols
+            assert "summary" in runs_cols
+            assert "metadata" in runs_cols
+            assert "started_at" in runs_cols
+            assert "completed_at" in runs_cols
             
         # Run downgrade back to base
         command.downgrade(alembic_cfg, "base")

@@ -77,20 +77,41 @@ class FinancialSnapshotRepository(Protocol):
         ...
 
 class AnalysisRunRepository(Protocol):
-    def save_run(self, run: Any) -> Any:
+    def save_run(
+        self,
+        workspace_id: str,
+        run_type: str,
+        status: str,
+        input_payload: Optional[Dict[str, Any]] = None,
+        output_payload: Optional[Dict[str, Any]] = None,
+        summary: Optional[Dict[str, Any]] = None,
+        error_message: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         """Save an analysis run execution result."""
         ...
 
-    def get_run(self, run_id: str) -> Optional[Any]:
+    def get_run(self, run_id: str) -> Optional[Dict[str, Any]]:
         """Get an analysis run by ID."""
         ...
 
-    def list_runs(self, workspace_id: str) -> List[Any]:
+    def list_runs(self, workspace_id: str) -> List[Dict[str, Any]]:
         """List all analysis runs for a workspace."""
         ...
 
-    def list_recent_runs(self, workspace_id: str, limit: int = 20) -> List[Any]:
+    def list_recent_runs(self, workspace_id: str, limit: int = 20) -> List[Dict[str, Any]]:
         """List the most recent analysis runs for a workspace up to a limit."""
+        ...
+
+    def update_run_status(
+        self,
+        run_id: str,
+        status: str,
+        output_payload: Optional[Dict[str, Any]] = None,
+        summary: Optional[Dict[str, Any]] = None,
+        error_message: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Update active status of an analysis run."""
         ...
 
 class AuditEventRepository(Protocol):

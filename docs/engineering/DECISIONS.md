@@ -74,5 +74,8 @@ This document records key architectural and design decisions for FinSight CFO.
 - **Decision**: Perform schema drift checks and execute Alembic migrations on in-memory/temporary SQLite databases during testing to verify that schema state matches model declarations before introducing further persistence features.
 - **Consequences**: Assures database upgrade/downgrade consistency, catches schema anomalies early, and maintains clean git history.
 
-
-
+## ADR-011: Persist analysis run metadata and outputs behind repository adapters before switching runtime routes
+- **Status**: Approved
+- **Context**: Storing analysis runs in the database requires capturing inputs, outputs, errors, execution durations, and execution metadata. We must expose this capability behind repository interfaces to allow local JSON file storage to remain the default while enabling full database storage capabilities.
+- **Decision**: Implement `DatabaseAnalysisRunRepository` matching the abstract `AnalysisRunRepository` protocol, supporting dynamic duration calculations, status updates, and JSON payloads, while wiring it through the persistence factory.
+- **Consequences**: Enables database-backed analysis runs for tests and future integrations, preserves default local persistence, and prevents regressions in existing runtime routes.
