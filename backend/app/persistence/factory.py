@@ -2,6 +2,7 @@ from app.core.config import settings, Settings
 from app.persistence.errors import PersistenceConfigurationError, PersistenceAdapterNotImplementedError
 from app.persistence.interfaces import WorkspaceRepository
 from app.persistence.local_adapters import LocalWorkspaceRepository
+from app.persistence.database_adapters import DatabaseWorkspaceRepository
 
 def get_persistence_backend_name(app_settings: Settings = settings) -> str:
     """
@@ -16,18 +17,20 @@ def get_persistence_backend_name(app_settings: Settings = settings) -> str:
         )
     return backend
 
-def get_workspace_repository(app_settings: Settings = settings) -> WorkspaceRepository:
+def get_workspace_repository(app_settings: Settings = settings, db_session=None) -> WorkspaceRepository:
     """
     Factory function returning the active WorkspaceRepository adapter.
-    Raises PersistenceAdapterNotImplementedError if database backend is selected but not implemented.
+    Raises PersistenceConfigurationError if database backend is selected but session is missing.
     """
     backend = get_persistence_backend_name(app_settings)
     if backend == "local":
         return LocalWorkspaceRepository()
     elif backend == "database":
-        raise PersistenceAdapterNotImplementedError(
-            "Database persistence adapter is not implemented yet."
-        )
+        if db_session is None:
+            raise PersistenceConfigurationError(
+                "Database session is required when database persistence backend is active."
+            )
+        return DatabaseWorkspaceRepository(db_session)
     else:
         # Fallback safeguard
         raise PersistenceConfigurationError(f"Unsupported persistence backend: '{backend}'")

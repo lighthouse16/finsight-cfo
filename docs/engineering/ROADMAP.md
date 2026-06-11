@@ -26,7 +26,7 @@ This document outlines the high-level roadmap for transitioning FinSight CFO fro
    - Create abstract class signatures specifying CRUD actions.
 5. **Add Local Adapter Compatibility Tests** [PLANNED]
    - Write test contract suites checking existing file storage logic against repository interface constraints.
-6. **Add Database Adapter Tests** [PLANNED]
+6. **Add Database Workspace Adapter & Tests** [COMPLETED]
    - Verify DB repositories pass the exact same unit test assertions using an in-memory SQLite backend.
 7. **Move Workspace Persistence Behind Interface** [PLANNED]
    - Refactor workspaces endpoints to fetch and save using the new interface contract.

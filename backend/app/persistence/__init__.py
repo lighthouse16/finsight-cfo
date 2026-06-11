@@ -16,6 +16,7 @@ from app.persistence.local_adapters import (
     LocalJobRepository,
     LocalReportRepository,
 )
+from app.persistence.database_adapters import DatabaseWorkspaceRepository
 from app.persistence.factory import get_workspace_repository, get_persistence_backend_name
 from app.persistence.errors import PersistenceConfigurationError, PersistenceAdapterNotImplementedError
 
@@ -36,6 +37,8 @@ __all__ = [
     "LocalAuditEventRepository",
     "LocalJobRepository",
     "LocalReportRepository",
+    # Database adapters
+    "DatabaseWorkspaceRepository",
     # Factory & helpers
     "get_workspace_repository",
     "get_persistence_backend_name",

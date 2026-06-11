@@ -27,14 +27,28 @@ def test_default_repository_factory():
     repo = get_workspace_repository(settings)
     assert isinstance(repo, LocalWorkspaceRepository)
 
-def test_database_persistence_unimplemented():
+def test_database_persistence_without_session_raises():
     """
-    Verifies that PERSISTENCE_BACKEND="database" raises NotImplementedError.
+    Verifies that PERSISTENCE_BACKEND="database" raises PersistenceConfigurationError if db_session is missing.
     """
     settings = Settings(PERSISTENCE_BACKEND="database")
-    with pytest.raises(PersistenceAdapterNotImplementedError) as exc_info:
+    with pytest.raises(PersistenceConfigurationError) as exc_info:
         get_workspace_repository(settings)
-    assert "Database persistence adapter is not implemented yet" in str(exc_info.value)
+    assert "Database session is required" in str(exc_info.value)
+
+def test_database_persistence_with_session_returns_adapter():
+    """
+    Verifies that get_workspace_repository returns DatabaseWorkspaceRepository when session is provided.
+    """
+    settings = Settings(PERSISTENCE_BACKEND="database")
+    from sqlalchemy.orm import Session
+    from unittest.mock import MagicMock
+    mock_session = MagicMock(spec=Session)
+    
+    repo = get_workspace_repository(settings, db_session=mock_session)
+    from app.persistence.database_adapters import DatabaseWorkspaceRepository
+    assert isinstance(repo, DatabaseWorkspaceRepository)
+    assert repo.session == mock_session
 
 def test_unknown_backend_raises_configuration_error():
     """
