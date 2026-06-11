@@ -1,8 +1,8 @@
 from app.core.config import settings, Settings
 from app.persistence.errors import PersistenceConfigurationError, PersistenceAdapterNotImplementedError
-from app.persistence.interfaces import WorkspaceRepository
-from app.persistence.local_adapters import LocalWorkspaceRepository
-from app.persistence.database_adapters import DatabaseWorkspaceRepository
+from app.persistence.interfaces import WorkspaceRepository, FileMetadataRepository
+from app.persistence.local_adapters import LocalWorkspaceRepository, LocalFileMetadataRepository
+from app.persistence.database_adapters import DatabaseWorkspaceRepository, DatabaseFileMetadataRepository
 
 def get_persistence_backend_name(app_settings: Settings = settings) -> str:
     """
@@ -33,4 +33,23 @@ def get_workspace_repository(app_settings: Settings = settings, db_session=None)
         return DatabaseWorkspaceRepository(db_session)
     else:
         # Fallback safeguard
+        raise PersistenceConfigurationError(f"Unsupported persistence backend: '{backend}'")
+
+def get_file_metadata_repository(app_settings: Settings = settings, db_session=None) -> FileMetadataRepository:
+    """
+    Factory function returning the active FileMetadataRepository adapter.
+    Raises PersistenceConfigurationError if database backend is selected but session is missing.
+    """
+    backend = get_persistence_backend_name(app_settings)
+    if backend == "local":
+        if 'LocalFileMetadataRepository' not in globals():
+            raise PersistenceAdapterNotImplementedError("Local file metadata repository adapter does not exist.")
+        return LocalFileMetadataRepository()
+    elif backend == "database":
+        if db_session is None:
+            raise PersistenceConfigurationError(
+                "Database session is required when database persistence backend is active."
+            )
+        return DatabaseFileMetadataRepository(db_session)
+    else:
         raise PersistenceConfigurationError(f"Unsupported persistence backend: '{backend}'")

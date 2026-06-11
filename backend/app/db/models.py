@@ -86,6 +86,9 @@ class WorkspaceFile(Base, TimestampMixin, SoftDeleteMixin):
     file_name: Mapped[str] = mapped_column(String(255), nullable=False)
     file_type: Mapped[str] = mapped_column(String(100), nullable=False)
     created_by_user_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    record_key: Mapped[str] = mapped_column(String(100), nullable=False, default="unknown")
+    status: Mapped[str] = mapped_column(String(50), default="uploaded", nullable=False)
+    file_metadata: Mapped[Optional[dict]] = mapped_column("metadata", JSON, default=dict, nullable=True)
 
     # Relationships
     workspace: Mapped["Workspace"] = relationship("Workspace", back_populates="files")
@@ -100,7 +103,7 @@ class WorkspaceFileVersion(Base, TimestampMixin):
     workspace_file_id: Mapped[str] = mapped_column(String(36), ForeignKey("workspace_files.id", ondelete="CASCADE"), nullable=False, index=True)
     storage_key: Mapped[str] = mapped_column(String(512), nullable=False)
     file_size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    sha256_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    sha256_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     version_number: Mapped[int] = mapped_column(Integer, nullable=False)
     created_by_user_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 

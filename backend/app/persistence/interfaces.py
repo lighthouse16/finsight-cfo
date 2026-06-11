@@ -30,12 +30,37 @@ class FileMetadataRepository(Protocol):
         """Get a specific file record by ID."""
         ...
 
-    def save_file_record(self, file_record: Dict[str, Any]) -> Dict[str, Any]:
+    def save_file_record(
+        self,
+        workspace_id: str,
+        record_key: str,
+        filename: str,
+        content_type: str,
+        file_size_bytes: int,
+        storage_uri: str,
+        checksum_sha256: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         """Save/register a file metadata record."""
         ...
 
     def delete_file_record(self, file_id: str) -> bool:
         """Delete a file metadata record."""
+        ...
+
+    def list_file_versions(self, file_id: str) -> List[Dict[str, Any]]:
+        """List all versions of a specific file."""
+        ...
+
+    def save_file_version(
+        self,
+        file_id: str,
+        version_number: int,
+        storage_uri: str,
+        checksum_sha256: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Save/register a new version of a file."""
         ...
 
 class FinancialSnapshotRepository(Protocol):
