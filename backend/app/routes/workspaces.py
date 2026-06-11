@@ -5,6 +5,7 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile, Depends
 from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.persistence.interfaces import WorkspaceRepository, FileMetadataRepository, AnalysisRunRepository, ReportRepository, AuditEventRepository
+from app.services.audit_service import record_audit_event_best_effort
 
 from app.models.workspace import CompanyWorkspace, UploadedFileRecord, FinancialSnapshot, AnalysisRun
 from app.models.financials import CompanyFinancialSnapshot
@@ -288,12 +289,28 @@ def _db_save_run(run_dto: AnalysisRun, run_repo: AnalysisRunRepository, workspac
     try:
         from app.persistence.factory import get_audit_event_repository
         from app.core.config import settings
+        import asyncio
         audit_repo = get_audit_event_repository(settings, db_session=run_repo.session)
-        audit_repo.append_event(
-            workspace_id=workspace_id,
-            event_type="analysis.run.created",
-            description=f"Analysis run of type '{run_dto.run_type}' was saved."
-        )
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = None
+        if loop and loop.is_running():
+            loop.create_task(record_audit_event_best_effort(
+                audit_repo=audit_repo,
+                settings=settings,
+                workspace_id=workspace_id,
+                action="analysis.run.created",
+                description=f"Analysis run of type '{run_dto.run_type}' was saved."
+            ))
+        else:
+            asyncio.run(record_audit_event_best_effort(
+                audit_repo=audit_repo,
+                settings=settings,
+                workspace_id=workspace_id,
+                action="analysis.run.created",
+                description=f"Analysis run of type '{run_dto.run_type}' was saved."
+            ))
     except Exception:
         pass
     return res
@@ -325,15 +342,13 @@ async def create_workspace(
     if reportingPeriod:
         metadata["reportingPeriod"] = reportingPeriod
     workspace = repo.create_workspace(workspace_id, company_name, metadata=metadata)
-    if settings.normalized_persistence_backend == "database":
-        try:
-            audit_repo.append_event(
-                workspace_id=workspace_id,
-                event_type="workspace.created",
-                description=f"Workspace '{company_name}' was created."
-            )
-        except Exception:
-            pass
+    await record_audit_event_best_effort(
+        audit_repo=audit_repo,
+        settings=settings,
+        workspace_id=workspace_id,
+        action="workspace.created",
+        description=f"Workspace '{company_name}' was created."
+    )
     return workspace
 
 @router.get("", response_model=List[CompanyWorkspace])
@@ -560,15 +575,13 @@ async def upload_workspace_file(
             file_size_bytes=len(file_bytes),
             storage_uri=file_path,
         )
-        if settings.normalized_persistence_backend == "database":
-            try:
-                audit_repo.append_event(
-                    workspace_id=workspace_id,
-                    event_type="file.uploaded",
-                    description=f"File '{file.filename}' uploaded to key '{record_key}'."
-                )
-            except Exception:
-                pass
+        await record_audit_event_best_effort(
+            audit_repo=audit_repo,
+            settings=settings,
+            workspace_id=workspace_id,
+            action="file.uploaded",
+            description=f"File '{file.filename}' uploaded to key '{record_key}'."
+        )
         return UploadedFileRecord.model_validate(res_dict)
     else:
         record = FileStore.save_file(
@@ -768,15 +781,13 @@ async def delete_workspace_file(
         success = file_repo.delete_file_record(file_id)
         if not success:
             raise HTTPException(status_code=500, detail="Failed to delete file")
-        if settings.normalized_persistence_backend == "database":
-            try:
-                audit_repo.append_event(
-                    workspace_id=workspace_id,
-                    event_type="file.deleted",
-                    description=f"File '{file_id}' deleted."
-                )
-            except Exception:
-                pass
+        await record_audit_event_best_effort(
+            audit_repo=audit_repo,
+            settings=settings,
+            workspace_id=workspace_id,
+            action="file.deleted",
+            description=f"File '{file_id}' deleted."
+        )
     else:
         file_record = FileStore.get_file_record(file_id)
         if not file_record or file_record.workspace_id != workspace_id:
@@ -829,15 +840,13 @@ async def delete_workspace(
     if not success:
         raise HTTPException(status_code=500, detail="Failed to delete workspace")
         
-    if settings.normalized_persistence_backend == "database":
-        try:
-            audit_repo.append_event(
-                workspace_id=workspace_id,
-                event_type="workspace.deleted",
-                description=f"Workspace '{workspace_id}' was deleted."
-            )
-        except Exception:
-            pass
+    await record_audit_event_best_effort(
+        audit_repo=audit_repo,
+        settings=settings,
+        workspace_id=workspace_id,
+        action="workspace.deleted",
+        description=f"Workspace '{workspace_id}' was deleted."
+    )
         
     return {"status": "success", "message": f"Workspace {workspace_id} deleted successfully"}
 
@@ -1308,15 +1317,13 @@ async def create_workspace_report(
             storage_uri=payload.storageUri,
             metadata=payload.metadata,
         )
-        if settings.normalized_persistence_backend == "database":
-            try:
-                audit_repo.append_event(
-                    workspace_id=workspace_id,
-                    event_type="report.created",
-                    description=f"Report '{payload.title}' was created."
-                )
-            except Exception:
-                pass
+        await record_audit_event_best_effort(
+            audit_repo=audit_repo,
+            settings=settings,
+            workspace_id=workspace_id,
+            action="report.created",
+            description=f"Report '{payload.title}' was created."
+        )
         return report
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -1378,15 +1385,13 @@ async def update_workspace_report_status(
             storage_uri=payload.storageUri,
             metadata=payload.metadata,
         )
-        if settings.normalized_persistence_backend == "database":
-            try:
-                audit_repo.append_event(
-                    workspace_id=workspace_id,
-                    event_type="report.updated",
-                    description=f"Report '{report_id}' was updated to status '{payload.status}'."
-                )
-            except Exception:
-                pass
+        await record_audit_event_best_effort(
+            audit_repo=audit_repo,
+            settings=settings,
+            workspace_id=workspace_id,
+            action="report.updated",
+            description=f"Report '{report_id}' was updated to status '{payload.status}'."
+        )
         return updated
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -1411,13 +1416,11 @@ async def delete_workspace_report(
     success = report_repo.delete_report(report_id)
     if not success:
         raise HTTPException(status_code=400, detail="Failed to delete report")
-    if settings.normalized_persistence_backend == "database":
-        try:
-            audit_repo.append_event(
-                workspace_id=workspace_id,
-                event_type="report.deleted",
-                description=f"Report '{report_id}' was deleted."
-            )
-        except Exception:
-            pass
+    await record_audit_event_best_effort(
+        audit_repo=audit_repo,
+        settings=settings,
+        workspace_id=workspace_id,
+        action="report.deleted",
+        description=f"Report '{report_id}' was deleted."
+    )
     return {"status": "success", "message": "Report deleted successfully"}

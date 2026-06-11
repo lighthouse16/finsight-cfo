@@ -146,4 +146,10 @@ This document records key architectural and design decisions for FinSight CFO.
 - **Decision**: Define six service extraction phases (Audits, Reports, Files, Analysis, Workspaces, and Jobs) and implement contract guardrails enforcing route registration paths, HTTP methods, and DB initialization isolation. Production router changes are deferred to individual, isolated PRs.
 - **Consequences**: Provides a safe blueprint for incremental router cleanup while guaranteeing zero API regression, zero frontend impacts, and zero DB session leaks in local mode.
 
+## ADR-023: Extract best-effort audit write helper into audit service
+- **Status**: Approved
+- **Context**: As part of the routing refactoring plan, we need to extract logic out of `routes/workspaces.py` to keep it clean. The best-effort route-level audit logging check is the first phase candidate.
+- **Decision**: Define a thread-safe async function `record_audit_event_best_effort` in `backend/app/services/audit_service.py` that checks the active persistence settings and records database-mode audit rows. Synchronous helpers execute this using `asyncio` loop introspection.
+- **Consequences**: Successfully isolates all route-level auditing concerns, reduces workspaces route complexity, and ensures complete compatibility with existing local/database mode integration tests.
+
 
