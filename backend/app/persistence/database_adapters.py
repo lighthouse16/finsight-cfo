@@ -432,7 +432,7 @@ class DatabaseAnalysisRunRepository(AnalysisRunRepository):
             raise PersistenceConfigurationError(f"Workspace '{workspace_id}' does not exist.")
             
         org_id = workspace.organization_id
-        run_id = f"run_{workspace_id}_{uuid.uuid4().hex[:8]}"
+        run_id = (metadata or {}).get("run_id") or f"run_{workspace_id}_{uuid.uuid4().hex[:8]}"
         snapshot_id = (metadata or {}).get("snapshot_id", "") or (input_payload or {}).get("snapshot_id", "")
         
         completed_at = None

@@ -115,3 +115,10 @@ This document records key architectural and design decisions for FinSight CFO.
 - **Context**: Uploaded files (CSVs, Excel sheets) require both physical byte storage and logical metadata registration. Database relational engines should not store raw binary blobs, and runtime cutover of file handlers must preserve the default offline local file storage behavior.
 - **Decision**: Integrate file metadata routes in `backend/app/routes/workspaces.py` with `FileMetadataRepository` factory dependencies. In database mode, file bytes are written to the local uploads directory and metadata is registered in the relational database, bypassing the local JSON metadata file. In local mode, the endpoint delegates directly to legacy `FileStore` helpers.
 - **Consequences**: Avoids storing file blobs in the database, provides transaction-safe file tracking for the database persistence mode, and maintains 100% backward compatibility with local developer storage.
+
+## ADR-018: Route analysis run persistence through repository factory while preserving local calculation behavior
+- **Status**: Approved
+- **Context**: Analysis runs require heavy calculation logic. We must route execution persistence through database repository factory adapters in DB mode while keeping calculation engines local.
+- **Decision**: Integrate workspace analysis run routes with `AnalysisRunRepository` factory dependencies. In database mode, runs are saved to the relational database and read from it, bypassing local `runs.json` writes. A thread-safe global `_active_db_session` provides workspace/snapshot querying capabilities during local calculation engine runs in database mode.
+- **Consequences**: Safely persists and retrieves analysis run metadata in the database without altering core ratio, valuation, and advisory engines, maintaining backward-compatible response schemas.
+
