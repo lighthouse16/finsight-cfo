@@ -2,9 +2,9 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
-from app.db.models import Workspace, Organization, WorkspaceFile, WorkspaceFileVersion, AnalysisRun as DbAnalysisRun
+from app.db.models import Workspace, Organization, WorkspaceFile, WorkspaceFileVersion, AnalysisRun as DbAnalysisRun, AuditEvent as DbAuditEvent
 from app.models.workspace import CompanyWorkspace
-from app.persistence.interfaces import WorkspaceRepository, FileMetadataRepository, AnalysisRunRepository
+from app.persistence.interfaces import WorkspaceRepository, FileMetadataRepository, AnalysisRunRepository, AuditEventRepository
 from app.persistence.errors import PersistenceConfigurationError
 
 class DatabaseWorkspaceRepository(WorkspaceRepository):
@@ -530,3 +530,103 @@ class DatabaseAnalysisRunRepository(AnalysisRunRepository):
                 
         self.session.commit()
         return self._to_dict(run)
+
+
+class DatabaseAuditEventRepository(AuditEventRepository):
+    """
+    SQLAlchemy-backed implementation of the AuditEventRepository.
+    Enforcement of tenant isolation and authorization is deferred to future auth/RBAC tasks.
+    """
+    def __init__(self, db_session: Session) -> None:
+        self.session = db_session
+
+    def _to_dict(self, event: DbAuditEvent) -> Dict[str, Any]:
+        return {
+            "id": event.id,
+            "workspaceId": event.workspace_id or "",
+            "eventType": event.action,
+            "description": event.description or "",
+            "timestamp": event.created_at.isoformat() if event.created_at else None
+        }
+
+    def append_event(
+        self,
+        workspace_id: Optional[str],
+        event_type: str,
+        description: str,
+        actor_user_id: Optional[str] = None,
+        event_payload: Optional[Dict[str, Any]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Append an audit event log entry.
+        """
+        if workspace_id:
+            workspace = (
+                self.session.query(Workspace)
+                .filter_by(id=workspace_id)
+                .filter(Workspace.deleted_at.is_(None))
+                .filter(Workspace.status != "deleted")
+                .first()
+            )
+            if not workspace:
+                raise PersistenceConfigurationError(f"Workspace '{workspace_id}' does not exist or has been deleted.")
+            org_id = workspace.organization_id
+        else:
+            # Check metadata or event_payload for organization_id
+            org_id = (metadata or {}).get("organization_id") or (event_payload or {}).get("organization_id")
+            if not org_id:
+                raise PersistenceConfigurationError(
+                    "organization_id must be provided in metadata or event_payload for organization-level events."
+                )
+
+        event_id = f"audit_{uuid.uuid4().hex[:12]}"
+        
+        event = DbAuditEvent(
+            id=event_id,
+            organization_id=org_id,
+            workspace_id=workspace_id,
+            user_id=actor_user_id,
+            action=event_type,
+            description=description,
+            context_payload=event_payload or {},
+            event_metadata=metadata or {},
+            created_at=datetime.now(timezone.utc)
+        )
+        self.session.add(event)
+        self.session.commit()
+        return self._to_dict(event)
+
+    def get_event(self, event_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get a specific audit event by ID.
+        """
+        event = self.session.query(DbAuditEvent).filter_by(id=event_id).first()
+        if not event:
+            return None
+        return self._to_dict(event)
+
+    def list_events(self, workspace_id: Optional[str] = None, limit: int = 100) -> List[Dict[str, Any]]:
+        """
+        List audit events under a given workspace (or globally if None) up to a limit, newest first.
+        """
+        query = self.session.query(DbAuditEvent)
+        if workspace_id is not None:
+            query = query.filter_by(workspace_id=workspace_id)
+        
+        events = query.order_by(DbAuditEvent.created_at.desc()).limit(limit).all()
+        return [self._to_dict(e) for e in events]
+
+    def list_organization_events(self, organization_id: str, limit: int = 100) -> List[Dict[str, Any]]:
+        """
+        List all audit events for a given organization up to a limit, newest first.
+        """
+        events = (
+            self.session.query(DbAuditEvent)
+            .filter_by(organization_id=organization_id)
+            .order_by(DbAuditEvent.created_at.desc())
+            .limit(limit)
+            .all()
+        )
+        return [self._to_dict(e) for e in events]
+

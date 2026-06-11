@@ -134,14 +134,44 @@ class LocalAnalysisRunRepository(AnalysisRunRepository):
         return saved.model_dump(by_alias=True)
 
 class LocalAuditEventRepository(AuditEventRepository):
-    def append_event(self, workspace_id: str, event_type: str, description: str) -> AuditEvent:
-        return WorkspaceStore.log_audit_event(workspace_id, event_type, description)
+    def append_event(
+        self,
+        workspace_id: Optional[str],
+        event_type: str,
+        description: str,
+        actor_user_id: Optional[str] = None,
+        event_payload: Optional[Dict[str, Any]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        if not workspace_id:
+            raise ValueError("workspace_id is required for LocalAuditEventRepository.")
+        saved = WorkspaceStore.log_audit_event(workspace_id, event_type, description)
+        return saved.model_dump(by_alias=True)
 
-    def list_events(self, workspace_id: Optional[str] = None, limit: int = 100) -> List[AuditEvent]:
+    def get_event(self, event_id: str) -> Optional[Dict[str, Any]]:
+        try:
+            audits = WorkspaceStore._read_json(WorkspaceStore._audits_file)
+            for a in audits:
+                if a.get("id") == event_id:
+                    return {
+                        "id": a["id"],
+                        "workspaceId": a["workspaceId"],
+                        "eventType": a["eventType"],
+                        "description": a["description"],
+                        "timestamp": a["timestamp"]
+                    }
+        except Exception:
+            pass
+        return None
+
+    def list_events(self, workspace_id: Optional[str] = None, limit: int = 100) -> List[Dict[str, Any]]:
         if not workspace_id:
             return []
         events = WorkspaceStore.get_audit_events(workspace_id)
-        return events[:limit]
+        return [e.model_dump(by_alias=True) for e in events[:limit]]
+
+    def list_organization_events(self, organization_id: str, limit: int = 100) -> List[Dict[str, Any]]:
+        return []
 
 class LocalJobRepository(JobRepository):
     def create_job(self, task_name: str, arguments: Optional[Dict[str, Any]] = None) -> Any:
