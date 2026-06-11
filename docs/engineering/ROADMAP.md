@@ -68,6 +68,9 @@ This document outlines the high-level roadmap for transitioning FinSight CFO fro
     - Implement the job service/facade layer to enforce valid status transitions and payload validations without runtime concurrency or worker dependencies.
 26. **Synchronous Report Generation Job Facade (Phase 8)** [COMPLETED]
     - Introduce a synchronous job execution facade around report generation and persistence, coordinating lifecycle status checks and database saving.
+27. **Report Worker Prototype Service (Phase 9)** [COMPLETED]
+    - Introduce a service-only report worker prototype (`process_report_generation_job`) processing exactly one job, verifying lifecycle status changes without concurrency or worker processes.
+
 
 ---
 

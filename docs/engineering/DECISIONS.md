@@ -189,9 +189,13 @@ This document records key architectural and design decisions for FinSight CFO.
 - **Consequences**: Standardizes the job lifecycle and data payload rules at the service layer, preparing the codebase for clean worker prototype integration in later phases.
 
 ## ADR-030: Add synchronous report generation job facade before worker runtime
-- **Status**: Approved
-- **Context**: In Phase B of the background processing rollout, we need to coordinate the first workload (Report Generation) with our job lifecycle tracking. To prevent regression, we must implement this mapping synchronously without introducing process executors or background thread overhead.
-- **Decision**: Create a dedicated `report_generation_job_service` implementing `generate_report_with_job`. The facade creates a job, transitions it to running, persists report data using the repository, and marks the job completed (or failed upon exceptions), running 100% synchronously.
-- **Consequences**: Successfully verifies the workflow-to-job execution path and test assertions under local and database persistence, establishing a safe facade that can be offloaded asynchronously in later phases.
+- Status: Approved
+- Context: In Phase B of the background processing rollout, we need to coordinate the first workload (Report Generation) with our job lifecycle tracking. To prevent regression, we must implement this mapping synchronously without introducing process executors or background thread overhead.
+- Decision: Create a dedicated `report_generation_job_service` implementing `generate_report_with_job`. The facade creates a job, transitions it to running, persists report data using the repository, and marks the job completed (or failed upon exceptions), running 100% synchronously.
+- Consequences: Successfully verifies the workflow-to-job execution path and test assertions under local and database persistence, establishing a safe facade that can be offloaded asynchronously in later phases.
 
-
+## ADR-031: Add service-only report worker prototype before runtime worker process
+- Status: Approved
+- Context: In Phase C of the background processing rollout, we need to prototype the execution unit of a worker ("process exactly one job by ID") before introducing background queue daemons, process loops, or scheduling services.
+- Decision: Create a dedicated `process_report_generation_job` function inside `report_worker_service.py` that processes a pre-existing job in `"pending"` status, transitions it to `"running"`, generates the report, and completes or fails the job. The implementation must remain synchronous, service-only, and run without threading or external queues.
+- Consequences: Safely establishes the logic of report generation job execution in isolation, allowing simple unit testing, while keeping background worker daemons and queue routing deferred.
