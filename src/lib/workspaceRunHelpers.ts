@@ -113,19 +113,25 @@ export interface BackendConfig {
   isProduction: boolean
 }
 
+const SAFE_BACKEND_CONFIG: BackendConfig = {
+  appMode: 'production',
+  allowDemoFallback: false,
+  isProduction: true,
+}
+
 export async function fetchBackendConfig(): Promise<BackendConfig> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/workspaces/config`)
     if (!res.ok) {
-      return { appMode: 'development', allowDemoFallback: true, isProduction: false }
+      return SAFE_BACKEND_CONFIG
     }
     const data = await res.json()
-    const appMode = data.app_mode ?? 'development'
-    const allowDemoFallback = data.allow_demo_fallback ?? true
+    const appMode = data.app_mode ?? 'production'
+    const allowDemoFallback = data.allow_demo_fallback ?? false
     const isProduction = appMode === 'production' || !allowDemoFallback
     return { appMode, allowDemoFallback, isProduction }
   } catch (e) {
-    console.warn('Failed to fetch backend config, using defaults:', e)
-    return { appMode: 'development', allowDemoFallback: true, isProduction: false }
+    console.warn('Failed to fetch backend config, using production-safe defaults:', e)
+    return SAFE_BACKEND_CONFIG
   }
 }
