@@ -26,6 +26,14 @@ class Settings(BaseSettings):
         "http://localhost:5175,http://127.0.0.1:5175"
     )
 
+    PERSISTENCE_BACKEND: str = "local"
+    DATABASE_URL: str = "sqlite:///./storage_db/finsight_dev.db"
+    DATABASE_ECHO: bool = False
+
+    @property
+    def is_database_persistence_enabled(self) -> bool:
+        return self.PERSISTENCE_BACKEND == "database"
+
     @property
     def parsed_cors_origins(self) -> list[str]:
         if not self.CORS_ALLOW_ORIGINS:
