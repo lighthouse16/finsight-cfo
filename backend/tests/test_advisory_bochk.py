@@ -76,7 +76,7 @@ def test_pd_engine_calibration():
         
     # Test fallback first
     res_fallback = calculate_pd("test", dscr=1.5, debt_ratio=0.4, margin=0.15)
-    assert res_fallback.calibration_status == "indicative_readiness_index"
+    assert res_fallback.calibration_status == "uncalibrated_proxy"
     assert "deterministic" in res_fallback.disclaimer.lower()
     
     # Create mock dataset: 10 entries with good values (non-defaults) and bad values (defaults)

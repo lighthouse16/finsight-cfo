@@ -457,7 +457,7 @@ def build_credit_scoring_result(analysis: FinancialAnalysisResponse) -> CreditSc
         warnings=warnings,
         model_version="1.0.0",
         model_type="deterministic_scorecard",
-        calibration_status=cal_status,
+        calibration_status="rules_based",
         assumptions=scorecard_assumptions,
         limitations=scorecard_limitations,
         data_quality=scorecard_data_quality,

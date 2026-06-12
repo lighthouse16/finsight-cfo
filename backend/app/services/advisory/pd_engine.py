@@ -25,7 +25,7 @@ def _load_and_train_dataset() -> tuple[float, float, float, float, str, str]:
         # Fallback to default baseline coefficients
         return (
             -1.5, -2.0, 3.0, -4.0, 
-            "indicative_readiness_index",
+            "uncalibrated_proxy",
             "This is a deterministic logistic-style proxy for demonstration purposes only. It is not a calibrated production probability-of-default (PD) model. Indicative readiness index fallback is active."
         )
         
@@ -93,7 +93,7 @@ def _load_and_train_dataset() -> tuple[float, float, float, float, str, str]:
         # Fallback with warning in the disclaimer
         return (
             -1.5, -2.0, 3.0, -4.0,
-            "indicative_readiness_index",
+            "uncalibrated_proxy",
             f"Deterministic fallback active. Failed to calibrate model: {str(e)}"
         )
 
