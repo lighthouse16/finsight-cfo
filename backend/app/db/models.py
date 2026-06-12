@@ -20,6 +20,10 @@ class Organization(Base, TimestampMixin, SoftDeleteMixin):
         "Workspace", back_populates="organization", cascade="all, delete-orphan"
     )
 
+    __table_args__ = (
+        Index("idx_organizations_deleted", "deleted_at"),
+    )
+
 class User(Base, TimestampMixin):
     __tablename__ = "users"
 
