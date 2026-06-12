@@ -8,7 +8,14 @@ class Settings(BaseSettings):
     # Ingestion & Production Mode Configs
     APP_MODE: str = "development"
     ALLOW_DEMO_FALLBACK: bool = True
-    
+
+    # Auth / Tenant Context Foundation
+    AUTH_MODE: str = "local"
+    AUTH_DEFAULT_ORGANIZATION_ID: str = "demo-org"
+    AUTH_DEFAULT_USER_ID: str = "demo-user"
+    AUTH_DEFAULT_ROLE: str = "admin"
+    AUTH_ALLOW_HEADER_OVERRIDES: bool = True
+
     # Cache TTL settings
     rates_ttl_seconds: int = 21600
     liquidity_ttl_seconds: int = 21600
@@ -41,6 +48,10 @@ class Settings(BaseSettings):
     @property
     def is_database_persistence_enabled(self) -> bool:
         return self.normalized_persistence_backend == "database"
+
+    @property
+    def normalized_auth_mode(self) -> str:
+        return (self.AUTH_MODE or "local").strip().lower()
 
     @property
     def parsed_cors_origins(self) -> list[str]:
