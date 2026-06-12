@@ -55,12 +55,15 @@ class Settings(BaseSettings):
     S3_FORCE_PATH_STYLE: bool = True
 
     # AI / LLM Provider Configuration
-    LLM_PROVIDER: str = ""  # "openai", "azure_openai", or empty for deterministic fallback
+    LLM_PROVIDER: str = ""  # "openai", "azure_openai", "google_ai", or empty for deterministic fallback
     OPENAI_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-4o-mini"
     AZURE_OPENAI_API_KEY: str = ""
     AZURE_OPENAI_ENDPOINT: str = ""
     AZURE_OPENAI_DEPLOYMENT: str = ""
+    GOOGLE_API_KEY: str = ""
+    GOOGLE_AI_MODEL: str = "gemini-1.5-flash"
+    GOOGLE_AI_BASE_URL: str = ""
 
     # Queue / Scheduler Backend
     QUEUE_BACKEND: str = "in_process"  # "in_process", "redis" (future), "celery" (future)
@@ -85,10 +88,15 @@ class Settings(BaseSettings):
     @property
     def normalized_ai_mode(self) -> str:
         """Detect AI provider mode from env configuration."""
-        if self.LLM_PROVIDER.strip().lower() == "openai" and self.OPENAI_API_KEY.strip():
+        provider = self.LLM_PROVIDER.strip().lower()
+        if provider == "google_ai" and self.GOOGLE_API_KEY.strip():
+            return "google_ai"
+        if provider == "openai" and self.OPENAI_API_KEY.strip():
             return "openai"
-        if self.LLM_PROVIDER.strip().lower() == "azure_openai" and self.AZURE_OPENAI_API_KEY.strip():
+        if provider == "azure_openai" and self.AZURE_OPENAI_API_KEY.strip():
             return "azure_openai"
+        if self.GOOGLE_API_KEY.strip():
+            return "google_ai"
         if self.OPENAI_API_KEY.strip():
             return "openai"
         if self.AZURE_OPENAI_API_KEY.strip():
@@ -98,7 +106,7 @@ class Settings(BaseSettings):
     @property
     def is_llm_configured(self) -> bool:
         """Returns True if at least one LLM provider is fully configured."""
-        return self.normalized_ai_mode in ("openai", "azure_openai")
+        return self.normalized_ai_mode in ("openai", "azure_openai", "google_ai")
 
     @property
     def normalized_queue_backend(self) -> str:
