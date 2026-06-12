@@ -13,6 +13,7 @@ import {
   type CompanyWorkspace,
 } from '../features/data-room/api/dataRoomApi'
 import { fetchBackendConfig, type BackendConfig } from '../lib/workspaceRunHelpers'
+import { API_BASE_URL } from '../lib/apiBase'
 
 export interface WorkspaceContextValue {
   /** All workspaces for the current user/org */
@@ -131,9 +132,54 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
 
   // Load on mount
   useEffect(() => {
-    refreshWorkspaces()
-    fetchBackendConfig().then(setBackendConfig)
-  }, [refreshWorkspaces])
+    async function initWorkspaceContext() {
+      setIsLoading(true)
+      try {
+        const config = await fetchBackendConfig()
+        setBackendConfig(config)
+        
+        // Auto demo login if needed
+        const token = localStorage.getItem('access_token')
+        const isLocalDemo = config.authMode === 'local' || config.appMode === 'development' || config.allowDemoFallback
+        
+        if (isLocalDemo && !token) {
+          try {
+            const formData = new URLSearchParams()
+            formData.append('username', 'admin')
+            formData.append('password', 'demo_password') // password is ignored in local mode
+            
+            const authRes = await fetch(`${API_BASE_URL}/api/auth/token`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+              },
+              body: formData,
+            })
+            if (authRes.ok) {
+              const authData = await authRes.json()
+              localStorage.setItem('access_token', authData.access_token)
+              localStorage.setItem('active_user_role', 'admin')
+            }
+          } catch (authErr) {
+            console.error('Failed to auto login in local/demo mode', authErr)
+          }
+        }
+        
+        // Now fetch workspaces
+        const list = await listWorkspaces()
+        setWorkspaces(list)
+        syncActiveFromList(list)
+      } catch (err) {
+        console.error('Failed to initialize workspace context', err)
+        setWorkspaces([])
+        setActiveWorkspace(null)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    
+    initWorkspaceContext()
+  }, [syncActiveFromList])
 
   // Listen for external workspace changes (from other components)
   useEffect(() => {

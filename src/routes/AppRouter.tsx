@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import PlatformShell from '../components/platform/PlatformShell'
 import RouteLoadingFallback from '../components/platform/RouteLoadingFallback'
+import { WorkspaceProvider, useWorkspace } from '../context/workspaceContext'
 
 const LandingPage = lazy(() => import('../pages/LandingPage'))
 const LoginPage = lazy(() => import('../pages/LoginPage'))
@@ -249,50 +250,91 @@ function renderPlatformRoute(route: PlatformRoute) {
   )
 }
 
+function RouteWithAuthRedirect({ children }: { children: JSX.Element }) {
+  const { backendConfig, isLoading } = useWorkspace()
+  const token = localStorage.getItem('access_token')
+
+  if (isLoading) {
+    return (
+      <div className="softform-page flex min-h-dvh items-center justify-center px-4 text-softform-text-primary">
+        <div className="w-full max-w-2xl">
+          <RouteLoadingFallback copy="Checking authentication..." />
+        </div>
+      </div>
+    )
+  }
+
+  const isLocalDemo = backendConfig && !backendConfig.isProduction
+  if (isLocalDemo || token) {
+    return <Navigate to="/platform" replace />
+  }
+
+  return children
+}
+
 export default function AppRouter() {
   return (
     <BrowserRouter>
-      <Routes>
-        {/* Landing page — untouched */}
-        <Route
-          path="/"
-          element={withPageFallback(<LandingPage />, 'Loading FinSight CFO...')}
-        />
+      <WorkspaceProvider>
+        <Routes>
+          {/* Root redirects to platform workspace route */}
+          <Route
+            path="/"
+            element={<Navigate to="/platform" replace />}
+          />
 
-        {/* Login page */}
-        <Route
-          path="/login"
-          element={withPageFallback(<LoginPage />, 'Loading secure sign in...')}
-        />
+          {/* Landing page for reference/production fallback */}
+          <Route
+            path="/landing"
+            element={withPageFallback(<LandingPage />, 'Loading FinSight CFO...')}
+          />
 
-        {/* Signup page */}
-        <Route
-          path="/signup"
-          element={withPageFallback(<SignupPage />, 'Loading workspace setup...')}
-        />
+          {/* Login page */}
+          <Route
+            path="/login"
+            element={withPageFallback(
+              <RouteWithAuthRedirect>
+                <LoginPage />
+              </RouteWithAuthRedirect>,
+              'Loading secure sign in...',
+            )}
+          />
 
-        {/* Platform shell with nested routes */}
-        <Route path="/platform" element={<PlatformShell />}>
-          <Route index element={<Navigate to="overview" replace />} />
-          {platformRoutes.map((route) => (
+          {/* Signup page */}
+          <Route
+            path="/signup"
+            element={withPageFallback(
+              <RouteWithAuthRedirect>
+                <SignupPage />
+              </RouteWithAuthRedirect>,
+              'Loading workspace setup...',
+            )}
+          />
+
+          {/* Platform shell with nested routes */}
+          <Route path="/platform" element={<PlatformShell />}>
+            <Route index element={<Navigate to="overview" replace />} />
+            {platformRoutes.map((route) => (
+              <Route
+                key={route.path}
+                path={route.path}
+                element={renderPlatformRoute(route)}
+              />
+            ))}
             <Route
-              key={route.path}
-              path={route.path}
-              element={renderPlatformRoute(route)}
+              path="*"
+              element={withShellFallback(<NotFoundPage />, 'Loading route...')}
             />
-          ))}
+          </Route>
+
+          {/* Global not-found fallback — standalone wrapper */}
           <Route
             path="*"
-            element={withShellFallback(<NotFoundPage />, 'Loading route...')}
+            element={withPageFallback(<NotFoundPage />, 'Loading route...')}
           />
-        </Route>
-
-        {/* Global not-found fallback — standalone wrapper */}
-        <Route
-          path="*"
-          element={withPageFallback(<NotFoundPage />, 'Loading route...')}
-        />
-      </Routes>
+        </Routes>
+      </WorkspaceProvider>
     </BrowserRouter>
   )
 }
+
