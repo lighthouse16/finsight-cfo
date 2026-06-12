@@ -74,6 +74,7 @@ interface DataRoomRecord {
   requiredFor: string[]
   lastUpdated?: string | null
   actionLabel: string
+  extractionStatus?: string
 }
 
 interface DataRoomResponse {
@@ -262,6 +263,7 @@ export default function DataRoomPage() {
             day: 'numeric',
           })}`,
           actionLabel: 'Upload' as const, // Support re-upload/overwrite
+          extractionStatus: uploaded.status,
         }
       }
       return {
@@ -658,7 +660,7 @@ export default function DataRoomPage() {
                     type="file"
                     id={`file-input-${rec.id}`}
                     name={`file-input-${rec.id}`}
-                    accept=".csv,.xlsx"
+                    accept=".csv,.xlsx,.pdf,.docx"
                     aria-label={`Upload statement for ${rec.name}`}
                     className="sr-only"
                     onChange={(e) => handleFileSelected(rec, e)}
@@ -724,8 +726,23 @@ export default function DataRoomPage() {
                       <StatusChip variant={getStatusChipVariant(rec.status)}>
                         {getStatusLabel(rec.status)}
                       </StatusChip>
+                      {rec.extractionStatus && rec.extractionStatus !== 'parsed_structured' && (
+                        <div className="mt-1">
+                          {rec.extractionStatus === 'parsed_pdf_text_layer' && <StatusChip variant="signal">Parsed PDF Text</StatusChip>}
+                          {rec.extractionStatus === 'parsed_docx_text' && <StatusChip variant="signal">Parsed DOCX</StatusChip>}
+                          {rec.extractionStatus === 'ocr_provider_not_configured' && <StatusChip variant="caution">OCR Unavailable</StatusChip>}
+                          {rec.extractionStatus === 'ocr_provider_configured' && <StatusChip variant="caution">Review Required</StatusChip>}
+                          {rec.extractionStatus === 'unsupported' && <StatusChip variant="caution">Unsupported</StatusChip>}
+                          {rec.extractionStatus === 'validation_warning' && <StatusChip variant="caution">Review Required</StatusChip>}
+                        </div>
+                      )}
+                      {rec.extractionStatus && ['ocr_provider_not_configured', 'ocr_provider_configured', 'unsupported', 'validation_warning'].includes(rec.extractionStatus) && (
+                        <p className="hidden lg:block text-[10px] text-softform-amber-500 font-semibold mt-1">
+                          Try uploading CSV/XLSX
+                        </p>
+                      )}
                       {rec.lastUpdated && (
-                        <p className="hidden lg:block text-[10px] text-softform-text-muted/80">
+                        <p className="hidden lg:block text-[10px] text-softform-text-muted/80 mt-1">
                           {rec.lastUpdated}
                         </p>
                       )}
