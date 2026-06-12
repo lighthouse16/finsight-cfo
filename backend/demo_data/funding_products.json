@@ -1,0 +1,50 @@
+[
+  {
+    "product_id": "generic_working_capital_line",
+    "provider": "FinSight Local Demo",
+    "product_name": "Generic Revolving Working Capital Line",
+    "eligible_use_cases": ["working_capital_line", "short_term_liquidity"],
+    "limits": "HKD 100,000 - HKD 5,000,000",
+    "tenor_range": "6 - 12 Months",
+    "currency": "HKD",
+    "collateral_requirements": "Clean / Personal Guarantee",
+    "caveats": "Demo data only. Subject to final underwriting.",
+    "source_mode": "fixture"
+  },
+  {
+    "product_id": "generic_receivables_financing",
+    "provider": "FinSight Local Demo",
+    "product_name": "Generic Accounts Receivable Financing",
+    "eligible_use_cases": ["receivables_financing", "invoice_discounting"],
+    "limits": "HKD 50,000 - HKD 3,000,000",
+    "tenor_range": "1 - 6 Months",
+    "currency": "HKD",
+    "collateral_requirements": "Receivables charge",
+    "caveats": "Demo data only. Subject to final underwriting.",
+    "source_mode": "fixture"
+  },
+  {
+    "product_id": "generic_trade_finance",
+    "provider": "FinSight Local Demo",
+    "product_name": "Generic Import LC & Invoice Finance",
+    "eligible_use_cases": ["trade_finance_lc", "import_finance"],
+    "limits": "HKD 200,000 - HKD 10,000,000",
+    "tenor_range": "3 - 6 Months",
+    "currency": "HKD",
+    "collateral_requirements": "Trust Receipts / Goods pledge",
+    "caveats": "Demo data only. Subject to final underwriting.",
+    "source_mode": "fixture"
+  },
+  {
+    "product_id": "generic_term_loan",
+    "provider": "FinSight Local Demo",
+    "product_name": "Generic SME Term Loan",
+    "eligible_use_cases": ["term_loan", "capex_expansion"],
+    "limits": "HKD 500,000 - HKD 5,000,000",
+    "tenor_range": "12 - 60 Months",
+    "currency": "HKD",
+    "collateral_requirements": "Property charge / Personal Guarantee",
+    "caveats": "Demo data only. Subject to final underwriting.",
+    "source_mode": "fixture"
+  }
+]

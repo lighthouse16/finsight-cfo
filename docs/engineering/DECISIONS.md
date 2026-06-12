@@ -236,6 +236,14 @@ This document records key architectural and design decisions for FinSight CFO.
 - Decision: Implement an end-to-end product smoke test suite (`test_product_smoke_flow.py`) covering both in-memory SQLite database-mode operations (Workspace creation -> file uploads -> snapshot building -> valuation analysis run -> report save -> job queuing -> manual tick execution -> completion verify) and local-mode fallback route guardrails.
 - Consequences: Verifies integration points across the auth, workspace, file storage, analysis, jobs, and worker layers, ensuring a stable foundation prior to subsequent frontend and staging environment cuts.
 
+## ADR-038: Minimal Backend RBAC Route Guardrails
+- Status: Approved
+- Context: We need logical tenant user permission distinctions for sensitive or destructive actions (such as starting calculation/report jobs, manual worker ticking, and deleting workspaces/reports/files) without integrating a full production identity provider or modifying database tables.
+- Decision: Introduce reusable FastAPI dependency helpers (`require_admin`, `require_write_access`, `require_role`, `require_any_role`) in `auth.py` leveraging the existing `RequestContext`. Apply them to the jobs and workspaces routes to protect creation/trigger/delete endpoints. Fall back to `admin` by default to preserve local development experience.
+- Consequences: Enforces secure role-based restrictions (distinguishing admin, analyst, and viewer roles) with standard 403 Forbidden error handling, leaving read-only queries functional for all valid contexts without schema modifications.
 
-
-
+## ADR-039: Publish product finance correctness audit and enforce planning-only disclaimers
+- **Status**: Approved
+- **Context**: In preparing the FinSight CFO platform for presentation to the BOCHK Challenge 2026 judges, we must ensure all corporate finance formulas, risk indicators, WACC/DCF methods, and advisory checks are fully audited, verified, and traceably documented. We must also enforce strict disclaimer guidelines to prevent the product from claiming automated credit approval or underwriting capabilities.
+- **Decision**: Publish `docs/PRODUCT_FINANCE_CORRECTNESS.md` detailing the exact mathematical formula, implementation file, test evidence, and verdict for all 24 rules. Publish `docs/FINANCE_RULE_TRACEABILITY.md` to map requirement sources to their implementation and testing evidence. Publish `docs/BOCHK_REQUIREMENT_COVERAGE.md` to map platform capabilities against the challenge guidelines. Enforce a strict policy that all advisory and credit scoring outputs are context-only planning aids, not calibrated PD default models.
+- **Consequences**: Hardens the transparency and compliance posture of the product, matches judge expectations regarding finance-rule correctness, and provides a clear transition path from MVP assumptions to commercial production integrations.

@@ -1,5 +1,5 @@
-from typing import Dict, List, Optional
-from pydantic import BaseModel, Field
+from typing import Dict, List, Optional, Any
+from pydantic import BaseModel, Field, model_validator
 from app.models.financials import (
     IncomeStatementPeriod,
     BalanceSheetPeriod,
@@ -31,7 +31,29 @@ class UploadedFileRecord(BaseModel):
     object_key: Optional[str] = Field(None, alias="objectKey")
     object_uri: Optional[str] = Field(None, alias="objectUri")
     provider_status: Optional[str] = Field(None, alias="providerStatus")
+    metadata: Dict = Field(default_factory=dict)
+    parser_status: Optional[str] = Field("uploaded", alias="parserStatus")
+    record_count: Optional[int] = Field(0, alias="recordCount")
     warnings: List[str] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def populate_from_metadata(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            # Extract from nested metadata if not present at root
+            meta = data.get("metadata") or {}
+            
+            # Map camelCase and snake_case keys
+            if "parserStatus" not in data and "parser_status" not in data:
+                data["parserStatus"] = meta.get("parser_status") or meta.get("parserStatus") or data.get("status") or "uploaded"
+            if "recordCount" not in data and "record_count" not in data:
+                try:
+                    data["recordCount"] = int(meta.get("record_count") or meta.get("recordCount") or data.get("record_count") or 0)
+                except (ValueError, TypeError):
+                    data["recordCount"] = 0
+            if "warnings" not in data:
+                data["warnings"] = meta.get("warnings") or []
+        return data
 
     class Config:
         populate_by_name = True

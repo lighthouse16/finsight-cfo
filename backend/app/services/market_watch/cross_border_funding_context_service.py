@@ -42,18 +42,30 @@ from typing import Optional
 
 async def get_cross_border_funding_context(workspace_id: Optional[str] = None) -> CrossBorderFundingContextResponse:
     """Build context-only cross-border funding comparison."""
+    from app.services.market_watch.provider_adapters import ChinaDataMacroSectorAdapter
+
     if settings.MARKET_WATCH_USE_FIXTURES:
         is_production = settings.APP_MODE == "production" or not settings.ALLOW_DEMO_FALLBACK
         if is_production:
             from app.models.errors import raise_upstream_unavailable_error
             raise_upstream_unavailable_error()
-        return get_cross_border_funding_context_fixture()
+        res = get_cross_border_funding_context_fixture()
+        # Enrich references
+        res.hkdFundingReference.sourceName = "FinSight Local"
+        res.hkdFundingReference.sourceMode = "fixture"
+        res.hkdFundingReference.freshness = "Workspace"
+        res.hkdFundingReference.confidence = "low"
+        
+        res.rmbFundingReference.sourceName = "FinSight Local"
+        res.rmbFundingReference.sourceMode = "fixture"
+        res.rmbFundingReference.freshness = "Workspace"
+        res.rmbFundingReference.confidence = "low"
+        return res
 
     # Gather live data
     from app.services.market_watch.company_context import get_company_context
     context_res = get_company_context(workspace_id)
     profile = context_res.profile
-    # exposures available for context expansion
     rates_liquidity = await get_rates_liquidity()
 
     # --- HKD reference: pick best HIBOR rate ---
@@ -81,6 +93,11 @@ async def get_cross_border_funding_context(workspace_id: Optional[str] = None) -
             displayValue=hkd_rate.displayValue,
             source=f"{hkd_rate.context}",
         )
+        hkd_reference.sourceName = hkd_rate.sourceName or "HKAB / HKMA"
+        hkd_reference.sourceMode = hkd_rate.sourceMode or "live"
+        hkd_reference.asOf = hkd_rate.asOf
+        hkd_reference.freshness = hkd_rate.freshness or "Daily"
+        hkd_reference.confidence = hkd_rate.confidence or "high"
         hkd_value = hkd_rate.value
     else:
         hkd_reference = CrossBorderFundingReference(
@@ -91,19 +108,47 @@ async def get_cross_border_funding_context(workspace_id: Optional[str] = None) -
             displayValue="Unavailable",
             source="No HIBOR rate available from upstream",
         )
+        hkd_reference.sourceName = "HKAB / HKMA"
+        hkd_reference.sourceMode = "unavailable"
+        hkd_reference.freshness = "Daily"
+        hkd_reference.confidence = "unavailable"
         hkd_value = None
 
-    # --- RMB reference: fixture LPR proxy ---
-    # LPR provider is not connected yet; use fixture placeholder
-    rmb_value = 3.45  # 1Y LPR proxy
+    # --- RMB reference: query ChinaData or use fixture LPR proxy ---
+    chinadata = ChinaDataMacroSectorAdapter()
+    chinadata_res = await chinadata.fetch()
+    chinadata_mode = chinadata_res["status"]["mode"]
+
+    if chinadata_mode == "provider_configured" and chinadata_res.get("data"):
+        data = chinadata_res["data"]
+        macro = data.get("macro_sector", {})
+        rmb_value = macro.get("lpr_1y", 3.45)
+        rmb_source_label = "ChinaData.live"
+        rmb_source_txt = "ChinaData.live LPR Feed"
+        rmb_as_of = chinadata_res["status"]["asOf"]
+        rmb_freshness = "Monthly"
+        rmb_confidence = "high"
+    else:
+        rmb_value = 3.45
+        rmb_source_label = "Fixture Proxy"
+        rmb_source_txt = "Fixture placeholder — LPR provider pending"
+        rmb_as_of = "2026-06-12"
+        rmb_freshness = "Monthly"
+        rmb_confidence = "low"
+
     rmb_reference = CrossBorderFundingReference(
-        label="LPR 1Y (fixture proxy)",
+        label=f"LPR 1Y ({rmb_source_label})",
         currency="RMB",
         value=rmb_value,
         unit="percent",
         displayValue=f"{rmb_value:.2f}%",
-        source="Fixture placeholder — LPR provider pending",
+        source=rmb_source_txt,
     )
+    rmb_reference.sourceName = "ChinaData.live" if chinadata_mode == "provider_configured" else "FinSight Local"
+    rmb_reference.sourceMode = "provider_configured" if chinadata_mode == "provider_configured" else "fixture"
+    rmb_reference.asOf = rmb_as_of
+    rmb_reference.freshness = rmb_freshness
+    rmb_reference.confidence = rmb_confidence
 
     # --- Spread calculation ---
     spread_bps: float | None = None
@@ -129,16 +174,19 @@ async def get_cross_border_funding_context(workspace_id: Optional[str] = None) -
     )
 
     # --- Provenance ---
-    now = datetime.utcnow().isoformat() + "Z"
-    provenance = CrossBorderFundingProvenance(
-        **build_provenance("cross_border_funding_context_v1"),
-    )
+    prov_dict = build_provenance("cross_border_funding_context_v1")
+    if chinadata_mode == "provider_configured":
+        prov_dict["providerAdapter"] = "ChinaDataMacroSectorAdapter"
+        prov_dict["providerIntegration"] = "ChinaData.live"
+
+    provenance = CrossBorderFundingProvenance(**prov_dict)
 
     # --- Warnings ---
     warnings = [
         _WARNING_BASE,
-        "LPR reference is a fixture placeholder. Production LPR provider integration required for actual rates.",
     ]
+    if chinadata_mode == "provider_not_configured":
+        warnings.append("ChinaData.live provider is not configured. Serving fallback/degraded LPR.")
 
     return CrossBorderFundingContextResponse(
         mode="context_only",
@@ -157,6 +205,7 @@ async def get_cross_border_funding_context(workspace_id: Optional[str] = None) -
         warnings=warnings,
         disclaimer=DISCLAIMER,
     )
+
 
 
 def _compute_spread_band(spread_bps: float | None) -> CrossBorderSpreadBand:

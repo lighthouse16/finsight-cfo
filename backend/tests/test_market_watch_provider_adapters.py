@@ -58,7 +58,7 @@ def test_fixture_adapter_returns_fixture_backed():
 
     assert result is not None
     assert result["sourceKey"] == "industry_health_v1"
-    assert result["status"]["mode"] == "fixture-backed"
+    assert result["status"]["mode"] == "fixture"
     assert result["status"]["providerName"] == "IHS Markit"
     assert result["status"]["providerKey"] == "industry_health_v1"
     assert result["status"]["confidence"] is not None
@@ -108,7 +108,7 @@ def test_workspace_derived_adapter_returns_workspace_derived():
 
     assert result is not None
     assert result["sourceKey"] == "timing_signal_v1"
-    assert result["status"]["mode"] == "workspace-derived"
+    assert result["status"]["mode"] == "workspace_derived"
     assert result["status"]["providerName"] == "FinSight CFO Market Watch"
     assert result.get("error") is None
 
@@ -166,11 +166,11 @@ def test_missing_provider_does_not_crash():
 
 
 @pytest.mark.parametrize("adapter_cls, source_key, expected_mode", [
-    (FixtureMarketDataAdapter, "industry_health_v1", "fixture-backed"),
-    (FixtureMarketDataAdapter, "cross_border_funding_context_v1", "fixture-backed"),
-    (WorkspaceDerivedAdapter, "timing_signal_v1", "workspace-derived"),
-    (WorkspaceDerivedAdapter, "funding_channel_ranking_v1", "workspace-derived"),
-    (WorkspaceDerivedAdapter, "red_flags_macro_summary_v1", "workspace-derived"),
+    (FixtureMarketDataAdapter, "industry_health_v1", "fixture"),
+    (FixtureMarketDataAdapter, "cross_border_funding_context_v1", "fixture"),
+    (WorkspaceDerivedAdapter, "timing_signal_v1", "workspace_derived"),
+    (WorkspaceDerivedAdapter, "funding_channel_ranking_v1", "workspace_derived"),
+    (WorkspaceDerivedAdapter, "red_flags_macro_summary_v1", "workspace_derived"),
     (MissingProviderAdapter, "fedwatch_not_yet_connected", "unavailable"),
 ])
 def test_provider_status_fields(adapter_cls, source_key, expected_mode):

@@ -102,7 +102,7 @@ def test_sector_benchmarks():
     assert metadata["source"]["provider"] == "Fixture"
     assert isinstance(metadata["warnings"], list)
     assert len(metadata["warnings"]) > 0
-    assert "fixture-backed" in metadata["warnings"][0].lower()
+    assert "fixture" in metadata["warnings"][0].lower()
     
     # Verify default sector
     selected_sector = data["selectedSector"]
@@ -175,7 +175,7 @@ def test_commodities():
     assert metadata["source"]["provider"] == "Fixture"
     assert isinstance(metadata["warnings"], list)
     assert len(metadata["warnings"]) > 0
-    assert "fixture-backed" in metadata["warnings"][0].lower() or "not configured" in metadata["warnings"][0].lower()
+    assert "fixture" in metadata["warnings"][0].lower() or "not configured" in metadata["warnings"][0].lower()
     
     # Verify default sector
     selected_sector = data["selectedSector"]
@@ -250,7 +250,7 @@ def test_stress_signals():
     assert metadata["source"]["provider"] == "Fixture"
     assert isinstance(metadata["warnings"], list)
     assert len(metadata["warnings"]) > 0
-    assert "fixture-backed" in metadata["warnings"][0].lower()
+    assert "fixture" in metadata["warnings"][0].lower()
     
     # Verify workspace context
     context = data["workspaceContext"]

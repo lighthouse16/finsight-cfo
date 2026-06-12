@@ -5,6 +5,7 @@ from fastapi import HTTPException
 from app.models.workspace import UploadedFileRecord
 from app.storage.file_store import FileStore
 from app.services.audit_service import record_audit_event_best_effort
+from app.services.data_room.structured_parser import PARSEABLE_RECORD_KEYS, parse_csv_bytes, parse_xlsx_bytes
 
 async def upload_workspace_file(
     *,
@@ -32,10 +33,65 @@ async def upload_workspace_file(
     if not (filename or "").strip():
         raise HTTPException(status_code=422, detail="file is required")
 
+    # Run parsing & classification
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    if not ext:
+        if "csv" in content_type.lower():
+            ext = "csv"
+        elif "spreadsheet" in content_type.lower() or "excel" in content_type.lower():
+            ext = "xlsx"
+        elif "pdf" in content_type.lower():
+            ext = "pdf"
+        elif "word" in content_type.lower():
+            ext = "docx"
+
+    parser_status = "unknown"
+    record_count = 0
+    warnings = []
+    
+    if record_key in PARSEABLE_RECORD_KEYS:
+        if ext == "csv":
+            try:
+                preview = parse_csv_bytes(record_key, file_bytes)
+                parser_status = "parsed" if preview.parsedRecords else "failed"
+                record_count = preview.rowCount
+                warnings = [w for w in preview.warnings if "Preview only" not in w]
+            except Exception as e:
+                parser_status = "failed"
+                warnings = [f"Failed to parse CSV: {str(e)}"]
+        elif ext == "xlsx":
+            try:
+                preview = parse_xlsx_bytes(record_key, file_bytes)
+                parser_status = "parsed" if preview.parsedRecords else "failed"
+                record_count = preview.rowCount
+                warnings = [w for w in preview.warnings if "Preview only" not in w]
+            except Exception as e:
+                parser_status = "failed"
+                warnings = [f"Failed to parse XLSX: {str(e)}"]
+        elif ext in ("pdf", "docx"):
+            parser_status = "unsupported_without_ocr"
+            record_count = 0
+            warnings = ["OCR/PDF parsing is not enabled. Please run standard OCR processing or upload structured CSV/XLSX instead."]
+        else:
+            parser_status = "unsupported_type"
+            record_count = 0
+            warnings = [f"File type '{ext}' is not supported for structured parsing. Please upload CSV/XLSX."]
+    else:
+        # metadata-only record key
+        parser_status = "metadata_only"
+        record_count = 0
+        warnings = ["Metadata-only record key."]
+
+    metadata = {
+        "parser_status": parser_status,
+        "record_count": record_count,
+        "warnings": warnings,
+        "source_type": record_key,
+    }
+
     if settings.normalized_persistence_backend == "database":
         storage_mode = "local_file"
         provider_status = "ok"
-        warnings = []
         object_key = None
         object_uri = None
         file_path = None
@@ -85,7 +141,8 @@ async def upload_workspace_file(
             object_key=object_key,
             object_uri=object_uri,
             provider_status=provider_status,
-            warnings=warnings
+            warnings=warnings,
+            metadata=metadata,
         )
         await record_audit_event_best_effort(
             audit_repo=audit_repo,
@@ -102,6 +159,7 @@ async def upload_workspace_file(
             file_name=filename,
             file_bytes=file_bytes,
             content_type=content_type,
+            metadata=metadata,
         )
         return record
 

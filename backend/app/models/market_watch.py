@@ -49,6 +49,12 @@ class RateSnapshot(BaseModel):
     trend: Trend
     context: str
     sourceTimestamp: Optional[str] = None
+    sourceName: Optional[str] = None
+    sourceMode: Optional[str] = None
+    asOf: Optional[str] = None
+    freshness: Optional[str] = None
+    caveat: Optional[str] = None
+    confidence: Optional[str] = None
 
 class LiquidityEvent(BaseModel):
     id: str
@@ -146,6 +152,18 @@ class FundingChannelComponent(BaseModel):
     explanation: str
 
 
+class FundingProduct(BaseModel):
+    product_id: str
+    provider: str
+    product_name: str
+    eligible_use_cases: List[str]
+    limits: str
+    tenor_range: str
+    currency: str
+    collateral_requirements: str
+    caveats: Optional[str] = None
+    source_mode: str
+
 class FundingChannelItem(BaseModel):
     key: FundingChannelKey
     label: str
@@ -157,6 +175,13 @@ class FundingChannelItem(BaseModel):
     supportingSignals: List[str] = Field(default_factory=list)
     source: str
     constraints: List[str] = Field(default_factory=list)
+    sourceName: Optional[str] = None
+    sourceMode: Optional[str] = None
+    asOf: Optional[str] = None
+    freshness: Optional[str] = None
+    caveat: Optional[str] = None
+    confidence: Optional[str] = None
+    matchedProducts: List[FundingProduct] = Field(default_factory=list)
 
 
 class FundingChannelProvenance(BaseModel):
@@ -207,6 +232,12 @@ class CrossBorderFundingReference(BaseModel):
     unit: Unit
     displayValue: str
     source: str
+    sourceName: Optional[str] = None
+    sourceMode: Optional[str] = None
+    asOf: Optional[str] = None
+    freshness: Optional[str] = None
+    caveat: Optional[str] = None
+    confidence: Optional[str] = None
 
 
 class CrossBorderFundingComponent(BaseModel):
@@ -316,6 +347,12 @@ class FxPair(BaseModel):
     changePips: Optional[float] = None
     context: str
     sourceTimestamp: Optional[str] = None
+    sourceName: Optional[str] = None
+    sourceMode: Optional[str] = None
+    asOf: Optional[str] = None
+    freshness: Optional[str] = None
+    caveat: Optional[str] = None
+    confidence: Optional[str] = None
 
 class GbaFundingSignal(BaseModel):
     id: str
@@ -377,6 +414,12 @@ class SectorBenchmark(BaseModel):
     context: str
     severity: SignalSeverity
     sourceTimestamp: Optional[str] = None
+    sourceName: Optional[str] = None
+    sourceMode: Optional[str] = None
+    asOf: Optional[str] = None
+    freshness: Optional[str] = None
+    caveat: Optional[str] = None
+    confidence: Optional[str] = None
 
 
 class SectorWatchSignal(BaseModel):
@@ -408,6 +451,12 @@ class CommodityExposure(BaseModel):
     exposedSectors: List[str]
     marginContext: str
     sourceTimestamp: Optional[str] = None
+    sourceName: Optional[str] = None
+    sourceMode: Optional[str] = None
+    asOf: Optional[str] = None
+    freshness: Optional[str] = None
+    caveat: Optional[str] = None
+    confidence: Optional[str] = None
 
 
 class MarginPressureSignal(BaseModel):

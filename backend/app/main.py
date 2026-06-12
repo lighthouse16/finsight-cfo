@@ -1,9 +1,10 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.core.config import settings
+from app.core.config import settings, get_settings
 from app.core.startup_checks import validate_startup_config
 from app.routes.market_watch import router as market_watch_router
+from app.routes.market_funding import router as market_funding_router
 from app.routes.financials import router as financials_router
 from app.routes.advisory import router as advisory_router
 from app.routes.data_room import router as data_room_router
@@ -35,7 +36,59 @@ app.add_middleware(
 def health_check():
     return {"status": "ok", "service": "finsight-cfo-api"}
 
+@app.get("/ready")
+def readiness_check():
+    # In a full deployment, this would verify DB and Redis connectivity.
+    # For now, if the app reaches this point, we assume it's ready to handle traffic.
+    return {"status": "ready"}
+
+@app.get("/api/runtime/status")
+def runtime_status():
+    """
+    Returns the current runtime configuration status without exposing secrets.
+    """
+    st = get_settings()
+    warnings = []
+
+    if st.APP_MODE == "production":
+        if st.normalized_auth_mode == "local":
+            warnings.append("Auth mode is 'local' in production. This is highly unsafe for real data. Replace with real OIDC/SAML.")
+        if st.normalized_persistence_backend == "local":
+            warnings.append("Persistence backend is 'local' in production. Database persistence should be enabled.")
+        if getattr(st, "STORAGE_BACKEND", "local") == "local":
+            warnings.append("Storage backend is 'local' in production. Object storage should be configured.")
+        if not getattr(st, "REPORT_WORKER_ENABLED", False):
+            warnings.append("Report worker is disabled. Async report generation will not function.")
+        if not st.is_llm_configured:
+            warnings.append("AI LLM provider is not configured. AI CFO will operate in deterministic fallback mode.")
+
+    # Queue backend warning
+    qb = st.normalized_queue_backend
+    if qb == "in_process" and st.APP_MODE == "production":
+        warnings.append(f"Queue backend is '{qb}' in production. Consider configuring Redis/Celery for async jobs.")
+
+    disclaimers = [
+        "This platform is intended for demonstration and planning purposes.",
+        "Ensure all secrets and API keys are stored securely outside the source tree."
+    ]
+
+    return {
+        "app_version": getattr(st, "APP_VERSION", "unknown"),
+        "app_mode": st.APP_MODE,
+        "persistence_backend": st.normalized_persistence_backend,
+        "auth_mode": st.normalized_auth_mode,
+        "report_worker_enabled": getattr(st, "REPORT_WORKER_ENABLED", False),
+        "scheduler_mode": getattr(st, "SCHEDULER_MODE", "manual"),
+        "storage_mode": getattr(st, "STORAGE_BACKEND", "local"),
+        "ai_mode": st.normalized_ai_mode,
+        "ai_provider_configured": st.is_llm_configured,
+        "queue_backend": qb,
+        "warnings": warnings,
+        "disclaimers": disclaimers
+    }
+
 app.include_router(market_watch_router, prefix="/api/market-watch")
+app.include_router(market_funding_router, prefix="/api/market-funding")
 app.include_router(financials_router, prefix="/api/financials")
 app.include_router(advisory_router, prefix="/api/advisory")
 app.include_router(data_room_router, prefix="/api/data-room")

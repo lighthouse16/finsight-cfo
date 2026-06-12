@@ -294,6 +294,12 @@ async def parse_structured_financial_file(
         return parse_csv_bytes(record_key, file_bytes)
     if extension == "xlsx":
         return parse_xlsx_bytes(record_key, file_bytes)
+    if extension == "pdf":
+        from app.services.data_room.pdf_parser import parse_pdf_bytes
+        return parse_pdf_bytes(record_key, file_bytes)
+    if extension == "docx":
+        from app.services.data_room.docx_parser import parse_docx_bytes
+        return parse_docx_bytes(record_key, file_bytes)
 
     warning = (
         "XLS parsing is not available in this environment. Analysis was not updated."

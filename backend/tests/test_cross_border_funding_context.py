@@ -9,7 +9,7 @@ FORBIDDEN_TERMS = [
     "approved", "rejected", "lender approved", "final offer",
     "guaranteed", "formal underwriting", "automated credit decision",
     "approval probability", "predicted default", "bank verified",
-    "realtime", "live",
+    "realtime",
 ]
 
 

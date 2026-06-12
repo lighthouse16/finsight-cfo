@@ -681,6 +681,16 @@ export default function MarketWatchPage() {
         </section>
       )}
 
+      {fundingChannelRanking?.warnings?.some(w => w.toLowerCase().includes('fixture')) && (
+        <div className="mb-6 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 text-xs text-amber-800 flex items-start gap-2.5">
+          <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+          <div>
+            <span className="font-semibold">Fixture Data Warning:</span>{' '}
+            {fundingChannelRanking.warnings.find(w => w.toLowerCase().includes('fixture'))}
+          </div>
+        </div>
+      )}
+
       {/*** Executive signal cards — always render grid, with loading/updating state ***/}
       <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <AnimatePresence mode="popLayout">
