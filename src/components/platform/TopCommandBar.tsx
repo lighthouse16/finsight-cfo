@@ -1,22 +1,13 @@
-/* eslint-disable react-hooks/exhaustive-deps, @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useRef } from 'react'
 import { Menu, Search, Bell, ChevronDown, Plus, Building2, Check, Loader2 } from 'lucide-react'
-import { API_BASE_URL } from '../../lib/apiBase'
-
-interface Workspace {
-  id: string
-  companyName: string
-  createdAt: string
-  metadata: Record<string, any>
-}
+import { useWorkspace } from '../../context/workspaceContext'
 
 type TopCommandBarProps = {
   onMenuToggle: () => void
 }
 
 export default function TopCommandBar({ onMenuToggle }: TopCommandBarProps) {
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([])
-  const [activeWorkspace, setActiveWorkspace] = useState<Workspace | null>(null)
+  const { workspaces, activeWorkspace, selectWorkspace, createWorkspace } = useWorkspace()
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [newCompanyName, setNewCompanyName] = useState('')
@@ -42,76 +33,9 @@ export default function TopCommandBar({ onMenuToggle }: TopCommandBarProps) {
     window.location.href = '/'
   }
 
-  const fetchWorkspaces = async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/workspaces`)
-      if (res.ok) {
-        const data: Workspace[] = await res.json()
-        setWorkspaces(data)
-
-        if (data.length === 0) {
-          // Auto-create default workspace if none exist
-          await handleAutoCreateDefault()
-          return
-        }
-
-        const savedId = localStorage.getItem('active_workspace_id')
-        const active = data.find((w) => w.id === savedId) || data[0]
-        if (active) {
-          if (savedId !== active.id) {
-            localStorage.setItem('active_workspace_id', active.id)
-            // Dispatch custom event to notify other parts of the app
-            window.dispatchEvent(new Event('workspaceChanged'))
-          }
-          setActiveWorkspace(active)
-        }
-      }
-    } catch (err) {
-      console.error('Failed to fetch workspaces', err)
-    }
-  }
-
-  const handleAutoCreateDefault = async () => {
-    try {
-      const formData = new FormData()
-      formData.append('companyName', 'Finsight Enterprise')
-      const res = await fetch(`${API_BASE_URL}/api/workspaces`, {
-        method: 'POST',
-        body: formData,
-      })
-      if (res.ok) {
-        const newWs: Workspace = await res.json()
-        localStorage.setItem('active_workspace_id', newWs.id)
-        window.dispatchEvent(new Event('workspaceChanged'))
-        fetchWorkspaces()
-      }
-    } catch (err) {
-      console.error('Failed to auto-create default workspace', err)
-    }
-  }
-
-  useEffect(() => {
-    fetchWorkspaces()
-    
-    // Listen to storage/workspace changes from other components
-    const handleWorkspaceChanged = () => {
-      const savedId = localStorage.getItem('active_workspace_id')
-      if (savedId && savedId !== activeWorkspace?.id) {
-        fetchWorkspaces()
-      }
-    }
-    window.addEventListener('workspaceChanged', handleWorkspaceChanged)
-    return () => {
-      window.removeEventListener('workspaceChanged', handleWorkspaceChanged)
-    }
-  }, [activeWorkspace?.id])
-
   const handleSelectWorkspace = (workspaceId: string) => {
-    localStorage.setItem('active_workspace_id', workspaceId)
+    selectWorkspace(workspaceId)
     setIsDropdownOpen(false)
-    window.dispatchEvent(new Event('workspaceChanged'))
-    // Force a complete reload to refresh all page context cleanly
-    window.location.reload()
   }
 
   const handleCreateWorkspace = async (e: React.FormEvent) => {
@@ -121,24 +45,10 @@ export default function TopCommandBar({ onMenuToggle }: TopCommandBarProps) {
 
     setIsCreating(true)
     try {
-      const formData = new FormData()
-      formData.append('companyName', name)
-      const res = await fetch(`${API_BASE_URL}/api/workspaces`, {
-        method: 'POST',
-        body: formData,
-      })
-      if (res.ok) {
-        const newWs: Workspace = await res.json()
-        localStorage.setItem('active_workspace_id', newWs.id)
-        setNewCompanyName('')
-        setIsCreateOpen(false)
-        setIsDropdownOpen(false)
-        window.dispatchEvent(new Event('workspaceChanged'))
-        window.location.reload()
-      } else {
-        const errData = await res.json()
-        alert(`Failed to create workspace: ${errData.detail || 'Unknown error'}`)
-      }
+      await createWorkspace(name)
+      setNewCompanyName('')
+      setIsCreateOpen(false)
+      setIsDropdownOpen(false)
     } catch (err) {
       console.error('Error creating workspace', err)
       alert('Error connecting to backend')

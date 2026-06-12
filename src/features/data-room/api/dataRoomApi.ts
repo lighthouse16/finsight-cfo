@@ -97,12 +97,18 @@ export async function fetchActiveWorkspaceSnapshot(workspaceId: string): Promise
 export async function createWorkspace(
   companyName: string,
   currency?: string,
-  reportingPeriod?: string
+  reportingPeriod?: string,
+  metadata?: Record<string, string>
 ): Promise<CompanyWorkspace> {
   const formData = new FormData()
   formData.append('companyName', companyName)
   if (currency) formData.append('currency', currency)
   if (reportingPeriod) formData.append('reportingPeriod', reportingPeriod)
+  if (metadata) {
+    Object.entries(metadata).forEach(([key, value]) => {
+      if (value) formData.append(`metadata[${key}]`, value)
+    })
+  }
 
   const res = await fetch(`${API_BASE_URL}/api/workspaces`, {
     method: 'POST',
