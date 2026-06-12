@@ -55,7 +55,7 @@ def test_db_file_repo_save_and_get(db_session):
     assert record["fileSizeBytes"] == 1024
     assert record["filePath"] == "local://workspace/pl.csv"
     assert record["status"] == "uploaded"
-    assert record["metadata"] == {"foo": "bar"}
+    assert record["metadata"] == {"foo": "bar", "storageMode": "local_file"}
 
     retrieved = repo.get_file_record(record["id"])
     assert retrieved is not None
@@ -66,7 +66,7 @@ def test_db_file_repo_save_and_get(db_session):
     assert retrieved["fileSizeBytes"] == 1024
     assert retrieved["filePath"] == "local://workspace/pl.csv"
     assert retrieved["status"] == "uploaded"
-    assert retrieved["metadata"] == {"foo": "bar"}
+    assert retrieved["metadata"] == {"foo": "bar", "storageMode": "local_file"}
 
 def test_db_file_repo_list_workspace_only(db_session):
     """

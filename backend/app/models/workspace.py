@@ -27,6 +27,11 @@ class UploadedFileRecord(BaseModel):
     status: str
     uploaded_at: str = Field(..., alias="uploadedAt")
     file_path: str = Field(..., alias="filePath")
+    storage_mode: str = Field("local_file", alias="storageMode")
+    object_key: Optional[str] = Field(None, alias="objectKey")
+    object_uri: Optional[str] = Field(None, alias="objectUri")
+    provider_status: Optional[str] = Field(None, alias="providerStatus")
+    warnings: List[str] = Field(default_factory=list)
 
     class Config:
         populate_by_name = True

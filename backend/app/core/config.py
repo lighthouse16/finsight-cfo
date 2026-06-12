@@ -37,9 +37,22 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./storage_db/finsight_dev.db"
     DATABASE_ECHO: bool = False
 
+    # Object Storage Configs
+    OBJECT_STORAGE_BACKEND: str = "local_file"
+    S3_ENDPOINT_URL: str = ""
+    S3_BUCKET: str = ""
+    S3_ACCESS_KEY_ID: str = ""
+    S3_SECRET_ACCESS_KEY: str = ""
+    S3_REGION: str = "us-east-1"
+    S3_FORCE_PATH_STYLE: bool = True
+
     # Report Worker Harness Configuration
     REPORT_WORKER_ENABLED: bool = False
     REPORT_WORKER_MAX_JOBS_PER_TICK: int = 1
+
+    @property
+    def normalized_object_storage_backend(self) -> str:
+        return (self.OBJECT_STORAGE_BACKEND or "local_file").strip().lower()
 
     @property
     def normalized_persistence_backend(self) -> str:

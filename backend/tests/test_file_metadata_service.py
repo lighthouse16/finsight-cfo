@@ -85,8 +85,9 @@ class MockAuditEventRepository:
         return {"id": "audit_xyz"}
 
 class MockSettings:
-    def __init__(self, persistence_backend="database"):
+    def __init__(self, persistence_backend="database", object_storage_backend="local_file"):
         self.normalized_persistence_backend = persistence_backend
+        self.normalized_object_storage_backend = object_storage_backend
 
 @pytest.fixture
 def temp_storage(tmp_path, monkeypatch):
