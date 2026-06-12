@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps, @typescript-eslint/no-explicit-any */
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Menu, Search, Bell, ChevronDown, Plus, Building2, Check, Loader2 } from 'lucide-react'
 import { API_BASE_URL } from '../../lib/apiBase'
 
@@ -21,6 +21,26 @@ export default function TopCommandBar({ onMenuToggle }: TopCommandBarProps) {
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [newCompanyName, setNewCompanyName] = useState('')
   const [isCreating, setIsCreating] = useState(false)
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
+  const userRole = localStorage.getItem('active_user_role') || 'User'
+  const userMenuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setIsUserMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const handleLogout = () => {
+    localStorage.removeItem('access_token')
+    localStorage.removeItem('active_user_role')
+    localStorage.removeItem('active_workspace_id')
+    window.location.href = '/'
+  }
 
   const fetchWorkspaces = async () => {
     try {
@@ -276,16 +296,38 @@ export default function TopCommandBar({ onMenuToggle }: TopCommandBarProps) {
           </span>
         </div>
 
-        {/* Avatar placeholder */}
-        <div className="relative shrink-0">
+        {/* Avatar / User Menu */}
+        <div className="relative shrink-0" ref={userMenuRef}>
           <button
             type="button"
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-[linear-gradient(145deg,#0d1726,#1c324b)] text-[11px] font-bold text-white/90 shadow-sm ring-2 ring-white/80 transition hover:ring-softform-teal-500/50"
-            aria-label="User menu placeholder"
+            onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+            className="flex h-9 items-center gap-2 rounded-full bg-[linear-gradient(145deg,#0d1726,#1c324b)] pl-2 pr-3 text-[11px] font-bold text-white/90 shadow-sm ring-2 ring-white/80 transition hover:ring-softform-teal-500/50"
+            aria-label="User menu"
+            aria-expanded={isUserMenuOpen}
           >
-            U
+            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-white/10 uppercase">
+              {userRole.charAt(0)}
+            </div>
+            <span className="hidden sm:inline-block max-w-[80px] truncate capitalize font-medium text-white/80 tracking-wide">
+              {userRole}
+            </span>
           </button>
           <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-softform-emerald-soft ring-2 ring-white" aria-hidden="true" />
+          
+          {isUserMenuOpen && (
+            <div className="absolute right-0 mt-2 z-50 w-48 origin-top-right rounded-2xl border border-white/80 bg-white/95 p-2 shadow-[0_20px_50px_rgba(8,17,31,0.15)] backdrop-blur-md transition-all duration-200">
+              <div className="px-3 pb-2 pt-2 border-b border-softform-navy-950/10 mb-1">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-softform-navy-900/40">Logged in as</div>
+                <div className="text-sm font-semibold text-softform-navy-950 truncate capitalize">{userRole}</div>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="flex w-full items-center justify-start rounded-xl px-3 py-2 text-left text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors"
+              >
+                Sign out
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>

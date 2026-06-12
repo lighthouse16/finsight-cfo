@@ -10,6 +10,7 @@ async def create_workspace(
     company_name: str,
     currency: Optional[str],
     reporting_period: Optional[str],
+    organization_id: Optional[str] = None,
     workspace_repo: Any,
     audit_repo: Any,
     settings: Any,
@@ -26,6 +27,8 @@ async def create_workspace(
         metadata["currency"] = currency
     if reporting_period:
         metadata["reportingPeriod"] = reporting_period
+    if organization_id:
+        metadata["organization_id"] = organization_id
     workspace = workspace_repo.create_workspace(workspace_id, company_name, metadata=metadata)
     await record_audit_event_best_effort(
         audit_repo=audit_repo,

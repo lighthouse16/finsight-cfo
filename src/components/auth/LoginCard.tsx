@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { motion } from 'framer-motion'
+import { API_BASE_URL } from '../../lib/apiBase'
 
 export default function LoginCard() {
   const navigate = useNavigate()
@@ -16,9 +17,7 @@ export default function LoginCard() {
     const newErrors: { email?: string; password?: string } = {}
 
     if (!email) {
-      newErrors.email = 'Work email is required.'
-    } else if (!/^\S+@\S+\.\S+$/.test(email)) {
-      newErrors.email = 'Enter a valid work email.'
+      newErrors.email = 'Username or email is required.'
     }
 
     if (!password) {
@@ -31,15 +30,45 @@ export default function LoginCard() {
     return Object.keys(newErrors).length === 0
   }
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
     if (!validate()) return
 
     setIsLoading(true)
-    setTimeout(() => {
-      setIsLoading(false)
+    
+    try {
+      // Demo logic: use email as username (e.g. 'admin', 'viewer')
+      const username = email.split('@')[0].toLowerCase()
+      
+      const formData = new URLSearchParams()
+      formData.append('username', username)
+      formData.append('password', password)
+
+      const response = await fetch(`${API_BASE_URL}/api/auth/token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: formData,
+      })
+
+      if (!response.ok) {
+        setErrors({ email: 'Invalid credentials. Try "admin", "analyst", or "viewer".' })
+        setIsLoading(false)
+        return
+      }
+
+      const data = await response.json()
+      localStorage.setItem('access_token', data.access_token)
+      // For demo, we auto-assign a workspace ID if none exists, or just proceed
+      localStorage.setItem('active_user_role', username)
+      
       navigate('/platform/overview')
-    }, 650)
+    } catch (error) {
+      setErrors({ email: 'Failed to connect to authentication server.' })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -65,8 +94,8 @@ export default function LoginCard() {
           <input
             id="login-email"
             name="email"
-            type="email"
-            autoComplete="email"
+            type="text"
+            autoComplete="username"
             value={email}
             onChange={(event) => {
               setEmail(event.target.value)
