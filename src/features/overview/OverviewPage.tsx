@@ -36,6 +36,7 @@ import {
 import { API_BASE_URL } from '../../lib/apiBase'
 
 import WorkspaceInsufficientDataState from '../../components/platform/WorkspaceInsufficientDataState'
+import ReleaseOnboardingChecklist from '../../components/platform/ReleaseOnboardingChecklist'
 
 type OverviewState = {
   financial: any
@@ -247,6 +248,9 @@ export default function OverviewPage() {
         }
       />
 
+
+      {/* Onboarding Checklist */}
+      <ReleaseOnboardingChecklist />
 
       {/* KPI Metric Grid */}
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">

@@ -13,6 +13,9 @@ def build_demo_stress_tests(
     analysis: FinancialAnalysisResponse,
     risk_score: UnifiedRiskScoreResult,
     shock_bps: int = 150,
+    dso_days_shock: int = 15,
+    input_cost_shock_pct: float = 3.0,
+    fx_shock_pct: float = 2.0,
 ) -> StressTestingResponse:
     """
     Builds a context-only financial stress testing engine that applies deterministic
@@ -41,7 +44,14 @@ def build_demo_stress_tests(
             base_risk_score=risk_score.score if risk_score else 0,
             scenarios=[],
             disclaimer=disclaimer,
-            warnings=["Insufficient baseline financial data to run stress scenario models."]
+            warnings=["Insufficient baseline financial data to run stress scenario models."],
+            model_version="1.0.0",
+            model_type="scenario_stress_test",
+            calibration_status="rules_based",
+            assumptions=[],
+            limitations=["Not calibrated to historical default default-frequency databases."],
+            data_quality={"baseline_financials_available": False},
+            confidence_band="insufficient_data"
         )
         
     ebitda_base = snapshot.income_statement.ebitda
@@ -179,15 +189,15 @@ def build_demo_stress_tests(
     ))
 
     # -------------------------------------------------------------------------
-    # Scenario B: Receivables delay / DSO +15 days
+    # Scenario B: Receivables delay / DSO +days
     # -------------------------------------------------------------------------
     ar_assumptions = [
         StressScenarioAssumption(
             scenario_key="receivables_delay",
             label="Invoicing lag extension",
             scenario_type="receivables",
-            description="Simulates a 15-day average collection extension across active invoice registries.",
-            parameters={"dso_increase_days": 15},
+            description=f"Simulates a {dso_days_shock}-day average collection extension across active invoice registries.",
+            parameters={"dso_increase_days": dso_days_shock},
             source="Receivables aging credit guidelines"
         )
     ]
@@ -202,7 +212,7 @@ def build_demo_stress_tests(
         base_wc_gap = ratios.working_capital_gap.value or 0.0
         
         daily_rev = revenue_base / 365.0
-        ar_increase = daily_rev * 15.0
+        ar_increase = daily_rev * float(dso_days_shock)
         stressed_ar = base_ar + ar_increase
         stressed_wc_gap = base_wc_gap + ar_increase
         
@@ -253,7 +263,7 @@ def build_demo_stress_tests(
                 ar_takeaway = "Collections slow down temporarily but the business absorbs the working capital shift."
         else:
             ar_severity = "moderate"
-            ar_takeaway = "Receivables aging slows down; working capital gap expands by more than 20%."
+            ar_takeaway = "Receivables aging slows down; working capital gap expands."
             
         ar_band_movement = f"receivables_band: {summary.receivables_band} -> {'constrained' if ar_severity == 'high' else ('watch' if ar_severity in ('elevated', 'moderate') else 'adequate')}"
     else:
@@ -264,7 +274,7 @@ def build_demo_stress_tests(
         
     scenarios.append(StressScenarioResult(
         scenario_key="receivables_delay",
-        label="Receivables Delay +15 Days",
+        label=f"Receivables Delay +{dso_days_shock} Days",
         scenario_type="receivables",
         severity=ar_severity,
         assumptions=ar_assumptions,
@@ -278,13 +288,14 @@ def build_demo_stress_tests(
     # -------------------------------------------------------------------------
     # Scenario C: Input cost squeeze
     # -------------------------------------------------------------------------
+    input_cost_decimal = input_cost_shock_pct / 100.0
     cogs_assumptions = [
         StressScenarioAssumption(
             scenario_key="input_cost_squeeze",
             label="Raw material/input cost squeeze",
             scenario_type="commodities",
-            description="Simulates a 3% increase in raw material and procurement COGS inputs.",
-            parameters={"cogs_increase_percent": 0.03},
+            description=f"Simulates a {input_cost_shock_pct}% increase in raw material and procurement COGS inputs.",
+            parameters={"cogs_increase_percent": input_cost_decimal},
             source="Commodity index shift indicators"
         )
     ]
@@ -295,7 +306,7 @@ def build_demo_stress_tests(
     cogs_warnings = []
     
     if cogs_base > 0 and revenue_base > 0:
-        cogs_increase = cogs_base * 0.03
+        cogs_increase = cogs_base * input_cost_decimal
         stressed_cogs = cogs_base + cogs_increase
         
         base_gross_margin = (revenue_base - cogs_base) / revenue_base * 100.0
@@ -346,10 +357,10 @@ def build_demo_stress_tests(
             ))
             
             # Severity mapping
-            ebitda_drop_pct = abs(ebitda_change / ebitda_base)
+            ebitda_drop_pct = abs(ebitda_change / ebitda_base) if ebitda_base > 0 else 0.0
             if stressed_fcff < 0 or ebitda_drop_pct > 0.20:
                 cogs_severity = "high"
-                cogs_takeaway = "Input cost squeeze compresses EBITDA margins by over 20%, significantly impairing cash generation."
+                cogs_takeaway = f"Input cost squeeze compresses EBITDA margins by over 20% or drives cash flow negative."
             elif ebitda_drop_pct > 0.10:
                 cogs_severity = "elevated"
                 cogs_takeaway = "EBITDA and cash generation drop by over 10%. Margins are squeezed."
@@ -358,7 +369,7 @@ def build_demo_stress_tests(
                 cogs_takeaway = "Input costs squeeze gross profit slightly, but the business maintains baseline EBITDA levels."
         else:
             cogs_severity = "moderate"
-            cogs_takeaway = "Procurement costs compress gross margins by 3%."
+            cogs_takeaway = "Procurement costs compress gross margins."
             
         cogs_band_movement = f"leverage_band: {summary.leverage_band} -> {'constrained' if cogs_severity == 'high' else ('watch' if cogs_severity in ('elevated', 'moderate') else 'adequate')}"
     else:
@@ -369,7 +380,7 @@ def build_demo_stress_tests(
         
     scenarios.append(StressScenarioResult(
         scenario_key="input_cost_squeeze",
-        label="Input Cost Squeeze +3%",
+        label=f"Input Cost Squeeze +{input_cost_shock_pct}%",
         scenario_type="commodities",
         severity=cogs_severity,
         assumptions=cogs_assumptions,
@@ -385,14 +396,15 @@ def build_demo_stress_tests(
     # -------------------------------------------------------------------------
     fx_metadata = snapshot.metadata if (snapshot and snapshot.metadata) else {}
     usd_import_pct = fx_metadata.get("usd_import_cost_percent")
+    fx_decimal = fx_shock_pct / 100.0
     
     fx_assumptions = [
         StressScenarioAssumption(
             scenario_key="fx_stress",
             label="USD/HKD import cost stress",
             scenario_type="fx",
-            description="Simulates a 2% appreciation in USD/HKD, increasing import cost parameters.",
-            parameters={"usd_hkd_appreciation": 0.02},
+            description=f"Simulates a {fx_shock_pct}% appreciation in USD/HKD, increasing import cost parameters.",
+            parameters={"usd_hkd_appreciation": fx_decimal},
             source="FX Frankfurter provider reference metrics"
         )
     ]
@@ -404,7 +416,7 @@ def build_demo_stress_tests(
     
     if usd_import_pct is not None and cogs_base > 0 and revenue_base > 0:
         usd_cogs = cogs_base * usd_import_pct
-        annual_increase = usd_cogs * 0.02
+        annual_increase = usd_cogs * fx_decimal
         stressed_cogs = cogs_base + annual_increase
         
         base_gross_margin = (revenue_base - cogs_base) / revenue_base * 100.0
@@ -430,7 +442,7 @@ def build_demo_stress_tests(
             stressed_value=annual_increase,
             absolute_change=annual_increase,
             unit="currency",
-            interpretation=f"Import cost increases by HKD {annual_increase:,.0f} due to USD/HKD 2% fluctuation."
+            interpretation=f"Import cost increases by HKD {annual_increase:,.0f} due to USD/HKD {fx_shock_pct}% fluctuation."
         ))
         
         if fcff_base > 0:
@@ -454,7 +466,7 @@ def build_demo_stress_tests(
             ))
             
             # Severity mapping
-            ebitda_drop_pct = abs(ebitda_change / ebitda_base)
+            ebitda_drop_pct = abs(ebitda_change / ebitda_base) if ebitda_base > 0 else 0.0
             fcff_drop_pct = abs(fcff_change / fcff_base) if fcff_base > 0 else 0.0
             if stressed_fcff < 0 or ebitda_drop_pct > 0.15 or fcff_drop_pct > 0.15:
                 fx_severity = "high"
@@ -467,7 +479,7 @@ def build_demo_stress_tests(
                 fx_takeaway = "Moderate FX exposure impact on procurement cost margins."
         else:
             fx_severity = "moderate"
-            fx_takeaway = "USD import cost exposure increases procurement expense by 2%."
+            fx_takeaway = f"USD import cost exposure increases procurement expense by {fx_shock_pct}%."
             
         fx_band_movement = f"valuation_band: {summary.valuation_band} -> {'constrained' if fx_severity == 'high' else ('watch' if fx_severity in ('elevated', 'moderate') else 'adequate')}"
     else:
@@ -478,7 +490,7 @@ def build_demo_stress_tests(
         
     scenarios.append(StressScenarioResult(
         scenario_key="fx_stress",
-        label="FX Import-Cost Stress",
+        label=f"FX Import-Cost Stress +{fx_shock_pct}%",
         scenario_type="fx",
         severity=fx_severity,
         assumptions=fx_assumptions,
@@ -502,6 +514,28 @@ def build_demo_stress_tests(
         return [x for x in l if not (x in seen or seen.add(x))]
     warnings_list = _dedup(warnings_list)
 
+    stress_assumptions = [
+        f"Floating-rate debt interest rate increases by the specified HIBOR shock of {shock_bps} bps.",
+        f"Receivables collection delays extend the working capital cycle by the specified {dso_days_shock} DSO days.",
+        f"Input cost procurement expenses increase by the specified input cost shock of {input_cost_shock_pct}%.",
+        f"Import procurement cost margins compress based on the specified USD/HKD appreciation shock of {fx_shock_pct}%."
+    ]
+
+    stress_limitations = [
+        "Deterministic scenario analysis only; not a statistical distribution of default outcomes.",
+        "Assumes direct linear pass-through of shocks without proactive management mitigation action.",
+        "Not calibrated to historical default default-frequency databases."
+    ]
+
+    stress_data_quality = {
+        "baseline_financials_available": snapshot is not None and ratios is not None,
+        "debt_service_details_available": total_debt > 0 and total_debt_service > 0,
+        "receivables_aging_available": snapshot.receivables_aging is not None,
+        "fx_metadata_available": usd_import_pct is not None
+    }
+
+    confidence_band = "high" if all(stress_data_quality.values()) else "medium"
+
     return StressTestingResponse(
         company_id=snapshot.company_id,
         company_name=snapshot.company_name,
@@ -509,8 +543,16 @@ def build_demo_stress_tests(
         base_risk_score=risk_score.score,
         scenarios=scenarios,
         disclaimer=disclaimer,
-        warnings=warnings_list
+        warnings=warnings_list,
+        model_version="1.0.0",
+        model_type="scenario_stress_test",
+        calibration_status="rules_based",
+        assumptions=stress_assumptions,
+        limitations=stress_limitations,
+        data_quality=stress_data_quality,
+        confidence_band=confidence_band
     )
+
 
 
 def build_bochk_stress_test(

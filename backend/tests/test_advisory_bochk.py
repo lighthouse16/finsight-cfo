@@ -20,12 +20,12 @@ def test_cdi_mock_gateway_consent():
 def test_pd_engine_logic():
     # Good metrics -> low PD
     good_resp = calculate_pd("test", dscr=2.5, debt_ratio=0.2, margin=0.3, cdi_collateral_hkd=1_000_000)
-    assert good_resp.tier in ["Tier A (Excellent)", "Tier B (Good)"]
+    assert good_resp.tier in ["Tier A (Excellent)", "Tier B (Good)", "Planning Tier A (Excellent)", "Planning Tier B (Good)"]
     assert good_resp.probability_default < 0.10
     
     # Bad metrics -> high PD
     bad_resp = calculate_pd("test", dscr=0.8, debt_ratio=0.8, margin=-0.1, cdi_collateral_hkd=0)
-    assert bad_resp.tier in ["Tier E (High Risk)", "Tier D (Elevated)"]
+    assert bad_resp.tier in ["Tier E (High Risk)", "Tier D (Elevated)", "Planning Tier E (High Risk)", "Planning Tier D (Elevated)"]
     assert bad_resp.probability_default > 0.10
     
 def test_loan_structuring_engine():

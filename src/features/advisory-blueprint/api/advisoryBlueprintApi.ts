@@ -94,3 +94,32 @@ export async function getFinancialPreviewAnalysis(): Promise<FinancialAnalysisRe
     return null
   }
 }
+
+export interface ParameterizedStressTestParams {
+  hiborShockBps: number
+  dsoDaysShock: number
+  inputCostShockPct: number
+  fxShockPct: number
+}
+
+export async function runParameterizedStressTests(
+  params: ParameterizedStressTestParams
+): Promise<StressTestingResponse> {
+  const workspaceId = localStorage.getItem('active_workspace_id')
+  const body = {
+    companyId: workspaceId || undefined,
+    hiborShockBps: params.hiborShockBps,
+    dsoDaysShock: params.dsoDaysShock,
+    inputCostShockPct: params.inputCostShockPct,
+    fxShockPct: params.fxShockPct,
+  }
+  const res = await fetch(`${API_BASE_URL}/api/advisory/stress-tests`, {
+    method: 'POST',
+    headers: getWorkspaceHeaders({
+      'Content-Type': 'application/json',
+    }),
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(8000),
+  })
+  return handleApiResponse(res)
+}

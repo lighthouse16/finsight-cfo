@@ -429,7 +429,7 @@ export default function FundingStrategyPage() {
                       <h3 className="text-sm font-semibold text-softform-navy-950 leading-snug">{channel.name}</h3>
                       {isSfgs && (
                         <span className="rounded bg-softform-teal-deep/10 text-softform-teal-deep text-[10px] font-semibold px-2 py-0.5 uppercase tracking-wider">
-                          Govt Guaranteed
+                          SFGS Supported
                         </span>
                       )}
                     </div>

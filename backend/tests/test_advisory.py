@@ -888,3 +888,53 @@ def test_facility_structuring_nan_infinity_protection():
     result_dict = result.model_dump()
     assert result_dict is not None
 
+
+
+from unittest.mock import MagicMock, patch
+
+@patch('app.routes.advisory.get_workspace_repository_dependency')
+def test_compile_advisor_report_endpoint(mock_ws_repo):
+    """Verify the POST /report endpoint compiles and returns an AdvisorReadyReportPayload."""
+    
+    # Setup mock workspace
+    mock_repo_instance = MagicMock()
+    mock_repo_instance.get_workspace.return_value = {"id": "demo_ws", "name": "Demo WS"}
+    mock_ws_repo.return_value = mock_repo_instance
+    
+    # We must patch it in the FastAPI app dependency overrides
+    from app.main import app
+    from app.routes.workspaces import get_workspace_repository_dependency
+    
+    app.dependency_overrides[get_workspace_repository_dependency] = lambda: mock_repo_instance
+    
+    try:
+        payload = {"objective": "Assess funding readiness"}
+        response = client.post(
+            "/api/advisory/report",
+            json=payload,
+            headers={"x-workspace-id": "demo_ws"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "payload" in data
+        
+        report_payload = data["payload"]
+        assert report_payload["reportType"] == "advisor_ready"
+        assert "demo_ws" in report_payload["workspaceId"]
+        assert "sections" in report_payload
+        assert len(report_payload["sections"]) > 0
+        
+        # Check disclaimers
+        assert "disclaimers" in report_payload
+        disclaimers_str = str(report_payload["disclaimers"]).lower()
+        assert "not a formal credit approval" in disclaimers_str
+        assert "relationship manager review required" in disclaimers_str
+        
+        # Check citations metadata structure
+        ai_notes_section = next((s for s in report_payload["sections"] if s["title"] == "AI CFO Notes"), None)
+        if ai_notes_section:
+            for citation in ai_notes_section.get("citations", []):
+                assert "chunkIndex" in citation or "chunk_index" in citation
+                assert "sourceMode" in citation or "source_mode" in citation
+    finally:
+        del app.dependency_overrides[get_workspace_repository_dependency]

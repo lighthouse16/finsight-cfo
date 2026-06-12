@@ -50,6 +50,9 @@ def validate_startup_config(settings) -> None:
         # Rule 6: Production warnings for runtime security readiness
         if settings.normalized_auth_mode == "local":
             logger.warning("INSECURE: AUTH_MODE is 'local' in production. This is highly unsafe for real data. Replace with real OIDC/SAML.")
+        elif settings.normalized_auth_mode == "oidc":
+            if not getattr(settings, "OIDC_ISSUER_URL", "") or not getattr(settings, "OIDC_JWKS_URL", ""):
+                raise RuntimeError("OIDC_ISSUER_URL and OIDC_JWKS_URL must be configured when AUTH_MODE is 'oidc'.")
         
         if settings.normalized_persistence_backend == "local":
             logger.warning("PRODUCTION RISK: PERSISTENCE_BACKEND is 'local'. Database persistence should be enabled.")
@@ -60,8 +63,16 @@ def validate_startup_config(settings) -> None:
         if not getattr(settings, "REPORT_WORKER_ENABLED", False):
             logger.warning("PRODUCTION RISK: REPORT_WORKER_ENABLED is False. Async report generation will not function.")
 
+        if settings.normalized_queue_backend == "in_process":
+            logger.warning("PRODUCTION RISK: QUEUE_BACKEND is 'in_process'. Redis/Celery queue is recommended for production scale.")
+
     # Rule 7: If PERSISTENCE_BACKEND == "database", DATABASE_URL must not be empty or missing
     if settings.normalized_persistence_backend == "database":
         db_url = getattr(settings, "DATABASE_URL", "")
         if not db_url or db_url.strip() == "":
             raise RuntimeError("DATABASE_URL must be configured when PERSISTENCE_BACKEND is set to database.")
+        
+        # Check TimescaleDB URL configuration
+        timescale_url = getattr(settings, "TIMESCALE_DATABASE_URL", "")
+        if not timescale_url or timescale_url.strip() == "":
+            logger.warning("PRODUCTION RISK: TIMESCALE_DATABASE_URL is not configured. Falling back to DATABASE_URL.")

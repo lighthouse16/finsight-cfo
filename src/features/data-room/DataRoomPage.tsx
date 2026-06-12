@@ -35,6 +35,7 @@ import {
 import { getFinancialHealthAnalysis } from '../financial-health/financialHealthApi'
 import { API_BASE_URL } from '../../lib/apiBase'
 import { fetchBackendConfig, triggerAnalysisRun } from '../../lib/workspaceRunHelpers'
+import ReleaseOnboardingChecklist from '../../components/platform/ReleaseOnboardingChecklist'
 
 type UploadState = {
   uploading: boolean
@@ -651,7 +652,11 @@ export default function DataRoomPage() {
           </button>
         </div>
       </div>
-      <section className="grid gap-4 sm:grid-cols-4">
+      {/* Responsive Grid Layout */}
+      <div className="grid gap-6 lg:grid-cols-[1fr_380px] items-start">
+        {/* Left Column (Main Content) */}
+        <div className="space-y-6">
+          <section className="grid gap-4 sm:grid-cols-4">
         <div className="softform-metric-card rounded-[22px] p-5 hover-lift">
           <MetricDisplay
             label="Workspace Required Records"
@@ -1208,6 +1213,95 @@ export default function DataRoomPage() {
           </div>
         </div>
       </section>
+
+        </div>
+
+        {/* Right Column (Sidebar) */}
+        <div className="space-y-6 lg:w-[380px] shrink-0">
+          {/* Onboarding checklist */}
+          <ReleaseOnboardingChecklist compact={true} />
+
+          {/* Accepted Formats & Ingestion Guide */}
+          <div className="softform-card rounded-[24px] p-6 space-y-4">
+            <h3 className="text-sm font-bold text-softform-navy-950 flex items-center gap-2">
+              <Database size={16} className="text-softform-teal-500" />
+              <span>Accepted Formats & Ingestion</span>
+            </h3>
+            <div className="text-xs text-softform-text-secondary space-y-3">
+              <div className="space-y-1">
+                <span className="font-semibold text-softform-navy-950 block">Supported Extensions</span>
+                <p>• <strong className="text-softform-navy-900">CSV (.csv):</strong> Clean, raw tabular rows without formulas.</p>
+                <p>• <strong className="text-softform-navy-900">Excel (.xlsx):</strong> Standard sheets. Ensure data begins on cell A1.</p>
+                <p>• <strong className="text-softform-navy-900">PDF/DOCX (.pdf, .docx):</strong> Standard digital text layers only.</p>
+              </div>
+
+              <div className="p-3 bg-amber-500/5 border border-amber-500/10 rounded-xl space-y-1">
+                <span className="font-semibold text-softform-amber-500 block">OCR Disclaimer</span>
+                <p className="text-[10px] leading-relaxed">
+                  Cloud OCR parsing is currently <strong>not configured</strong>. Scanned documents, image-only files, or non-searchable PDFs are not supported. Please convert them to CSV or XLSX before uploading.
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <span className="font-semibold text-softform-navy-950 block">Upload Template Guidelines</span>
+                <p>Make sure uploaded files include key columns such as <code>Date</code>, <code>Category</code>, <code>Amount</code>, or standard financial ratios. Row names should match standard bookkeeping nomenclature.</p>
+              </div>
+
+              <div className="space-y-1">
+                <span className="font-semibold text-softform-navy-950 block">Ingestion Parser Statuses</span>
+                <div className="space-y-1.5 pt-1 text-[11px]">
+                  <p>• <span className="font-semibold text-emerald-600 bg-emerald-50 px-1 py-0.25 rounded">Parsed:</span> Record structure successfully matched and validated by accounting engine.</p>
+                  <p>• <span className="font-semibold text-amber-600 bg-amber-50 px-1 py-0.25 rounded">Unsupported without OCR:</span> Non-text PDF detected. Needs CSV/XLSX structure.</p>
+                  <p>• <span className="font-semibold text-rose-600 bg-rose-50 px-1 py-0.25 rounded">Failed:</span> Malformed layout, invalid dates, or out-of-balance values.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Next Actions */}
+          <div className="softform-card rounded-[24px] p-6 space-y-4">
+            <h3 className="text-sm font-bold text-softform-navy-950 flex items-center gap-2">
+              <ArrowRight size={16} className="text-softform-teal-500" />
+              <span>Recommended Next Actions</span>
+            </h3>
+            <div className="space-y-2.5">
+              <button
+                onClick={handleBuildSnapshot}
+                disabled={isBuilding || locallyMissingRequiredStatements.length > 0}
+                className="w-full text-left p-3 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-850 dark:hover:bg-slate-800 border border-slate-100 dark:border-slate-800 transition flex items-center justify-between group disabled:opacity-50"
+              >
+                <div>
+                  <p className="text-xs font-semibold text-softform-navy-950">1. Compile Snapshot</p>
+                  <p className="text-[10px] text-softform-text-muted">Validate & publish active financials</p>
+                </div>
+                <Database size={14} className="text-slate-400 group-hover:text-softform-teal-deep transition" />
+              </button>
+              
+              <Link
+                to="/platform/financial-health"
+                className="w-full text-left p-3 rounded-xl bg-slate-50 hover:bg-slate-105 dark:bg-slate-850 dark:hover:bg-slate-800 border border-slate-100 dark:border-slate-800 transition flex items-center justify-between group block"
+              >
+                <div>
+                  <p className="text-xs font-semibold text-softform-navy-950">2. Review Financial Health</p>
+                  <p className="text-[10px] text-softform-text-muted">Inspect ratio profiles & diagnostics</p>
+                </div>
+                <Activity size={14} className="text-slate-400 group-hover:text-softform-teal-deep transition" />
+              </Link>
+
+              <Link
+                to="/platform/advisory-blueprint"
+                className="w-full text-left p-3 rounded-xl bg-slate-50 hover:bg-slate-105 dark:bg-slate-850 dark:hover:bg-slate-800 border border-slate-100 dark:border-slate-800 transition flex items-center justify-between group block"
+              >
+                <div>
+                  <p className="text-xs font-semibold text-softform-navy-950">3. Go to Advisory Blueprint</p>
+                  <p className="text-[10px] text-softform-text-muted">Parameterize stress tests & view brief</p>
+                </div>
+                <Compass size={14} className="text-slate-400 group-hover:text-softform-teal-deep transition" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* 7. Link to Advisory Blueprint & Market Watch */}
       <section className="flex flex-col sm:flex-row gap-6 items-center justify-between p-8 rounded-[36px] border border-white/70 bg-gradient-to-r from-softform-mist-100/50 to-white/50 backdrop-blur-md shadow-base-card">
