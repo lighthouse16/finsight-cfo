@@ -54,10 +54,15 @@ def test_loan_structuring_engine():
     assert sfgs_alloc is not None
     assert sfgs_alloc.amount == 18_000_000.0
     
-    # Remaining 2M should go to Trade Finance
+    # Trade Finance limit is 1.5x of 1.32M collateral = 1.98M
     trade_alloc = next((f for f in resp.recommended_facilities if "Trade" in f.facility), None)
     assert trade_alloc is not None
-    assert trade_alloc.amount == 2_000_000.0
+    assert trade_alloc.amount == 1_980_000.0
+    
+    # Remaining 20k should go to Working Capital Buffer
+    wc_alloc = next((f for f in resp.recommended_facilities if "Working Capital" in f.facility), None)
+    assert wc_alloc is not None
+    assert wc_alloc.amount == 20_000.0
     
     assert resp.total_estimated_cost > 0
     assert resp.weighted_average_cost_bps > 0
