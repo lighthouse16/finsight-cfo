@@ -18,6 +18,7 @@ from app.routes.workspaces import router as workspaces_router
 from app.routes.jobs import router as jobs_router
 from app.routes.metrics import router as metrics_router
 from app.routes.auth import router as auth_router
+from app.routes.env_validation import router as env_validation_router
 from app.core.auth import get_request_context
 from app.core.rate_limit import RateLimiter
 
@@ -144,6 +145,7 @@ def runtime_status():
     }
 
 app.include_router(auth_router, prefix="/api/auth")
+app.include_router(env_validation_router, prefix="/api/admin", dependencies=[Depends(get_request_context)])
 app.include_router(market_watch_router, prefix="/api/market-watch", dependencies=[Depends(get_request_context)])
 app.include_router(market_funding_router, prefix="/api/market-funding", dependencies=[Depends(get_request_context)])
 app.include_router(financials_router, prefix="/api/financials", dependencies=[Depends(get_request_context)])

@@ -49,7 +49,14 @@ class Settings(BaseSettings):
     PERSISTENCE_BACKEND: str = "local"
     STORAGE_BACKEND: str = "local"
     DATABASE_URL: str = "sqlite:///./storage_db/finsight_dev.db"
+    TIMESCALE_DATABASE_URL: Optional[str] = ""
     DATABASE_ECHO: bool = False
+
+    # OIDC Configuration
+    OIDC_ISSUER_URL: Optional[str] = ""
+    OIDC_CLIENT_ID: Optional[str] = ""
+    OIDC_AUDIENCE: Optional[str] = ""
+    OIDC_JWKS_URL: Optional[str] = ""
 
     # Object Storage Configs
     OBJECT_STORAGE_BACKEND: str = "local_file"
@@ -99,6 +106,11 @@ class Settings(BaseSettings):
         if auth_secret_val:
             self.JWT_SECRET_KEY = auth_secret_val
             self.AUTH_SECRET = auth_secret_val
+            
+        # Standardize TimescaleDB URL
+        timescale_url_val = self.TIMESCALE_DATABASE_URL or self.DATABASE_URL
+        if timescale_url_val:
+            self.TIMESCALE_DATABASE_URL = timescale_url_val
             
         # Standardize Redis URL
         redis_url_val = self.QUEUE_REDIS_URL or self.REDIS_URL
