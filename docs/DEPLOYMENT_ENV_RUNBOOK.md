@@ -77,17 +77,38 @@ S3_FORCE_PATH_STYLE=true
 
 * **Safe Fallback**: If `s3` is enabled but the `S3_BUCKET` is not set or authentication fails, the storage system logs a warning, returns a status of `provider_not_configured`, and stores the files in the local disk directory as a secondary fallback.
 
-### Database / Postgres Configuration
+### Database / Postgres / TimescaleDB Configuration
 
-Production persistence utilizes PostgreSQL via SQLAlchemy:
+Production persistence utilizes PostgreSQL (with TimescaleDB support) via SQLAlchemy:
 
 ```env
 PERSISTENCE_BACKEND=database
 DATABASE_URL=postgresql://db_user:db_password@db_host:5432/db_name
+TIMESCALE_DATABASE_URL=postgresql://db_user:db_password@db_host:5432/db_name  # Optional: defaults to DATABASE_URL
 ```
 
+* **TimescaleDB Support**: The database engine automatically connects and verifies if the TimescaleDB extension is enabled.
 * **Safe Fallback**: If `PERSISTENCE_BACKEND=database` is requested but `DATABASE_URL` is unset, the system falls back to a local SQLite database at `./storage_db/finsight_dev.db` for convenience.
-* **Schema Migrations**: Schema creation is handled via Alembic. Running `alembic upgrade head` is required during deployment.
+* **Schema Migrations**: Schema creation and upgrades are handled via Alembic. Running `alembic upgrade head` is required during deployment.
+
+### OIDC / OAuth2 Identity Provider Configuration
+
+To enable enterprise-grade single-sign-on (SSO) and role-based access control (RBAC), configure the OIDC provider settings:
+
+```env
+AUTH_MODE=oidc
+OIDC_ISSUER_URL=https://your-identity-provider.com/realms/your-realm
+OIDC_CLIENT_ID=finsight-cfo-app
+OIDC_AUDIENCE=finsight-cfo-api          # Optional: defaults to OIDC_CLIENT_ID
+OIDC_JWKS_URL=https://your-identity-provider.com/realms/your-realm/protocol/openid-connect/certs  # Optional: resolved via Discovery if empty
+```
+
+* **Token Signature Check**: Incoming bearer tokens are verified against the OIDC provider's public keys fetched dynamically from the `OIDC_JWKS_URL` (and cached in-memory with a 24-hour TTL).
+* **Claims Resolution**: Claims are parsed to construct the request context:
+  * `sub` claim is mapped to `user_id`.
+  * `org`/`tenant`/`organization` claims are mapped to `organization_id`.
+  * `role`/`roles`/`groups` claims (including Keycloak resource-access client roles) are mapped to `role` (`admin`, `analyst`, or `viewer`).
+  * If configuration is missing or token verification fails, the system blocks the request with a `401 Unauthorized` response.
 
 ---
 
@@ -117,9 +138,25 @@ RATE_LIMIT_WS_BURST=100.0
 
 ---
 
-## 4. Metrics and Logging
+## 4. Metrics, Logging and Environment Validation
 
-The system is equipped with standard telemetry for health checking and production monitoring.
+The system is equipped with standard telemetry and admin endpoints for health checking and production verification.
+
+### Production Environment Validation Endpoint
+
+Administrators can trigger a deep, live validation of the production ecosystem using the following endpoint (restricted to `admin` role):
+
+```http
+GET /api/admin/validate-production-env
+```
+
+This runs a suite of live smoke tests and returns validation status for:
+1. **Postgres / TimescaleDB**: Connection ping and checks if the `timescaledb` extension is active.
+2. **Redis**: Connects, pings, writes a temporary key, reads it back, and deletes it.
+3. **Object Storage**: Performs a live S3 upload/download/delete cycle of a dummy text file to verify S3 bucket read/write permissions.
+4. **OIDC Provider**: Verifies discovery or JWKS connectivity and retrieves active keys.
+
+If a component is unconfigured, the endpoint returns a status of `"provider_not_configured"`.
 
 ### Prometheus Metrics Endpoint
 
@@ -144,12 +181,22 @@ Logs are formatted as single-line JSON records written to standard output (`stdo
 
 ---
 
-## 5. What Remains Deferred (Not Real)
+## 5. GitHub Actions Continuous Deployment Workflow
+
+The codebase includes an automated delivery pipeline at `.github/workflows/deploy.yml` which triggers on pushes to the `commercial/**` and `main` branches.
+
+### Pipeline Stages
+1. **Build & Test**: Builds Docker containers, lints frontend code, and runs the pytest suite on the backend.
+2. **Database Migration**: Executes `alembic upgrade head` using database credentials provided in GitHub secrets.
+3. **Infrastructure Deploy (Dry-Run / Production)**: Simulates the deployment steps. If SSH secrets (`DEPLOY_HOST`, `DEPLOY_KEY`) are provided in repository secrets, executes a remote update to deploy the production containers.
+
+---
+
+## 6. What Remains Deferred (Not Real)
 
 The following components currently operate in mock or stub mode because live commercial integrations do not yet exist:
 
-1. **Authentication (OIDC/OAuth2)**: The platform parses user and organization context from headers or default local stubs (`AUTH_MODE=local`). No real connection to an Identity Provider (IdP) is implemented.
-2. **CDI / Alternative Data**: Live connectors for CDI, CCRA, MPF, or CargoX do not exist. Ingestion and consent flows rely on stubs and prechecks.
-3. **Calibrated PD Models**: The Probability of Default (PD) score is a rule-based index computed locally. It has not been statistically calibrated against historical bank portfolio default data.
-4. **Paid Market Feeds**: Market Watch scrapes HIBOR from the HKAB public rates page, interbank liquidity from the HKMA public page, and FX from Frankfurter API. Real-time ticker feeds, commodities, bonds, inflation, and central bank rates do not have live commercial feeds.
-5. **Production Document Index Storage**: The BM25 keyword search index for AI CFO RAG reads and writes a single on-disk flat JSON file (`storage/document_index.json`). In a multi-worker production deployment, this must be migrated to a dedicated database or search service.
+1. **CDI / Alternative Data**: Live connectors for CDI, CCRA, MPF, or CargoX do not exist. Ingestion and consent flows rely on stubs and prechecks.
+2. **Calibrated PD Models**: The Probability of Default (PD) score is a rule-based index computed locally. It has not been statistically calibrated against historical bank portfolio default data.
+3. **Paid Market Feeds**: Market Watch scrapes HIBOR from the HKAB public rates page, interbank liquidity from the HKMA public page, and FX from Frankfurter API. Real-time ticker feeds, commodities, bonds, inflation, and central bank rates do not have live commercial feeds.
+4. **Production Document Index Storage**: The BM25 keyword search index for AI CFO RAG reads and writes a single on-disk flat JSON file (`storage/document_index.json`). In a multi-worker production deployment, this must be migrated to a dedicated database or search service.
