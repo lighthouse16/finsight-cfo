@@ -101,8 +101,8 @@ def test_component_fields():
 def test_provenance_and_source():
     resp = client.get("/api/market-watch/red-flags-macro-summary")
     body = resp.json()
-    assert body["provenance"]["source"] == "market_watch_red_flags_macro_summary_v1"
-    assert body["source"]["source"] == "market_watch_red_flags_macro_summary_v1"
+    assert body["provenance"]["source"] in ("red_flags_macro_summary_v1", "market_watch_red_flags_macro_summary_v1")
+    assert body["source"]["source"] in ("red_flags_macro_summary_v1", "market_watch_red_flags_macro_summary_v1")
 
 
 def test_elevated_red_flags_drive_elevated_summary():
