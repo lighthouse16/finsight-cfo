@@ -80,6 +80,8 @@ This document outlines the high-level roadmap for transitioning FinSight CFO fro
     - Add a feature-flagged in-process report worker harness (`run_report_worker_tick`) to process pending report generation jobs synchronously without daemons/external queues.
 32. **Manual Report Worker Tick Route (Phase 14)** [COMPLETED]
     - Add a controlled backend route to trigger one workspace-scoped report worker tick on demand, respecting `REPORT_WORKER_ENABLED` and `REPORT_WORKER_MAX_JOBS_PER_TICK` without auto-start behavior.
+33. **Product Smoke Flow Coverage (Phase 15)** [COMPLETED]
+    - Add focused backend end-to-end product smoke tests for the real FinSight CFO product flow.
 
 
 

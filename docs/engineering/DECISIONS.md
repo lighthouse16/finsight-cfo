@@ -230,5 +230,12 @@ This document records key architectural and design decisions for FinSight CFO.
 - Decision: Add `POST /api/workspaces/{workspace_id}/jobs/report-worker/tick` in `backend/app/routes/jobs.py` and keep it synchronous, workspace-scoped, and fully gated by `REPORT_WORKER_ENABLED`. The route delegates to `run_report_worker_tick`, preserves local-mode no-DB-init behavior, and returns a stable summary payload instead of auto-running on startup.
 - Consequences: Operators can process pending report jobs on demand and observe `pending -> running -> completed/failed` transitions without introducing schedulers, polling loops, or queue infrastructure.
 
+## ADR-037: Add focused backend end-to-end product smoke tests
+- Status: Approved
+- Context: With all persistence layers, job structures, worker prototype routes, and manual ticking endpoints merged, the project needs an automated test suite verifying that the real product flow functions end-to-end without regression or modifying the production runtime behaviors.
+- Decision: Implement an end-to-end product smoke test suite (`test_product_smoke_flow.py`) covering both in-memory SQLite database-mode operations (Workspace creation -> file uploads -> snapshot building -> valuation analysis run -> report save -> job queuing -> manual tick execution -> completion verify) and local-mode fallback route guardrails.
+- Consequences: Verifies integration points across the auth, workspace, file storage, analysis, jobs, and worker layers, ensuring a stable foundation prior to subsequent frontend and staging environment cuts.
+
+
 
 

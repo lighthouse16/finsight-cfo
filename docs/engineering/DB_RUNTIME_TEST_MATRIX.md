@@ -27,6 +27,7 @@ This test matrix outlines the validation suites, current coverage status, and re
 | **Database / Local** | Report Job Trigger Route | Route | High (POST creation endpoint, byte validations, local fallback) | None | Yes | Platform Team / T-130 |
 | **Database / Local** | Report Worker Harness | Unit / Guardrail | High (Tick scanning, limit checks, error summaries, setting toggles) | None | Yes | Platform Team / T-131 |
 | **Database / Local** | Manual Report Worker Tick Route | Route / Guardrail | High (workspace-scoped manual tick, disabled summary, local no-DB-init, max-per-tick) | None | Yes | Platform Team / T-132 |
+| **Database / Local** | Product Smoke Flow | Integration / Route | High (E2E create, upload, run, report, job, worker tick flow) | None | Yes | Platform Team / T-132 |
 | **Database** | Reports | Unit / Integration / Route | High (Adapter + Route tests) | None | Yes | Backend Team / T-110 |
 
 | **Database** | Integration Health Check | Route / Guardrail | High (Smoke + Side-effect tests) | None | Yes | Backend Team / T-116 |
