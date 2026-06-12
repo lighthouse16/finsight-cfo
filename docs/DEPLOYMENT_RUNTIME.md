@@ -161,14 +161,19 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/platform/market-wat
 curl -s http://localhost:8080/api/market-watch/rates-liquidity | python -c "import sys,json; d=json.load(sys.stdin); print('OK - rates count:', len(d.get('rates',[])))"
 ```
 
-### Health Endpoint (Backend)
+### Health and Status Endpoints (Backend)
 
-The backend exposes a health endpoint at `GET /health`:
+The backend exposes endpoints to verify readiness and runtime configuration safely:
 
 ```powershell
 Invoke-RestMethod -Uri "http://localhost:8000/health"
 Invoke-RestMethod -Uri "http://localhost:8080/api/health"   # via nginx proxy
+
+Invoke-RestMethod -Uri "http://localhost:8080/api/ready"
+
+Invoke-RestMethod -Uri "http://localhost:8080/api/runtime/status"
 ```
+The `/api/runtime/status` endpoint provides the app version, persistence/auth modes, and operational warnings if insecure defaults are used in production mode (e.g. local file persistence).
 
 ## Common Commands
 
@@ -183,6 +188,7 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/health"   # via nginx proxy
 | View logs for a service         | `docker compose logs -f backend` |
 | Enter a running container       | `docker compose exec backend sh` |
 | Restart a service               | `docker compose restart backend` |
+| Run report worker (single tick) | `docker compose exec backend python -m app.scripts.run_report_worker_once` |
 
 ## Local Development vs. Docker
 
