@@ -24,12 +24,12 @@ This document defines the explicit gaps that must be closed to transition the cu
 | Attribute | Detail |
 | :--- | :--- |
 | **Gap ID** | GAP-DATA-01 |
-| **Title** | In-memory file uploads with no durable storage |
-| **Severity** | **Critical** |
+| **Title** | Production object storage requires bucket configuration |
+| **Severity** | **Medium** |
 | **Component** | Data Room |
-| **Current State** | Uploaded financial documents are parsed in-memory and discarded after the request completes. Data is lost on process restart or scale-out. |
-| **Required State** | Uploaded files stored in S3-compatible object storage (AWS S3, GCS, MinIO) with signed URLs for access control. |
-| **Effort Estimate** | 2 weeks |
+| **Current State** | **Code adapter exists.** Local file mode and AWS S3/MinIO compatible object storage adapters are implemented. However, production deployments still require provisioning and configuring a secure, durable cloud bucket. |
+| **Required State** | Provision production S3/GCS bucket, set up Access Key / Secret credentials and configure corresponding environment variables. |
+| **Effort Estimate** | 1–2 days (configuration only) |
 | **Dependencies** | Cloud storage provisioning |
 
 ### 3. OCR Capability
@@ -43,7 +43,7 @@ This document defines the explicit gaps that must be closed to transition the cu
 | **Current State** | Only raw text extraction from CSV/XLSX/PDF is supported. Scanned image PDFs cannot be processed. |
 | **Required State** | Integrate an OCR engine (Tesseract, Google Document AI, or Azure Form Recognizer) to extract text from scanned documents. |
 | **Effort Estimate** | 2–3 weeks |
-| **Dependencies** | GAP-DATA-01 (requires durable storage for image processing pipeline) |
+| **Dependencies** | GAP-DATA-01 (requires durable storage configuration) |
 
 ### 4. Database Migration Pipeline
 
@@ -76,12 +76,12 @@ This document defines the explicit gaps that must be closed to transition the cu
 | Attribute | Detail |
 | :--- | :--- |
 | **Gap ID** | GAP-QUEUE-01 |
-| **Title** | `in_process` queue has no durability or retry |
-| **Severity** | **High** |
+| **Title** | Redis-compatible queue requires production hosting |
+| **Severity** | **Medium** |
 | **Component** | Queue / Scheduler |
-| **Current State** | `QUEUE_BACKEND=in_process` executes jobs synchronously. A crash during job execution loses the job entirely. No retry, no dead-letter queue. |
-| **Required State** | Default to `redis` or `celery` backend in production. Configure retry policies, dead-letter queues, and job monitoring. |
-| **Effort Estimate** | 1–2 weeks |
+| **Current State** | **Code adapter exists.** A Redis-compatible queue backend has been added (PR #56). Production environments still require a hosted Redis instance (e.g. AWS ElastiCache), queue depth monitoring, and worker scaling configuration. |
+| **Required State** | Provision a managed Redis instance, set up worker logs, and wire the `QUEUE_REDIS_URL` in the deployment runbook. |
+| **Effort Estimate** | 2–3 days (configuration only) |
 | **Dependencies** | Redis server provisioning |
 
 ### 7. Real CDI / Alternative Data APIs
@@ -128,38 +128,38 @@ This document defines the explicit gaps that must be closed to transition the cu
 | Attribute | Detail |
 | :--- | :--- |
 | **Gap ID** | GAP-LLM-01 |
-| **Title** | Only OpenAI and Azure OpenAI are supported as LLM providers |
+| **Title** | Production LLM approved models and keys configuration |
 | **Severity** | **Low** |
 | **Component** | AI CFO |
-| **Current State** | Provider detection checks for `openai` or `azure_openai`. No support for Gemini, Claude, Llama, or self-hosted models. |
-| **Required State** | Add provider adapters for Gemini, Claude, and configurable self-hosted endpoints (vLLM, Ollama). |
-| **Effort Estimate** | 1–2 weeks per provider |
-| **Dependencies** | API keys / endpoints for each provider |
+| **Current State** | **Code adapters exist.** Support for Google AI/Gemini, OpenAI, and Azure OpenAI has been implemented. Production requires provisioning api keys, confirming model selections, and establishing token quotas. |
+| **Required State** | Input the approved production API keys and configure model parameters (e.g. `GOOGLE_AI_MODEL=gemini-1.5-flash`). |
+| **Effort Estimate** | 1 day (configuration only) |
+| **Dependencies** | LLM API provider access keys |
 
 ### 11. Structured Logging & Monitoring
 
 | Attribute | Detail |
 | :--- | :--- |
 | **Gap ID** | GAP-OPS-01 |
-| **Title** | No structured logging, metrics, or tracing |
-| **Severity** | **High** |
+| **Title** | Centralized tracing and log aggregation pending |
+| **Severity** | **Medium** |
 | **Component** | Operations |
-| **Current State** | Python `logging` module with basic log levels. No structured JSON logs, no metrics aggregation (Prometheus), no distributed tracing (OpenTelemetry). |
-| **Required State** | Implement structured logging (structlog / python-json-logger), expose Prometheus metrics for HTTP requests and job processing, add OpenTelemetry instrumentation. |
-| **Effort Estimate** | 2–3 weeks |
-| **Dependencies** | Monitoring infrastructure (Grafana/Prometheus) |
+| **Current State** | **Basic metrics and logs exist.** Structured JSON logging (with auto-masking of authorization headers and API keys) and a `/metrics` Prometheus endpoint have been added (PR #56). Full centralized log aggregation (ELK/Splunk) and distributed tracing (OpenTelemetry) are still pending. |
+| **Required State** | Connect JSON logs to a logging collector, configure OpenTelemetry collectors, and build Grafana dashboards. |
+| **Effort Estimate** | 1–2 weeks |
+| **Dependencies** | Monitoring infrastructure (Grafana/Prometheus/Splunk) |
 
 ### 12. Rate Limiting & DoS Protection
 
 | Attribute | Detail |
 | :--- | :--- |
 | **Gap ID** | GAP-OPS-02 |
-| **Title** | No rate limiting on API endpoints |
+| **Title** | Distributed rate limiting requires shared backend |
 | **Severity** | **Medium** |
 | **Component** | API Gateway |
-| **Current State** | All endpoints are unthrottled. A single client can saturate the server with requests. |
-| **Required State** | Implement rate limiting per IP and per workspace (token bucket or sliding window) using Redis or middleware. |
-| **Effort Estimate** | 1 week |
+| **Current State** | **Local middleware exists.** In-memory token-bucket rate limiting (per-IP and per-Workspace) has been implemented (PR #56). In a multi-worker production deployment, rate limits will be isolated to individual workers rather than cluster-wide. |
+| **Required State** | Upgrade the rate limiter to query a shared Redis store to sync token buckets across multiple server instances. |
+| **Effort Estimate** | 3–5 days |
 | **Dependencies** | Redis server (shared with GAP-QUEUE-01) |
 
 ### 13. CI/CD Pipeline
@@ -207,9 +207,9 @@ This document defines the explicit gaps that must be closed to transition the cu
 
 | Severity | Count | Key Gaps |
 | :--- | :--- | :--- |
-| **Critical** | 2 | GAP-AUTH-01, GAP-DATA-01 |
-| **High** | 4 | GAP-DB-01, GAP-DB-02, GAP-QUEUE-01, GAP-OPS-01 |
-| **Medium** | 6 | GAP-DATA-02, GAP-CDI-01, GAP-RISK-01, GAP-OPS-02, GAP-OPS-03, GAP-INDEX-01 |
+| **Critical** | 1 | GAP-AUTH-01 |
+| **High** | 2 | GAP-DB-01, GAP-DB-02 |
+| **Medium** | 9 | GAP-DATA-01, GAP-DATA-02, GAP-QUEUE-01, GAP-CDI-01, GAP-RISK-01, GAP-OPS-01, GAP-OPS-02, GAP-OPS-03, GAP-INDEX-01 |
 | **Low** | 3 | GAP-FEED-01, GAP-LLM-01, GAP-LOAN-01 |
 
-**Total gaps: 15**
+**Total gaps: 15** (5 gaps reclassified to reflect implemented adapters and code bases)
