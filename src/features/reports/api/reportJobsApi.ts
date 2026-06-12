@@ -109,3 +109,21 @@ export async function createReportGenerationJob(
 
   return parseJobResponse<ReportJob>(response)
 }
+
+export type ReportWorkerTickSummary = {
+  enabled: boolean
+  scanned: number
+  processed: number
+  succeeded: number
+  failed: number
+  errors: string[]
+}
+
+export async function runReportWorkerTick(workspaceId: string): Promise<ReportWorkerTickSummary> {
+  const response = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/jobs/report-worker/tick`, {
+    method: 'POST',
+    headers: getWorkspaceHeaders(),
+  })
+
+  return parseJobResponse<ReportWorkerTickSummary>(response)
+}
