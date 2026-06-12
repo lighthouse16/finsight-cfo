@@ -86,6 +86,7 @@ jobs:
             # Check alembic configuration syntax/integrity with default fallback URL
             unset DATABASE_URL
             mkdir -p storage_db
+            alembic upgrade head
             alembic check
           else
             echo "DATABASE_URL is present. Running migrations..."
