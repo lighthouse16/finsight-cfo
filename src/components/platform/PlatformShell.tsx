@@ -1,9 +1,9 @@
 import { useState, useCallback, useEffect } from 'react'
-import { Outlet, useLocation } from 'react-router-dom'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import SidebarNav from './SidebarNav'
 import TopCommandBar from './TopCommandBar'
 import { motion, AnimatePresence } from 'framer-motion'
-import { WorkspaceProvider, useWorkspace } from '../../context/workspaceContext'
+import { useWorkspace } from '../../context/workspaceContext'
 import CreateWorkspacePage from '../../pages/CreateWorkspacePage'
 import PageLoadingSkeleton from './PageLoadingSkeleton'
 
@@ -28,7 +28,8 @@ function writeCollapsedToStorage(value: boolean): void {
 
 function PlatformShellContent() {
   const location = useLocation()
-  const { workspaces, isLoading } = useWorkspace()
+  const navigate = useNavigate()
+  const { workspaces, isLoading, backendConfig } = useWorkspace()
   // Mobile drawer state
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
@@ -36,6 +37,16 @@ function PlatformShellContent() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(
     readCollapsedFromStorage,
   )
+
+  // Enforce auth redirect in production/OIDC if token is missing
+  useEffect(() => {
+    if (!isLoading && backendConfig && backendConfig.isProduction) {
+      const token = localStorage.getItem('access_token')
+      if (!token) {
+        navigate('/login', { replace: true })
+      }
+    }
+  }, [isLoading, backendConfig, navigate])
 
   // Sync collapsed state to localStorage whenever it changes
   useEffect(() => {
@@ -101,9 +112,5 @@ function PlatformShellContent() {
 }
 
 export default function PlatformShell() {
-  return (
-    <WorkspaceProvider>
-      <PlatformShellContent />
-    </WorkspaceProvider>
-  )
+  return <PlatformShellContent />
 }
