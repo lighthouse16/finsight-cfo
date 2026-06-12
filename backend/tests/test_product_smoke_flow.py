@@ -94,6 +94,11 @@ def test_database_mode_product_smoke_flow(db_session, monkeypatch):
     app.dependency_overrides[get_db_session_optional] = override_get_db_session
     client = TestClient(app)
 
+    # 0. Validate new endpoints
+    assert client.get("/health").status_code == 200
+    assert client.get("/ready").status_code == 200
+    assert client.get("/api/runtime/status").status_code == 200
+
     headers = {
         "X-Organization-Id": "org_default",
         "X-User-Id": "demo-user",

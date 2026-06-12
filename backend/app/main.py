@@ -36,6 +36,46 @@ app.add_middleware(
 def health_check():
     return {"status": "ok", "service": "finsight-cfo-api"}
 
+@app.get("/ready")
+def readiness_check():
+    # In a full deployment, this would verify DB and Redis connectivity.
+    # For now, if the app reaches this point, we assume it's ready to handle traffic.
+    return {"status": "ready"}
+
+@app.get("/api/runtime/status")
+def runtime_status():
+    """
+    Returns the current runtime configuration status without exposing secrets.
+    """
+    warnings = []
+    
+    if settings.APP_MODE == "production":
+        if settings.normalized_auth_mode == "local":
+            warnings.append("Auth mode is 'local' in production. This is highly unsafe for real data. Replace with real OIDC/SAML.")
+        if settings.normalized_persistence_backend == "local":
+            warnings.append("Persistence backend is 'local' in production. Database persistence should be enabled.")
+        if getattr(settings, "STORAGE_BACKEND", "local") == "local":
+            warnings.append("Storage backend is 'local' in production. Object storage should be configured.")
+        if not getattr(settings, "REPORT_WORKER_ENABLED", False):
+            warnings.append("Report worker is disabled. Async report generation will not function.")
+            
+    disclaimers = [
+        "This platform is intended for demonstration and planning purposes.",
+        "Ensure all secrets and API keys are stored securely outside the source tree."
+    ]
+
+    return {
+        "app_version": getattr(settings, "APP_VERSION", "unknown"),
+        "app_mode": settings.APP_MODE,
+        "persistence_backend": settings.normalized_persistence_backend,
+        "auth_mode": settings.normalized_auth_mode,
+        "report_worker_enabled": getattr(settings, "REPORT_WORKER_ENABLED", False),
+        "scheduler_mode": getattr(settings, "SCHEDULER_MODE", "manual"),
+        "storage_mode": getattr(settings, "STORAGE_BACKEND", "local"),
+        "warnings": warnings,
+        "disclaimers": disclaimers
+    }
+
 app.include_router(market_watch_router, prefix="/api/market-watch")
 app.include_router(market_funding_router, prefix="/api/market-funding")
 app.include_router(financials_router, prefix="/api/financials")
