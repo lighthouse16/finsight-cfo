@@ -68,7 +68,7 @@ def _classify_upload(file: UploadFile, record_key: str) -> DataRoomUploadedFile:
             file_size_bytes = None
 
     if not allowed:
-        status = "unsupported_type"
+        status = "unsupported"
         validation_messages.append(
             f"File type '{extension or content_type or 'unknown'}' is not in the supported list. "
             "Supported: pdf, csv, xlsx, xls, docx."
@@ -120,7 +120,7 @@ async def post_demo_upload_metadata(
     uploaded = _classify_upload(file, record_key)
 
     warnings: list[str] = []
-    if uploaded.status == "unsupported_type":
+    if uploaded.status == "unsupported":
         warnings.append(
             "This file type is not supported. Analysis will not be updated."
         )
@@ -162,7 +162,7 @@ async def post_demo_parse_preview(
 
     uploaded = _classify_upload(file, record_key)
     warnings: list[str] = []
-    if uploaded.status == "unsupported_type":
+    if uploaded.status == "unsupported":
         warnings.append("This file type is not supported. Analysis will not be updated.")
 
     if record_key not in PARSEABLE_RECORD_KEYS:
@@ -185,7 +185,30 @@ async def post_demo_parse_preview(
         warnings.extend(preview.warnings)
         if not preview.parsedRecords:
             uploaded.status = "validation_warning"
-
+        
+        # Set the correct source mode based on the file type and warnings
+        if uploaded.status != "validation_warning":
+            extension = (file.filename or "").rsplit(".", 1)[-1].lower() if "." in (file.filename or "") else ""
+            if extension in ("csv", "xlsx"):
+                uploaded.status = "parsed_structured"
+            elif extension == "pdf":
+                if any("OCR provider is not configured" in w for w in preview.warnings):
+                    uploaded.status = "ocr_provider_not_configured"
+                elif any("PDF requires OCR" in w for w in preview.warnings):
+                    uploaded.status = "ocr_provider_configured"
+                else:
+                    uploaded.status = "parsed_pdf_text_layer"
+            elif extension == "docx":
+                uploaded.status = "parsed_docx_text"
+        else:
+            # Even if validation_warning, we might want to expose the OCR status if it failed due to image-only PDF
+            if any("OCR provider is not configured" in w for w in preview.warnings):
+                uploaded.status = "ocr_provider_not_configured"
+            elif any("requires OCR" in w for w in preview.warnings):
+                uploaded.status = "ocr_provider_configured"
+            elif uploaded.status == "unsupported":
+                pass
+            
     return DataRoomParseResponse(
         uploadedFile=uploaded,
         preview=preview,
