@@ -235,6 +235,16 @@ export default function FundingStrategyPage() {
         )}
       </div>
 
+      {ranking?.warnings?.some(w => w.toLowerCase().includes('fixture')) && (
+        <div className="mb-6 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 text-xs text-amber-800 flex items-start gap-2.5">
+          <span className="shrink-0 mt-0.5 text-amber-600">⚠️</span>
+          <div>
+            <span className="font-semibold">Fixture Data Warning:</span>{' '}
+            {ranking.warnings.find(w => w.toLowerCase().includes('fixture'))}
+          </div>
+        </div>
+      )}
+
       {/* Cockpit Strategy Bridge Hero Section in Premium Navy Contrast Card */}
       <NavyHeroSection
         eyebrow="Strategy bridge"
@@ -428,6 +438,36 @@ export default function FundingStrategyPage() {
                       <span className="h-3 w-px bg-softform-navy-950/15" />
                       <span>Tenor: <strong className="text-softform-navy-950 font-semibold">{channel.tenor}</strong></span>
                     </div>
+
+                    {/* Source metadata + mode badge */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[10px] text-softform-text-muted">
+                        Source: <span className="font-medium text-slate-700 dark:text-slate-300">{channel.sourceName || 'Unknown'}</span>
+                      </span>
+                      {channel.sourceMode && (
+                        <span className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider ${
+                          channel.sourceMode === 'live' || channel.sourceMode === 'provider_configured'
+                            ? 'bg-emerald-500/10 text-emerald-700'
+                            : channel.sourceMode === 'fixture'
+                            ? 'bg-amber-500/10 text-amber-800'
+                            : 'bg-softform-navy-900/10 text-softform-text-secondary'
+                        }`}>
+                          {channel.sourceMode.replace('_', ' ')}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Fit Score Progress Bar */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[10px] font-medium text-softform-text-secondary">
+                        <span>Fit Score</span>
+                        <span className="font-semibold">{channel.score} / 100</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-softform-text-muted/15 rounded-full overflow-hidden">
+                        <div className="h-full bg-softform-teal-500" style={{ width: `${channel.score}%` }} />
+                      </div>
+                    </div>
+                    </div>
                   </div>
 
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 text-xs border-t border-b border-softform-navy-950/5 py-3 my-2">
@@ -467,6 +507,36 @@ export default function FundingStrategyPage() {
                   <div className="bg-softform-mist-50 border border-softform-navy-950/5 rounded-xl p-3 text-xs leading-relaxed text-softform-text-primary">
                     <strong className="text-softform-navy-950">Reason:</strong> {channel.recommendation_reason}
                   </div>
+
+                  {channel.matchedProducts && channel.matchedProducts.length > 0 && (
+                    <div className="mt-4 pt-3 border-t border-softform-navy-950/5 space-y-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-softform-teal-deep">
+                        Matched Lender Products
+                      </p>
+                      <div className="space-y-2.5">
+                        {channel.matchedProducts.map((prod) => (
+                          <div key={prod.product_id} className="text-[11px] leading-relaxed bg-white/20 dark:bg-slate-900/20 rounded-xl p-2.5 border border-white/30 dark:border-slate-800/30">
+                            <div className="flex justify-between items-start gap-1 font-medium text-softform-navy-950">
+                              <span>{prod.product_name}</span>
+                              <span className="text-[9px] text-softform-text-muted uppercase tracking-wider">
+                                {prod.provider}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-x-2 gap-y-1 mt-1 text-[10px] text-softform-text-secondary">
+                              <div><span className="font-medium text-softform-text-muted">Limit:</span> {prod.limits}</div>
+                              <div><span className="font-medium text-softform-text-muted">Tenor:</span> {prod.tenor_range}</div>
+                              <div className="col-span-2"><span className="font-medium text-softform-text-muted">Collateral:</span> {prod.collateral_requirements}</div>
+                            </div>
+                            {prod.caveats && (
+                              <div className="mt-1 text-[9px] text-softform-text-muted leading-snug italic border-l border-softform-teal-deep/30 pl-1.5">
+                                Caveat: {prod.caveats}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )
             })}

@@ -25,7 +25,15 @@ async def get_rates_liquidity() -> RatesLiquidityResponse:
         if is_production:
             from app.models.errors import raise_upstream_unavailable_error
             raise_upstream_unavailable_error()
-        return get_rates_liquidity_fixture()
+        res = get_rates_liquidity_fixture()
+        for r in res.rates:
+            r.sourceName = "FinSight Local"
+            r.sourceMode = "fixture"
+            r.asOf = r.sourceTimestamp
+            r.freshness = "Workspace"
+            r.caveat = "Using local seed data fixture"
+            r.confidence = "low"
+        return res
 
     # Try cache first
     cached_data = cache.get(CACHE_KEY)
@@ -84,8 +92,16 @@ async def get_rates_liquidity() -> RatesLiquidityResponse:
             return stale_data
             
         # No cache, upstream failed
-        if settings.MARKET_WATCH_USE_FIXTURES and not is_production:
-            return get_rates_liquidity_fixture()
+        if not is_production:
+            res = get_rates_liquidity_fixture()
+            for r in res.rates:
+                r.sourceName = "FinSight Local"
+                r.sourceMode = "fixture"
+                r.asOf = r.sourceTimestamp
+                r.freshness = "Workspace"
+                r.caveat = "Using local seed data fixture"
+                r.confidence = "low"
+            return res
             
         from app.models.errors import raise_upstream_unavailable_error
         raise_upstream_unavailable_error("HKMA API is unavailable")
@@ -164,7 +180,12 @@ def _normalize_data(hibor_records, honia_records, liquidity_records, hkab_data=N
                         changeBasisPoints=None,
                         trend="unknown",
                         context="HKAB HIBOR fixing",
-                        sourceTimestamp=hkab_date
+                        sourceTimestamp=hkab_date,
+                        sourceName="HKAB",
+                        sourceMode="live",
+                        asOf=hkab_date,
+                        freshness="Daily",
+                        confidence="high"
                     ))
                     hkab_status = "connected"
                     if tenor == "o/n":
@@ -208,7 +229,12 @@ def _normalize_data(hibor_records, honia_records, liquidity_records, hkab_data=N
                             changeBasisPoints=None,
                             trend="unknown",
                             context="HKMA fixing",
-                            sourceTimestamp=date
+                            sourceTimestamp=date,
+                            sourceName="HKMA",
+                            sourceMode="live",
+                            asOf=date,
+                            freshness="Daily",
+                            confidence="high"
                         ))
                         hibor_status = "connected"
                         if tenor == "o/n":
@@ -245,7 +271,12 @@ def _normalize_data(hibor_records, honia_records, liquidity_records, hkab_data=N
                     changeBasisPoints=None,
                     trend="unknown",
                     context="HKMA HONIA fixing",
-                    sourceTimestamp=date
+                    sourceTimestamp=date,
+                    sourceName="HKMA",
+                    sourceMode="live",
+                    asOf=date,
+                    freshness="Daily",
+                    confidence="high"
                 ))
                 honia_status = "connected"
             except ValueError:

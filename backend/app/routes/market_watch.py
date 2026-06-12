@@ -14,6 +14,7 @@ from app.models.market_watch import (
     FundingChannelRankingResponse,
     CrossBorderFundingContextResponse,
     RedFlagsMacroSummaryResponse,
+    FundingProduct,
 )
 from app.services.market_watch.rates_liquidity_service import get_rates_liquidity
 from app.services.market_watch.fx_gba_service import get_fx_gba
@@ -26,6 +27,7 @@ from app.services.market_watch.industry_health_service import get_industry_healt
 from app.services.market_watch.funding_channel_ranking_service import get_funding_channel_ranking
 from app.services.market_watch.cross_border_funding_context_service import get_cross_border_funding_context
 from app.services.market_watch.red_flags_macro_summary_service import get_red_flags_macro_summary
+from app.services.market_watch.product_catalog import product_catalog_service
 from app.services.market_watch.cache import cache
 
 router = APIRouter()
@@ -158,6 +160,11 @@ async def get_company_context_endpoint(
     workspace_id: Optional[str] = None
 ):
     return get_company_context(workspace_id or x_workspace_id)
+
+
+@router.get("/products", response_model=list[FundingProduct])
+async def get_products_endpoint():
+    return await product_catalog_service.get_products()
 
 
 

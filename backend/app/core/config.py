@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     ALPHA_VANTAGE_API_KEY: str = ""
     COMMODITY_PROVIDER: str = "fixture"
     MARKET_WATCH_AUTO_REFRESH_SECONDS: int = 300
+    CHINADATA_API_KEY: str = ""
+    IHS_MARKIT_API_KEY: str = ""
+    FEDWATCH_API_KEY: str = ""
+    BOCHK_CATALOG_CONFIGURED: bool = False
 
     CORS_ALLOW_ORIGINS: str = (
         "http://localhost:5173,http://127.0.0.1:5173,"

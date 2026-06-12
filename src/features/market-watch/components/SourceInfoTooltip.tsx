@@ -6,7 +6,17 @@ export type SourceItem = {
   asOf?: string | null
   freshness?: string
   warnings?: string[]
-  mode?: 'provider-backed' | 'workspace-derived' | 'fixture-backed' | 'local-fallback' | 'unavailable'
+  mode?:
+    | 'live'
+    | 'provider_configured'
+    | 'provider_not_configured'
+    | 'workspace_derived'
+    | 'fixture'
+    | 'unavailable'
+    | 'provider-backed'
+    | 'workspace-derived'
+    | 'fixture-backed'
+    | 'local-fallback'
 }
 
 type SourceInfoTooltipProps = {
@@ -39,14 +49,20 @@ export default function SourceInfoTooltip({ title = "Source Provenance", sources
             // Map mode to label and styling
             let modeBadge = ''
             let modeBg = ''
-            if (src.mode === 'provider-backed') {
-              modeBadge = 'Workspace-derived' // Using user-facing wording: "Workspace-derived"
+            if (src.mode === 'live' || src.mode === 'provider-backed') {
+              modeBadge = 'Live public feed'
               modeBg = 'bg-emerald-500/10 text-emerald-700'
-            } else if (src.mode === 'workspace-derived') {
-              modeBadge = 'Workspace-derived'
+            } else if (src.mode === 'provider_configured') {
+              modeBadge = 'Provider configured'
+              modeBg = 'bg-emerald-500/10 text-emerald-700'
+            } else if (src.mode === 'provider_not_configured') {
+              modeBadge = 'Provider not configured'
+              modeBg = 'bg-red-500/10 text-red-700'
+            } else if (src.mode === 'workspace_derived' || src.mode === 'workspace-derived') {
+              modeBadge = 'Workspace-derived estimate'
               modeBg = 'bg-softform-navy-900/10 text-softform-text-secondary'
-            } else if (src.mode === 'fixture-backed') {
-              modeBadge = 'Context-only'
+            } else if (src.mode === 'fixture' || src.mode === 'fixture-backed') {
+              modeBadge = 'Fixture fallback'
               modeBg = 'bg-amber-500/10 text-amber-800'
             } else if (src.mode === 'local-fallback') {
               modeBadge = 'Source pending'

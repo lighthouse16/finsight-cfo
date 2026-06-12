@@ -6,6 +6,7 @@ type SourceBannerProps = {
     asOf: string | null
     freshness?: string
     warnings?: string[]
+    sourceMode?: string | null
   }
   compact?: boolean
 }
@@ -14,22 +15,29 @@ export default function SourceBanner({ source, compact = false }: SourceBannerPr
   const hasWarnings = source.warnings && source.warnings.length > 0
   const labelLower = source.label.toLowerCase()
   const freshnessLower = source.freshness?.toLowerCase() || ''
+  const mode = source.sourceMode
   
-  const isFallback = labelLower.includes('unavailable') || 
+  const isFallback = mode === 'unavailable' ||
+                     mode === 'provider_not_configured' ||
+                     labelLower.includes('unavailable') || 
                      labelLower.includes('fallback') ||
                      labelLower.includes('offline')
                      
-  const isWorkspaceDerived = labelLower.includes('workspace-derived') ||
+  const isWorkspaceDerived = mode === 'workspace_derived' ||
+                             labelLower.includes('workspace-derived') ||
                              labelLower.includes('workspace derived') ||
                              freshnessLower === 'workspace-derived' ||
                              freshnessLower === 'workspace' ||
                              labelLower.includes('workspace seed') ||
                              labelLower.includes('seed data')
                              
-  const isFixture = labelLower.includes('fixture') || 
+  const isFixture = mode === 'fixture' ||
+                    labelLower.includes('fixture') || 
                     labelLower.includes('mock')
                     
-  const isProviderBacked = labelLower.includes('frankfurter') || 
+  const isProviderBacked = mode === 'live' ||
+                           mode === 'provider_configured' ||
+                           labelLower.includes('frankfurter') || 
                            labelLower.includes('hkma') || 
                            labelLower.includes('provider') ||
                            freshnessLower === 'daily' ||

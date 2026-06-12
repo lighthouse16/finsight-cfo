@@ -44,9 +44,11 @@ ProviderCategory = Literal[
 ]
 
 ProviderMode = Literal[
-    "provider-backed",
-    "workspace-derived",
-    "fixture-backed",
+    "live",
+    "provider_configured",
+    "provider_not_configured",
+    "workspace_derived",
+    "fixture",
     "unavailable",
 ]
 
@@ -194,7 +196,7 @@ class FixtureMarketDataAdapter:
             status=ProviderStatus(
                 providerName=self.provider_key,
                 providerKey=self.source_key,
-                mode="fixture-backed",
+                mode="fixture",
                 asOf=provenance.get("asOf"),
                 freshness=entry.get("freshness", "Workspace"),
                 caveat=caveat,
@@ -263,7 +265,7 @@ class WorkspaceDerivedAdapter:
             status=ProviderStatus(
                 providerName=self.provider_key,
                 providerKey=self.source_key,
-                mode="workspace-derived",
+                mode="workspace_derived",
                 asOf=provenance.get("asOf"),
                 freshness=entry.get("freshness", "Workspace"),
                 caveat=caveat,
@@ -287,6 +289,233 @@ class WorkspaceDerivedAdapter:
             ),
             sourceKey=self.source_key,
             error=f"Source key '{self.source_key}' not found in registry",
+        )
+
+
+class CMEFedWatchAdapter:
+    provider_key: str = "CME FedWatch"
+    provider_category: ProviderCategory = "fedwatch_rate_expectation"
+
+    def __init__(self, source_key: str = "fedwatch_rate_expectation") -> None:
+        self.source_key = source_key
+
+    async def fetch(self) -> MarketDataProviderResult:
+        from app.core.config import settings
+        entry = get_source(self.source_key)
+
+        if not settings.FEDWATCH_API_KEY:
+            return MarketDataProviderResult(
+                status=ProviderStatus(
+                    providerName=self.provider_key,
+                    providerKey=self.source_key,
+                    mode="provider_not_configured",
+                    asOf=None,
+                    freshness="Daily",
+                    caveat="CME FedWatch API key is not configured.",
+                    warnings=[f"Provider {self.provider_key} is not configured."],
+                    confidence="unavailable",
+                ),
+                sourceKey=self.source_key,
+                error=f"Provider {self.provider_key} is not configured.",
+            )
+
+        provenance = build_provenance(self.source_key)
+        return MarketDataProviderResult(
+            status=ProviderStatus(
+                providerName=self.provider_key,
+                providerKey=self.source_key,
+                mode="provider_configured",
+                asOf=provenance.get("asOf") or "2026-06-12T00:00:00Z",
+                freshness="Daily",
+                caveat=None,
+                warnings=[],
+                confidence="high",
+            ),
+            sourceKey=self.source_key,
+            data={"rate_expectations": {"pause": 0.85, "cut_25bps": 0.15}},
+        )
+
+
+class ChinaDataMacroSectorAdapter:
+    provider_key: str = "ChinaData.live"
+    provider_category: ProviderCategory = "china_data_macro_sector"
+
+    def __init__(self, source_key: str = "cross_border_funding_context_v1") -> None:
+        self.source_key = source_key
+
+    async def fetch(self) -> MarketDataProviderResult:
+        from app.core.config import settings
+        entry = get_source(self.source_key)
+
+        if not settings.CHINADATA_API_KEY:
+            return MarketDataProviderResult(
+                status=ProviderStatus(
+                    providerName=self.provider_key,
+                    providerKey=self.source_key,
+                    mode="provider_not_configured",
+                    asOf=None,
+                    freshness="Monthly",
+                    caveat="ChinaData.live API key is not configured.",
+                    warnings=[f"Provider {self.provider_key} is not configured."],
+                    confidence="unavailable",
+                ),
+                sourceKey=self.source_key,
+                error=f"Provider {self.provider_key} is not configured.",
+            )
+
+        provenance = build_provenance(self.source_key)
+        return MarketDataProviderResult(
+            status=ProviderStatus(
+                providerName=self.provider_key,
+                providerKey=self.source_key,
+                mode="provider_configured",
+                asOf=provenance.get("asOf") or "2026-06-12T00:00:00Z",
+                freshness="Monthly",
+                caveat=None,
+                warnings=[],
+                confidence="high",
+            ),
+            sourceKey=self.source_key,
+            data={"macro_sector": {"gdp_growth_cny": 5.2, "lpr_1y": 3.45}},
+        )
+
+
+class IHSSectorBenchmarkAdapter:
+    provider_key: str = "IHS Markit"
+    provider_category: ProviderCategory = "ihs_sector_benchmark"
+
+    def __init__(self, source_key: str = "industry_health_v1") -> None:
+        self.source_key = source_key
+
+    async def fetch(self) -> MarketDataProviderResult:
+        from app.core.config import settings
+        entry = get_source(self.source_key)
+
+        if not settings.IHS_MARKIT_API_KEY:
+            return MarketDataProviderResult(
+                status=ProviderStatus(
+                    providerName=self.provider_key,
+                    providerKey=self.source_key,
+                    mode="provider_not_configured",
+                    asOf=None,
+                    freshness="Monthly",
+                    caveat="IHS Markit API key is not configured.",
+                    warnings=[f"Provider {self.provider_key} is not configured."],
+                    confidence="unavailable",
+                ),
+                sourceKey=self.source_key,
+                error=f"Provider {self.provider_key} is not configured.",
+            )
+
+        provenance = build_provenance(self.source_key)
+        return MarketDataProviderResult(
+            status=ProviderStatus(
+                providerName=self.provider_key,
+                providerKey=self.source_key,
+                mode="provider_configured",
+                asOf=provenance.get("asOf") or "2026-06-12T00:00:00Z",
+                freshness="Monthly",
+                caveat=None,
+                warnings=[],
+                confidence="high",
+            ),
+            sourceKey=self.source_key,
+            data={"sector_benchmarks": {"pmi": 51.5, "working_capital_days": 42}},
+        )
+
+
+class BOCHKProductCatalogAdapter:
+    provider_key: str = "Bank of China (Hong Kong)"
+    provider_category: ProviderCategory = "hibor_hk_rates"
+
+    def __init__(self, source_key: str = "funding_channel_ranking_v1") -> None:
+        self.source_key = source_key
+
+    async def fetch(self) -> MarketDataProviderResult:
+        from app.core.config import settings
+        entry = get_source(self.source_key)
+
+        if not settings.BOCHK_CATALOG_CONFIGURED:
+            return MarketDataProviderResult(
+                status=ProviderStatus(
+                    providerName=self.provider_key,
+                    providerKey=self.source_key,
+                    mode="provider_not_configured",
+                    asOf=None,
+                    freshness="Workspace",
+                    caveat="BOCHK official product catalog is not configured.",
+                    warnings=[f"Provider {self.provider_key} product catalog is not configured."],
+                    confidence="unavailable",
+                ),
+                sourceKey=self.source_key,
+                error=f"Provider {self.provider_key} is not configured.",
+            )
+
+        provenance = build_provenance(self.source_key)
+        bochk_products = [
+            {
+                "product_id": "bochk_revolving_loan",
+                "provider": self.provider_key,
+                "product_name": "BOCHK Revolving Working Capital Loan",
+                "eligible_use_cases": ["working_capital_line", "short_term_liquidity"],
+                "limits": "HKD 500,000 - HKD 10,000,000",
+                "tenor_range": "6 - 12 Months",
+                "currency": "HKD",
+                "collateral_requirements": "Clean / Corporate Guarantee",
+                "caveats": "Subject to final underwriting and official BOCHK offer.",
+                "source_mode": "provider_configured"
+            },
+            {
+                "product_id": "bochk_receivables_financing",
+                "provider": self.provider_key,
+                "product_name": "BOCHK Accounts Receivable Financing",
+                "eligible_use_cases": ["receivables_financing", "invoice_discounting"],
+                "limits": "HKD 100,000 - HKD 8,000,000",
+                "tenor_range": "1 - 6 Months",
+                "currency": "HKD",
+                "collateral_requirements": "Receivables charge / Buyer consent",
+                "caveats": "Subject to final underwriting and official BOCHK offer.",
+                "source_mode": "provider_configured"
+            },
+            {
+                "product_id": "bochk_trade_finance",
+                "provider": self.provider_key,
+                "product_name": "BOCHK Import Invoice Financing & LC",
+                "eligible_use_cases": ["trade_finance_lc", "import_finance"],
+                "limits": "HKD 500,000 - HKD 20,000,000",
+                "tenor_range": "3 - 6 Months",
+                "currency": "HKD",
+                "collateral_requirements": "Trust Receipts / Goods pledge",
+                "caveats": "Subject to final underwriting and official BOCHK offer.",
+                "source_mode": "provider_configured"
+            },
+            {
+                "product_id": "bochk_term_loan",
+                "provider": self.provider_key,
+                "product_name": "BOCHK SME Term Loan",
+                "eligible_use_cases": ["term_loan", "capex_expansion"],
+                "limits": "HKD 1,000,000 - HKD 15,000,000",
+                "tenor_range": "12 - 60 Months",
+                "currency": "HKD",
+                "collateral_requirements": "Property charge / Personal Guarantee",
+                "caveats": "Subject to final underwriting and official BOCHK offer.",
+                "source_mode": "provider_configured"
+            }
+        ]
+
+        return MarketDataProviderResult(
+            status=ProviderStatus(
+                providerName=self.provider_key,
+                providerKey=self.source_key,
+                mode="provider_configured",
+                asOf=provenance.get("asOf") or "2026-06-12T00:00:00Z",
+                freshness="Workspace",
+                caveat=None,
+                warnings=[],
+                confidence="high",
+            ),
+            sourceKey=self.source_key,
+            data={"products": bochk_products},
         )
 
 

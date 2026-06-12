@@ -101,15 +101,15 @@ def test_build_provenance_overrides():
 @pytest.mark.parametrize(
     "key, expected_mode",
     [
-        ("rates_liquidity_v1", "provider-backed"),
-        ("fx_gba_v1", "provider-backed"),
-        ("timing_signal_v1", "workspace-derived"),
-        ("funding_channel_ranking_v1", "workspace-derived"),
-        ("red_flags_macro_summary_v1", "workspace-derived"),
-        ("industry_health_v1", "fixture-backed"),
-        ("cross_border_funding_context_v1", "fixture-backed"),
-        ("commodities_v1", "fixture-backed"),
-        ("sector_benchmarks_v1", "fixture-backed"),
+        ("rates_liquidity_v1", "live"),
+        ("fx_gba_v1", "live"),
+        ("timing_signal_v1", "workspace_derived"),
+        ("funding_channel_ranking_v1", "workspace_derived"),
+        ("red_flags_macro_summary_v1", "workspace_derived"),
+        ("industry_health_v1", "fixture"),
+        ("cross_border_funding_context_v1", "fixture"),
+        ("commodities_v1", "fixture"),
+        ("sector_benchmarks_v1", "fixture"),
     ],
 )
 def test_get_mode_label(key, expected_mode):
@@ -117,7 +117,7 @@ def test_get_mode_label(key, expected_mode):
 
 
 def test_get_mode_label_unknown():
-    assert get_mode_label("does_not_exist") == "workspace-derived"
+    assert get_mode_label("does_not_exist") == "workspace_derived"
 
 
 def test_caveat_for_provider_backed_is_none():
