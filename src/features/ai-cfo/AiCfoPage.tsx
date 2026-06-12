@@ -226,7 +226,7 @@ export default function AiCfoPage() {
           id: crypto.randomUUID(),
           role: 'assistant',
           sources: ['Workspace context'],
-          content: 'I have loaded the current CFO workspace context. Ask about valuation, credit readiness, funding strategy, macro risks, or the advisor-ready brief. Answers are deterministic and context-only for demo purposes.',
+          content: 'I have loaded the current CFO workspace context. Ask about valuation, credit readiness, funding strategy, macro risks, or the advisor-ready brief. Answers are deterministic and context-only for local testing purposes.',
         },
       ])
     } catch (e) {
@@ -426,7 +426,7 @@ export default function AiCfoPage() {
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
             {isProdMode 
               ? 'Required context runs are missing. In production mode, the AI CFO cannot start a consultation until the required workspace context is generated.' 
-              : 'Some recommended context runs are missing. You can consult the AI CFO in demo mode, but running all core analyses is recommended for accurate answers.'}
+              : 'Some recommended context runs are missing. You can consult the AI CFO in local mode, but running all core analyses is recommended for accurate answers.'}
           </p>
         </div>
 
@@ -523,7 +523,7 @@ export default function AiCfoPage() {
         chip={<StatusChip variant={isReady ? 'signal' : 'neutral'}>{isReady ? 'Context ready' : 'Context incomplete'}</StatusChip>}
       />
 
-      {/* Show context warning banner in dev/demo mode if not ready */}
+      {/* Show context warning banner in dev/local mode if not ready */}
       {!isReady && renderContextNotReadyPanel()}
 
       {/* Digital CFO Assistant Hero Section in Premium Navy Contrast Card */}
@@ -536,7 +536,7 @@ export default function AiCfoPage() {
               {financial?.snapshot.companyName ?? 'Workspace Company'} · ask your CFO workspace
             </h2>
             <p className="text-sm leading-relaxed text-white/80 max-w-3xl">
-              This demo assistant uses deterministic context templates instead of an external LLM call. It is designed to show how the product can answer across the CFO workflow while keeping sources visible.
+              This local assistant uses deterministic context templates instead of an external LLM call. It is designed to show how the product can answer across the CFO workflow while keeping sources visible.
             </p>
           </div>
 
@@ -615,7 +615,7 @@ export default function AiCfoPage() {
             ))}
           </div>
           <p className="text-[11px] leading-relaxed text-softform-text-muted mt-4">
-            Demo note: answers are generated locally from current app context, not from a production LLM service.
+            Local testing note: answers are generated locally from current app context, not from a production LLM service.
           </p>
         </SectionBlock>
 

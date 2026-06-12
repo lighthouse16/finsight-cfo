@@ -197,7 +197,7 @@ export default function AdvisoryBlueprintPage() {
 
   // Source provenance data
   const sourceItems = [
-    { label: 'Demo Financial Analysis', mode: 'fixture-backed' as const, asOf: 'FY2025' },
+    { label: 'Sample Financial Analysis', mode: 'fixture-backed' as const, asOf: 'FY2025' },
     { label: 'Advisory Precheck Engine', mode: 'workspace-derived' as const },
     { label: 'Unified Risk Scoring Engine', mode: 'workspace-derived' as const },
     { label: 'Stress Testing Engine', mode: 'workspace-derived' as const },
@@ -234,7 +234,7 @@ export default function AdvisoryBlueprintPage() {
       <div className="space-y-8 pb-12">
         <PageHeader
           title="Advisory Blueprint"
-          subtitle="Context-only financing readiness brief based on demo financial analysis."
+          subtitle="Context-only financing readiness brief based on sample financial analysis."
         />
         <WorkspaceInsufficientDataState
           missingRequirements={(blueprint as any)?.missingRequirements}
@@ -249,7 +249,7 @@ export default function AdvisoryBlueprintPage() {
       <div className="space-y-8 pb-12">
         <PageHeader
           title="Advisory Blueprint"
-          subtitle="Context-only financing readiness brief based on demo financial analysis."
+          subtitle="Context-only financing readiness brief based on sample financial analysis."
         />
         <div className="flex flex-col items-center justify-center p-8 sm:p-12 bg-white/40 dark:bg-slate-900/40 border border-white/60 dark:border-slate-800/60 rounded-3xl backdrop-blur-md shadow-sm max-w-2xl mx-auto text-center space-y-6">
           <div className="w-16 h-16 rounded-full bg-softform-teal-deep/10 dark:bg-softform-aqua-300/10 flex items-center justify-center text-softform-teal-deep dark:text-softform-aqua-300">
@@ -311,7 +311,7 @@ export default function AdvisoryBlueprintPage() {
       {/* 1. Page Header */}
       <PageHeader
         title="Advisory Blueprint"
-        subtitle="Context-only financing readiness brief based on demo financial analysis."
+        subtitle="Context-only financing readiness brief based on sample financial analysis."
         titleAddon={
           <SourceInfoTooltip
             title="Advisory Blueprint Provenance"
@@ -350,7 +350,7 @@ export default function AdvisoryBlueprintPage() {
             <div>
               <p className="text-sm font-semibold text-softform-navy-950">Using local Data Room preview context</p>
               <p className="mt-1 text-xs leading-relaxed text-softform-text-secondary">
-                Preview provenance is active for {workspaceAnalysisContext.companyName} ({workspaceAnalysisContext.reportingPeriod}). Demo/provider data remains active; backend workspace persistence pending.
+                Preview provenance is active for {workspaceAnalysisContext.companyName} ({workspaceAnalysisContext.reportingPeriod}). Sample/provider data remains active; backend workspace persistence pending.
               </p>
             </div>
             <span className="rounded-full border border-white/70 bg-white/60 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-softform-teal-deep">
@@ -392,7 +392,7 @@ export default function AdvisoryBlueprintPage() {
                     {financialPreviewAnalysis.snapshot.companyName} · {financialPreviewAnalysis.snapshot.reportingPeriod}
                   </h3>
                   <p className="mt-1 text-xs leading-relaxed text-white/70">
-                    Preview-only financial context is available for review. The advisory blueprint response remains based on the existing demo advisory pipeline.
+                    Preview-only financial context is available for review. The advisory blueprint response remains based on the existing local advisory pipeline.
                   </p>
                 </div>
                 <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-3 xl:grid-cols-5">
@@ -772,7 +772,7 @@ export default function AdvisoryBlueprintPage() {
           className="rounded-[32px] p-6 sm:p-8 space-y-5"
         >
           <p className="text-sm leading-relaxed text-softform-text-secondary mb-4">
-            The following documentation gaps must be resolved to transition from this demo context to a record-backed production advisory:
+            The following documentation gaps must be resolved to transition from this local context to a record-backed production advisory:
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             {keySections.dataReadiness.nextDataNeeded.map((gap, idx) => (
@@ -793,7 +793,7 @@ export default function AdvisoryBlueprintPage() {
         <div className="space-y-1.5 text-center sm:text-left max-w-2xl">
           <p className="font-semibold text-softform-navy-950 text-base">Advisory Planning Context</p>
           <p className="text-xs leading-relaxed text-softform-text-secondary">
-            Blueprint uses context-only demo analysis and Data Room preview context when available. Production records are required for a record-backed advisory.
+            Blueprint uses context-only local analysis and Data Room preview context when available. Production records are required for a record-backed advisory.
           </p>
         </div>
         <div className="flex gap-3.5 shrink-0 w-full sm:w-auto justify-center sm:justify-end">
