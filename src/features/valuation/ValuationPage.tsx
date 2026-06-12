@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Calculator, TrendingUp, BarChart3, Loader2, RefreshCw, Play, AlertTriangle, BookOpen, FolderOpen, Building2, FileSearch } from 'lucide-react'
+import { Calculator, TrendingUp, BarChart3, Loader2, RefreshCw, Play, AlertTriangle, FolderOpen, Building2, FileSearch } from 'lucide-react'
 import PageHeader from '../../components/platform/PageHeader'
 import StatusChip from '../../components/platform/StatusChip'
 import SectionBlock from '../../components/platform/SectionBlock'
@@ -498,69 +498,7 @@ export default function ValuationPage() {
         )}
       </section>
 
-      {/* Valuation Formula Traceability & Methodology Definitions */}
-      <SectionBlock
-        title="Valuation Formulas & Methodological Traceability"
-        icon={<BookOpen size={20} className="text-softform-teal-500" />}
-        action={<StatusChip variant="neutral">BOCHK Plan Compliance</StatusChip>}
-        containerType="card"
-        className="rounded-[32px] p-6 sm:p-8 space-y-6"
-      >
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="rounded-[22px] bg-white/45 border border-white/60 p-5 space-y-3">
-            <h3 className="text-sm font-semibold text-softform-navy-950">Discounted Cash Flow (DCF) & TV</h3>
-            <div className="space-y-2 text-xs text-softform-text-secondary">
-              <p>
-                <strong className="text-softform-navy-950 font-semibold">Free Cash Flow to Firm (FCFF):</strong>
-                <code className="block mt-1 p-2 bg-slate-900/5 dark:bg-slate-900/40 rounded text-slate-800 dark:text-slate-200 font-mono">
-                  FCFF = EBIT × (1 - Tax Rate) + D&amp;A - CapEx - ΔNWC
-                </code>
-                Implemented in <code className="font-mono text-softform-teal-deep">projection_engine.py:calculate_projection</code>
-              </p>
-              <p>
-                <strong className="text-softform-navy-950 font-semibold">Gordon Growth Terminal Value (TV):</strong>
-                <code className="block mt-1 p-2 bg-slate-900/5 dark:bg-slate-900/40 rounded text-slate-800 dark:text-slate-200 font-mono">
-                  TV_n = [FCFF_n × (1 + g)] / (WACC - g)
-                </code>
-                Calculated perpetually if WACC &gt; g, else suppressed to avoid division errors. Implemented in <code className="font-mono text-softform-teal-deep">valuation_engine.py:calculate_dcf</code>
-              </p>
-              <p>
-                <strong className="text-softform-navy-950 font-semibold">Enterprise Value (EV):</strong>
-                <code className="block mt-1 p-2 bg-slate-900/5 dark:bg-slate-900/40 rounded text-slate-800 dark:text-slate-200 font-mono">
-                  EV = Σ [FCFF_t / (1 + WACC)^t] + [TV_n / (1 + WACC)^n]
-                </code>
-              </p>
-            </div>
-          </div>
 
-          <div className="rounded-[22px] bg-white/45 border border-white/60 p-5 space-y-3">
-            <h3 className="text-sm font-semibold text-softform-navy-950">WACC & Hamada Beta Build-Up</h3>
-            <div className="space-y-2 text-xs text-softform-text-secondary">
-              <p>
-                <strong className="text-softform-navy-950 font-semibold">Weighted Average Cost of Capital (WACC):</strong>
-                <code className="block mt-1 p-2 bg-slate-900/5 dark:bg-slate-900/40 rounded text-slate-800 dark:text-slate-200 font-mono">
-                  WACC = W_e × K_e + W_d × K_d × (1 - Tax Rate)
-                </code>
-                Uses target debt and equity weights. Implemented in <code className="font-mono text-softform-teal-deep">valuation_engine.py:calculate_wacc</code>
-              </p>
-              <p>
-                <strong className="text-softform-navy-950 font-semibold">Extended CAPM Cost of Equity (K_e):</strong>
-                <code className="block mt-1 p-2 bg-slate-900/5 dark:bg-slate-900/40 rounded text-slate-800 dark:text-slate-200 font-mono">
-                  K_e = R_f + β_L × ERP + SizePremium + IRP + CoPremium
-                </code>
-                Implemented in <code className="font-mono text-softform-teal-deep">valuation_engine.py:calculate_cost_of_equity</code>
-              </p>
-              <p>
-                <strong className="text-softform-navy-950 font-semibold">Hamada Target Beta Relevering (β_L):</strong>
-                <code className="block mt-1 p-2 bg-slate-900/5 dark:bg-slate-900/40 rounded text-slate-800 dark:text-slate-200 font-mono">
-                  β_L = β_U × [1 + (1 - Tax Rate) × (D_target / E_target)]
-                </code>
-                Adjusts unlevered beta to target gearing weights. Implemented in <code className="font-mono text-softform-teal-deep">valuation_engine.py:calculate_relevered_beta</code>
-              </p>
-            </div>
-          </div>
-        </div>
-      </SectionBlock>
 
       {/* Model Warnings */}
       {modelWarnings.length > 0 && (
