@@ -370,6 +370,9 @@ def build_credit_scoring_result(analysis: FinancialAnalysisResponse) -> CreditSc
         ]
     )
 
+    from app.services.advisory.pd_engine import _load_and_train_dataset
+    _, _, _, _, cal_status, _ = _load_and_train_dataset()
+
     return CreditScoringResult(
         company_id=snapshot.company_id,
         company_name=snapshot.company_name,
@@ -385,4 +388,5 @@ def build_credit_scoring_result(analysis: FinancialAnalysisResponse) -> CreditSc
         methodology_label="Deterministic SME PD Proxy Scorecard: ratios + receivables + FCFF + stress overlay",
         disclaimer=DISCLAIMER,
         warnings=warnings,
+        calibration_status=cal_status,
     )

@@ -99,6 +99,7 @@ class CreditScoringResult(AdvisoryBaseModel):
     methodology_label: str
     disclaimer: str
     warnings: List[str] = Field(default_factory=list)
+    calibration_status: Optional[str] = "indicative_readiness_index"
 
 class StressScenarioAssumption(AdvisoryBaseModel):
     scenario_key: str
@@ -282,6 +283,7 @@ class PdEstimateResponse(AdvisoryBaseModel):
     score: int
     factor_contributions: List[PdFactorContribution]
     disclaimer: str
+    calibration_status: Optional[str] = "indicative_readiness_index"
 
 # Phase 3 BoCHK Stress Testing Models
 
