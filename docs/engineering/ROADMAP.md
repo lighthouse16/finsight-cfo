@@ -90,6 +90,7 @@ This document outlines the high-level roadmap for transitioning FinSight CFO fro
 ---
 
 ## Phase 3: Authentication & Multi-Tenancy
+- [x] Add minimal backend RBAC route guardrails using local fallback context [COMPLETED]
 - Integrate production identity providers (OIDC/OAuth2/SAML).
 - Add Role-Based Access Control (RBAC) (e.g., CFO, Analyst, Auditor).
 - Implement secure token validation and request context middleware.

@@ -575,4 +575,243 @@ def test_create_request_model_rejects_bytes():
     assert exc.value.status_code == 422
 
 
+def test_job_routes_rbac(db_session, monkeypatch):
+    """
+    Verify RBAC route guardrails on job endpoints:
+    1. POST report-generation: admin (201), analyst (201), viewer (403).
+    2. POST report-worker/tick: admin (200), analyst (200), viewer (403).
+    3. GET jobs / GET job by ID: viewer (200/404/etc. depending on resource presence).
+    """
+    monkeypatch.setattr(settings, "PERSISTENCE_BACKEND", "database")
+    monkeypatch.setattr(settings, "REPORT_WORKER_ENABLED", True)
+    # Ensure header overrides are active for context testing
+    monkeypatch.setattr(settings, "AUTH_MODE", "local")
+    monkeypatch.setattr(settings, "AUTH_ALLOW_HEADER_OVERRIDES", True)
+
+    def override_get_db_session():
+        set_active_db_session(db_session)
+        try:
+            yield db_session
+        finally:
+            set_active_db_session(None)
+
+    app.dependency_overrides[get_db_session_optional] = override_get_db_session
+    client = TestClient(app)
+
+    try:
+        from app.db.models import Organization, Workspace as DbWorkspace, Job as DbJob
+
+        org = Organization(id="org_test", name="Test Org")
+        db_session.add(org)
+        ws = DbWorkspace(id="ws_rbac", organization_id="org_test", name="RBAC Workspace", status="active")
+        db_session.add(ws)
+        db_session.commit()
+
+        # Job payload
+        post_data = {
+            "reportType": "financial_health",
+            "reportPayload": {"revenue": 100},
+            "metadata": {"title": "RBAC Test"},
+        }
+
+        # 1. Test POST /api/workspaces/ws_rbac/jobs/report-generation
+
+        # Viewer should be forbidden (403)
+        res_viewer = client.post(
+            "/api/workspaces/ws_rbac/jobs/report-generation",
+            json=post_data,
+            headers={"X-Role": "viewer"}
+        )
+        assert res_viewer.status_code == 403
+
+        # Analyst should succeed (201)
+        res_analyst = client.post(
+            "/api/workspaces/ws_rbac/jobs/report-generation",
+            json=post_data,
+            headers={"X-Role": "analyst"}
+        )
+        assert res_analyst.status_code == 201
+        job_id_analyst = res_analyst.json()["id"]
+
+        # Admin should succeed (201)
+        res_admin = client.post(
+            "/api/workspaces/ws_rbac/jobs/report-generation",
+            json=post_data,
+            headers={"X-Role": "admin"}
+        )
+        assert res_admin.status_code == 201
+
+        # 2. Test POST /api/workspaces/ws_rbac/jobs/report-worker/tick
+
+        # Viewer should be forbidden (403)
+        res_tick_viewer = client.post(
+            "/api/workspaces/ws_rbac/jobs/report-worker/tick",
+            headers={"X-Role": "viewer"}
+        )
+        assert res_tick_viewer.status_code == 403
+
+        # Analyst should succeed (200)
+        res_tick_analyst = client.post(
+            "/api/workspaces/ws_rbac/jobs/report-worker/tick",
+            headers={"X-Role": "analyst"}
+        )
+        assert res_tick_analyst.status_code == 200
+
+        # Admin should succeed (200)
+        res_tick_admin = client.post(
+            "/api/workspaces/ws_rbac/jobs/report-worker/tick",
+            headers={"X-Role": "admin"}
+        )
+        assert res_tick_admin.status_code == 200
+
+        # 3. Test GET list and detail endpoints are read-only and work for viewer (200)
+
+        # List jobs as viewer
+        list_res = client.get(
+            "/api/workspaces/ws_rbac/jobs",
+            headers={"X-Role": "viewer"}
+        )
+        assert list_res.status_code == 200
+        assert len(list_res.json()) > 0
+
+        # Get job detail as viewer
+        detail_res = client.get(
+            f"/api/workspaces/ws_rbac/jobs/{job_id_analyst}",
+            headers={"X-Role": "viewer"}
+        )
+        assert detail_res.status_code == 200
+        assert detail_res.json()["id"] == job_id_analyst
+
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_workspace_routes_rbac(db_session, monkeypatch):
+    """
+    Verify RBAC route guardrails on destructive workspace endpoints:
+    1. DELETE workspace: admin (200/etc.), analyst (403), viewer (403).
+    2. DELETE report: admin (200/etc.), analyst (200/etc.), viewer (403).
+    3. DELETE file: admin (200/etc.), analyst (200/etc.), viewer (403).
+    """
+    monkeypatch.setattr(settings, "PERSISTENCE_BACKEND", "database")
+    monkeypatch.setattr(settings, "AUTH_MODE", "local")
+    monkeypatch.setattr(settings, "AUTH_ALLOW_HEADER_OVERRIDES", True)
+
+    def override_get_db_session():
+        set_active_db_session(db_session)
+        try:
+            yield db_session
+        finally:
+            set_active_db_session(None)
+
+    app.dependency_overrides[get_db_session_optional] = override_get_db_session
+    client = TestClient(app)
+
+    try:
+        from app.db.models import Organization, Workspace as DbWorkspace, Report as DbReport, WorkspaceFile
+
+        org = Organization(id="org_rbac", name="RBAC Org")
+        db_session.add(org)
+        ws = DbWorkspace(id="ws_dest", organization_id="org_rbac", name="RBAC Dest Workspace", status="active")
+        db_session.add(ws)
+        
+        # Add a dummy report
+        report = DbReport(
+            id="rep_dest",
+            workspace_id="ws_dest",
+            organization_id="org_rbac",
+            report_name="Report to delete",
+            report_type="valuation_summary",
+            status="completed",
+        )
+        db_session.add(report)
+
+        # Add a dummy file metadata
+        wfile = WorkspaceFile(
+            id="file_dest",
+            workspace_id="ws_dest",
+            organization_id="org_rbac",
+            file_name="file_to_delete.csv",
+            file_type="text/csv",
+            record_key="pl-statement",
+            status="uploaded",
+        )
+        db_session.add(wfile)
+        db_session.commit()
+
+        # 1. DELETE report (/api/workspaces/{ws_id}/reports/{report_id})
+        # Viewer should be forbidden (403)
+        res_rep_viewer = client.delete(
+            "/api/workspaces/ws_dest/reports/rep_dest",
+            headers={"X-Role": "viewer"}
+        )
+        assert res_rep_viewer.status_code == 403
+
+        # Analyst should succeed
+        res_rep_analyst = client.delete(
+            "/api/workspaces/ws_dest/reports/rep_dest",
+            headers={"X-Role": "analyst"}
+        )
+        assert res_rep_analyst.status_code == 200
+
+        # Re-add report to test admin delete
+        report_admin = DbReport(
+            id="rep_dest_admin",
+            workspace_id="ws_dest",
+            organization_id="org_rbac",
+            report_name="Report to delete by admin",
+            report_type="valuation_summary",
+            status="completed",
+        )
+        db_session.add(report_admin)
+        db_session.commit()
+
+        res_rep_admin = client.delete(
+            "/api/workspaces/ws_dest/reports/rep_dest_admin",
+            headers={"X-Role": "admin"}
+        )
+        assert res_rep_admin.status_code == 200
+
+        # 2. DELETE file (/api/workspaces/{ws_id}/files/{file_id})
+        # Viewer should be forbidden (403)
+        res_file_viewer = client.delete(
+            "/api/workspaces/ws_dest/files/file_dest",
+            headers={"X-Role": "viewer"}
+        )
+        assert res_file_viewer.status_code == 403
+
+        # Analyst should succeed
+        res_file_analyst = client.delete(
+            "/api/workspaces/ws_dest/files/file_dest",
+            headers={"X-Role": "analyst"}
+        )
+        assert res_file_analyst.status_code == 200
+
+        # 3. DELETE workspace (/api/workspaces/{ws_id})
+        # Viewer should be forbidden (403)
+        res_ws_viewer = client.delete(
+            "/api/workspaces/ws_dest",
+            headers={"X-Role": "viewer"}
+        )
+        assert res_ws_viewer.status_code == 403
+
+        # Analyst should be forbidden (403)
+        res_ws_analyst = client.delete(
+            "/api/workspaces/ws_dest",
+            headers={"X-Role": "analyst"}
+        )
+        assert res_ws_analyst.status_code == 403
+
+        # Admin should succeed
+        res_ws_admin = client.delete(
+            "/api/workspaces/ws_dest",
+            headers={"X-Role": "admin"}
+        )
+        assert res_ws_admin.status_code == 200
+
+    finally:
+        app.dependency_overrides.clear()
+
+
+
 

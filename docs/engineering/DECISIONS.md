@@ -236,6 +236,12 @@ This document records key architectural and design decisions for FinSight CFO.
 - Decision: Implement an end-to-end product smoke test suite (`test_product_smoke_flow.py`) covering both in-memory SQLite database-mode operations (Workspace creation -> file uploads -> snapshot building -> valuation analysis run -> report save -> job queuing -> manual tick execution -> completion verify) and local-mode fallback route guardrails.
 - Consequences: Verifies integration points across the auth, workspace, file storage, analysis, jobs, and worker layers, ensuring a stable foundation prior to subsequent frontend and staging environment cuts.
 
+## ADR-038: Minimal Backend RBAC Route Guardrails
+- Status: Approved
+- Context: We need logical tenant user permission distinctions for sensitive or destructive actions (such as starting calculation/report jobs, manual worker ticking, and deleting workspaces/reports/files) without integrating a full production identity provider or modifying database tables.
+- Decision: Introduce reusable FastAPI dependency helpers (`require_admin`, `require_write_access`, `require_role`, `require_any_role`) in `auth.py` leveraging the existing `RequestContext`. Apply them to the jobs and workspaces routes to protect creation/trigger/delete endpoints. Fall back to `admin` by default to preserve local development experience.
+- Consequences: Enforces secure role-based restrictions (distinguishing admin, analyst, and viewer roles) with standard 403 Forbidden error handling, leaving read-only queries functional for all valid contexts without schema modifications.
+
 
 
 
