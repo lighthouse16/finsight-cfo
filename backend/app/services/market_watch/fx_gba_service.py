@@ -24,7 +24,15 @@ async def get_fx_gba() -> FxGbaResponse:
         if is_production:
             from app.models.errors import raise_upstream_unavailable_error
             raise_upstream_unavailable_error()
-        return get_fx_gba_fixture()
+        res = get_fx_gba_fixture()
+        for p in res.fxPairs:
+            p.sourceName = "FinSight Local"
+            p.sourceMode = "fixture"
+            p.asOf = p.sourceTimestamp
+            p.freshness = "Workspace"
+            p.caveat = "Using local seed data fixture"
+            p.confidence = "low"
+        return res
 
     cached_data = cache.get(CACHE_KEY_FX)
     if cached_data:
@@ -130,7 +138,12 @@ async def get_fx_gba() -> FxGbaResponse:
                 trend="flat",
                 changePips=0,
                 context="Peg reference (derived)" if derived_usd_hkd else "Peg reference",
-                sourceTimestamp=usd_date
+                sourceTimestamp=usd_date,
+                sourceName="Frankfurter",
+                sourceMode="live",
+                asOf=usd_date,
+                freshness="Daily",
+                confidence="high"
             ),
             FxPair(
                 id="cny-hkd",
@@ -141,7 +154,12 @@ async def get_fx_gba() -> FxGbaResponse:
                 trend="flat",
                 changePips=0,
                 context="Cross rate (derived)" if derived_cny_hkd else "Cross rate",
-                sourceTimestamp=cny_date
+                sourceTimestamp=cny_date,
+                sourceName="Frankfurter",
+                sourceMode="live",
+                asOf=cny_date,
+                freshness="Daily",
+                confidence="high"
             ),
             FxPair(
                 id="usd-cny",
@@ -152,7 +170,12 @@ async def get_fx_gba() -> FxGbaResponse:
                 trend="flat",
                 changePips=0,
                 context="Base reference (derived)" if derived_usd_cny else "Base reference",
-                sourceTimestamp=usd_date
+                sourceTimestamp=usd_date,
+                sourceName="Frankfurter",
+                sourceMode="live",
+                asOf=usd_date,
+                freshness="Daily",
+                confidence="high"
             )
         ]
         
@@ -232,4 +255,11 @@ async def get_fx_gba() -> FxGbaResponse:
         res.metadata.warnings = [
             "FX provider is not configured or unavailable. Showing workspace seed data."
         ]
+        for p in res.fxPairs:
+            p.sourceName = "FinSight Local"
+            p.sourceMode = "fixture"
+            p.asOf = p.sourceTimestamp
+            p.freshness = "Workspace"
+            p.caveat = "Using local seed data fixture"
+            p.confidence = "low"
         return res

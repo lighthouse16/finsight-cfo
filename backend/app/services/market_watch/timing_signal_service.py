@@ -108,12 +108,32 @@ def _combine_band(level: str, trend: str, liquidity: str, calendar: str) -> str:
 
 
 async def get_timing_signal() -> TimingSignalResponse:
+    from app.services.market_watch.provider_adapters import CMEFedWatchAdapter
+    
     rates_liquidity = await get_rates_liquidity()
     selected_rate = _select_hibor_rate(rates_liquidity.rates)
     level_band, level_explanation, level_value = _hibor_level_band(selected_rate)
     trend_signal, trend_explanation, trend_value = _hibor_trend(selected_rate)
     liquidity_signal, liquidity_explanation, liquidity_value = _liquidity_signal(rates_liquidity.liquidityEvents)
     calendar_flag, calendar_explanation = _calendar_red_flag()
+    
+    # Query CME FedWatch expectation
+    fedwatch = CMEFedWatchAdapter()
+    fedwatch_res = await fedwatch.fetch()
+    fedwatch_mode = fedwatch_res["status"]["mode"]
+    
+    if fedwatch_mode == "provider_configured":
+        data = fedwatch_res.get("data", {})
+        expectations = data.get("rate_expectations", {})
+        pause_prob = expectations.get("pause", 0.85) * 100
+        fed_val = f"Pause ({pause_prob:.0f}%)"
+        fed_exp = f"CME FedWatch indicates a {pause_prob:.0f}% probability of rate pause at the next meeting."
+        fed_band = "favorable"
+    else:
+        fed_val = "Unavailable"
+        fed_exp = "CME FedWatch provider is not configured. Expectations are unavailable."
+        fed_band = "unavailable"
+        
     golden_band = _combine_band(level_band, trend_signal, liquidity_signal, calendar_flag)
 
     warnings = list(rates_liquidity.metadata.warnings)
@@ -121,6 +141,18 @@ async def get_timing_signal() -> TimingSignalResponse:
         warnings.append("HIBOR trend signal is unavailable because the selected source did not provide recent basis-point movement.")
     if liquidity_signal == "unavailable":
         warnings.append("Liquidity timing signal is unavailable because aggregate balance events were not normalized.")
+    if fedwatch_mode == "provider_not_configured":
+        warnings.append("CME FedWatch provider is not configured. Serving fallback/degraded expectations.")
+
+    prov_dict = build_provenance(
+        "timing_signal_v1",
+        as_of=rates_liquidity.metadata.asOf,
+        provider_override="HKAB / HKMA & CME FedWatch" if fedwatch_mode == "provider_configured" else None,
+        freshness_override=rates_liquidity.metadata.freshness,
+    )
+    if fedwatch_mode == "provider_configured":
+        prov_dict["providerAdapter"] = "CMEFedWatchAdapter"
+        prov_dict["providerIntegration"] = "CME FedWatch"
 
     return TimingSignalResponse(
         hiborLevelBand=level_band,
@@ -130,22 +162,17 @@ async def get_timing_signal() -> TimingSignalResponse:
         goldenTimingBand=golden_band,
         explanation=(
             f"Golden Timing Index v1 is {golden_band} based on rule-based HIBOR level, "
-            "HIBOR trend availability, HKMA aggregate balance context, and calendar timing."
+            "HIBOR trend, HKMA aggregate balance context, calendar timing, and CME FedWatch expectations."
         ),
         components=[
             TimingSignalComponent(band=level_band, label="HIBOR level", value=level_value, explanation=level_explanation),
             TimingSignalComponent(band=trend_signal, label="HIBOR trend", value=trend_value, explanation=trend_explanation),
             TimingSignalComponent(band=liquidity_signal, label="Liquidity context", value=liquidity_value, explanation=liquidity_explanation),
             TimingSignalComponent(band=calendar_flag, label="Calendar flag", value=calendar_flag, explanation=calendar_explanation),
+            TimingSignalComponent(band=fed_band, label="CME FedWatch expectations", value=fed_val, explanation=fed_exp),
         ],
-        provenance=TimingSignalProvenance(
-            **build_provenance(
-                "timing_signal_v1",
-                as_of=rates_liquidity.metadata.asOf,
-                provider_override=rates_liquidity.metadata.source.provider,
-                freshness_override=rates_liquidity.metadata.freshness,
-            ),
-        ),
+        provenance=TimingSignalProvenance(**prov_dict),
         warnings=warnings,
         disclaimer=DISCLAIMER,
     )
+

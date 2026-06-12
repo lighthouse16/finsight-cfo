@@ -19,6 +19,13 @@ async def get_commodities(
             raise_upstream_unavailable_error()
         res = get_commodities_fixture(sector=sector, geography=geography)
         _soften_warnings(res)
+        for c in res.commodityExposures:
+            c.sourceName = "FinSight Local"
+            c.sourceMode = "fixture"
+            c.asOf = c.sourceTimestamp or "2026-06"
+            c.freshness = "Monthly"
+            c.caveat = "Using local seed data fixture"
+            c.confidence = "low"
         return res
 
     api_key = settings.ALPHA_VANTAGE_API_KEY
@@ -38,6 +45,15 @@ async def get_commodities(
             if status.id == "commodity-provider":
                 status.status = "seed_data"
                 status.provider = "Fixture / provider key missing"
+        
+        for c in res.commodityExposures:
+            c.sourceName = "Alpha Vantage (not configured)"
+            c.sourceMode = "provider_not_configured"
+            c.asOf = c.sourceTimestamp or "2026-06"
+            c.freshness = "Monthly"
+            c.caveat = "Commodity provider is not configured. Showing workspace seed data."
+            c.confidence = "low"
+            
         return res
 
     # Key is present: use client structure and cache
@@ -68,6 +84,13 @@ async def get_commodities(
             status.provider = "Alpha Vantage"
             status.lastUpdatedAt = datetime.utcnow().isoformat() + "Z"
 
+    for c in res.commodityExposures:
+        c.sourceName = "Alpha Vantage"
+        c.sourceMode = "live"
+        c.asOf = datetime.utcnow().isoformat() + "Z"
+        c.freshness = "Delayed"
+        c.confidence = "high"
+
     cache.set(CACHE_KEY_COMMODITIES, res, settings.rates_ttl_seconds)
     return res
 
@@ -76,3 +99,4 @@ def _soften_warnings(res: CommoditiesResponse):
         w.replace("Production commodity provider is not connected yet.", "Showing workspace seed data.")
         for w in res.metadata.warnings
     ]
+
