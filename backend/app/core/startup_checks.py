@@ -16,3 +16,7 @@ def validate_startup_config(settings) -> None:
         # Rule 3: If APP_MODE == "production", MARKET_WATCH_USE_FIXTURES must be false
         if getattr(settings, "MARKET_WATCH_USE_FIXTURES", False):
             raise RuntimeError("MARKET_WATCH_USE_FIXTURES must be false in production mode.")
+
+        # Rule 4: If APP_MODE == "production", JWT_SECRET_KEY must be set
+        if not getattr(settings, "JWT_SECRET_KEY", ""):
+            raise RuntimeError("JWT_SECRET_KEY must be set in production mode.")

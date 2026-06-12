@@ -4,9 +4,13 @@ export const API_BASE_URL =
 
 export function getWorkspaceHeaders(existingHeaders: Record<string, string> = {}): Record<string, string> {
   const activeWorkspaceId = localStorage.getItem('active_workspace_id')
+  const accessToken = localStorage.getItem('access_token')
   const headers = { ...existingHeaders }
   if (activeWorkspaceId) {
     headers['x-workspace-id'] = activeWorkspaceId
+  }
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`
   }
   return headers
 }

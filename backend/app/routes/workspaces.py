@@ -57,6 +57,7 @@ from app.services.analysis_run_service import (
     execute_advisory_blueprint_run,
     execute_workflow_run,
 )
+from app.core.auth import get_request_context, RequestContext
 
 # Monkeypatch WorkspaceStore.save_analysis_run dynamically to bypass runs.json in database mode
 _original_save_analysis_run = WorkspaceStore.save_analysis_run
@@ -309,11 +310,16 @@ async def create_workspace(
     reportingPeriod: Optional[str] = Form(None, alias="reportingPeriod"),
     repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     audit_repo: AuditEventRepository = Depends(get_audit_event_repository_dependency),
+    ctx: RequestContext = Depends(get_request_context),
 ):
+    if ctx.role == "viewer":
+        raise HTTPException(status_code=403, detail="Viewers cannot create workspaces")
+    
     return await service_create_workspace(
         company_name=company_name,
         currency=currency,
         reporting_period=reportingPeriod,
+        organization_id=ctx.organization_id,
         workspace_repo=repo,
         audit_repo=audit_repo,
         settings=settings,
@@ -322,15 +328,27 @@ async def create_workspace(
 @router.get("", response_model=List[CompanyWorkspace])
 async def list_workspaces(
     repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
+    ctx: RequestContext = Depends(get_request_context),
 ):
-    return service_list_workspaces(workspace_repo=repo)
+    workspaces = service_list_workspaces(workspace_repo=repo)
+    # Simple isolation for the demo
+    return [w for w in workspaces if w.metadata.get("organization_id", "demo-org") == ctx.organization_id]
 
 @router.get("/config")
 async def get_workspaces_config():
     from app.core.config import settings
+    
+    # Check if OPENAI_API_KEY or similar AI keys are configured
+    # We can just check if OPENAI_API_KEY exists in env since it is standard for this backend
+    import os
+    ai_configured = bool(os.getenv("OPENAI_API_KEY", ""))
+
     return {
         "app_mode": settings.APP_MODE,
-        "allow_demo_fallback": settings.ALLOW_DEMO_FALLBACK
+        "allow_demo_fallback": settings.ALLOW_DEMO_FALLBACK,
+        "persistence_backend": settings.PERSISTENCE_BACKEND,
+        "ai_configured": ai_configured,
+        "auth_mode": settings.AUTH_MODE
     }
 
 @router.post("/reset-sample")
@@ -488,8 +506,12 @@ async def reset_sample_workspace():
 async def get_workspace(
     workspace_id: str,
     repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
+    ctx: RequestContext = Depends(get_request_context),
 ):
-    return service_get_workspace(workspace_id=workspace_id, workspace_repo=repo)
+    ws = service_get_workspace(workspace_id=workspace_id, workspace_repo=repo)
+    if ws.metadata.get("organization_id", "demo-org") != ctx.organization_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    return ws
 
 @router.post("/{workspace_id}/files", response_model=UploadedFileRecord)
 async def upload_workspace_file(
@@ -499,16 +521,33 @@ async def upload_workspace_file(
     workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     file_repo: FileMetadataRepository = Depends(get_file_metadata_repository_dependency),
     audit_repo: AuditEventRepository = Depends(get_audit_event_repository_dependency),
+    ctx: RequestContext = Depends(get_request_context),
 ):
+    if ctx.role == "viewer":
+        raise HTTPException(status_code=403, detail="Viewers cannot upload files")
+    
+    ws = workspace_repo.get_workspace(workspace_id)
+    if ws and ws.metadata.get("organization_id", "demo-org") != ctx.organization_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
     if file is None or not (file.filename or ""):
         raise HTTPException(status_code=422, detail="file is required")
+        
     file_bytes = await file.read()
+    if len(file_bytes) > 50 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File too large (max 50MB)")
+        
     content_type = file.content_type or "application/octet-stream"
+    if content_type not in ["application/pdf", "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"]:
+        raise HTTPException(status_code=415, detail="Unsupported file type")
+        
+    import re
+    safe_filename = re.sub(r'[^a-zA-Z0-9_\-\.]', '_', file.filename)
     
     return await service_upload_workspace_file(
         workspace_id=workspace_id,
         record_key=recordKey,
-        filename=file.filename,
+        filename=safe_filename,
         file_bytes=file_bytes,
         content_type=content_type,
         workspace_repo=workspace_repo,
@@ -670,7 +709,14 @@ async def delete_workspace_file(
     workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     file_repo: FileMetadataRepository = Depends(get_file_metadata_repository_dependency),
     audit_repo: AuditEventRepository = Depends(get_audit_event_repository_dependency),
+    ctx: RequestContext = Depends(get_request_context),
 ):
+    if ctx.role == "viewer":
+        raise HTTPException(status_code=403, detail="Viewers cannot delete files")
+        
+    ws = workspace_repo.get_workspace(workspace_id)
+    if ws and ws.metadata.get("organization_id", "demo-org") != ctx.organization_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
     return await service_delete_workspace_file(
         workspace_id=workspace_id,
         file_id=file_id,
@@ -686,7 +732,14 @@ async def delete_workspace(
     workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     file_repo: FileMetadataRepository = Depends(get_file_metadata_repository_dependency),
     audit_repo: AuditEventRepository = Depends(get_audit_event_repository_dependency),
+    ctx: RequestContext = Depends(get_request_context),
 ):
+    if ctx.role not in ["admin", "owner"]:
+        raise HTTPException(status_code=403, detail="Only admins can delete workspaces")
+        
+    ws = workspace_repo.get_workspace(workspace_id)
+    if ws and ws.metadata.get("organization_id", "demo-org") != ctx.organization_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
     return await service_delete_workspace(
         workspace_id=workspace_id,
         workspace_repo=workspace_repo,

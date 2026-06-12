@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     AUTH_DEFAULT_USER_ID: str = "demo-user"
     AUTH_DEFAULT_ROLE: str = "admin"
     AUTH_ALLOW_HEADER_OVERRIDES: bool = True
+    JWT_SECRET_KEY: str = ""
+    JWT_ALGORITHM: str = "HS256"
 
     # Cache TTL settings
     rates_ttl_seconds: int = 21600
