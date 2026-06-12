@@ -78,3 +78,35 @@ def test_cors_origins_parsing_behavior():
     assert settings.parsed_cors_origins == ["http://localhost:5173", "http://127.0.0.1:5173"]
     # Should pass startup validation
     validate_startup_config(settings)
+
+
+def test_env_example_keys_exist_in_settings():
+    """
+    Verifies that all non-frontend config keys defined in backend/.env.example
+    exist as attributes in the Settings class.
+    """
+    import os
+    
+    # Path to backend/.env.example relative to this test file
+    env_example_path = os.path.join(os.path.dirname(__file__), "..", ".env.example")
+    assert os.path.exists(env_example_path), f"backend/.env.example not found at {env_example_path}"
+    
+    # Read the file and extract key names
+    keys = []
+    with open(env_example_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            # Skip comments, blank lines, or VITE_ keys
+            if not line or line.startswith("#") or line.startswith("VITE_"):
+                continue
+            if "=" in line:
+                key = line.split("=", 1)[0].strip()
+                keys.append(key)
+                
+    # Instantiate Settings to check
+    settings_instance = Settings()
+    for key in keys:
+        # Check if attribute exists on Settings (direct or lowercase fallback due to Pydantic mapping)
+        assert hasattr(settings_instance, key) or hasattr(settings_instance, key.lower()), f"Settings is missing key: {key} defined in .env.example"
+
+
