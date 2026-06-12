@@ -11,8 +11,9 @@ import type { FinancialAnalysisResponse } from '../../market-watch/types'
 import { API_BASE_URL, getWorkspaceHeaders, handleApiResponse } from '../../../lib/apiBase'
 
 
-export async function getAdvisoryBlueprint(): Promise<AdvisoryBlueprintResponse> {
-  const res = await fetch(`${API_BASE_URL}/api/advisory/demo-blueprint`, {
+export async function getAdvisoryBlueprint(shockBps?: number): Promise<AdvisoryBlueprintResponse> {
+  const params = shockBps !== undefined ? `?shock_bps=${shockBps}` : ''
+  const res = await fetch(`${API_BASE_URL}/api/advisory/demo-blueprint${params}`, {
     headers: getWorkspaceHeaders(),
     signal: AbortSignal.timeout(8000),
   })
@@ -43,8 +44,9 @@ export async function getCreditScore(): Promise<CreditScoringResult> {
   return handleApiResponse(res)
 }
 
-export async function getAdvisoryStressTests(): Promise<StressTestingResponse> {
-  const res = await fetch(`${API_BASE_URL}/api/advisory/demo-stress-tests`, {
+export async function getAdvisoryStressTests(shockBps?: number): Promise<StressTestingResponse> {
+  const params = shockBps !== undefined ? `?shock_bps=${shockBps}` : ''
+  const res = await fetch(`${API_BASE_URL}/api/advisory/demo-stress-tests${params}`, {
     headers: getWorkspaceHeaders(),
     signal: AbortSignal.timeout(8000),
   })
@@ -60,6 +62,21 @@ export async function getAdvisoryFacilityStructures(): Promise<FacilityStructuri
 }
 
 export async function getFinancialPreviewAnalysis(): Promise<FinancialAnalysisResponse | null> {
+  const workspaceId = localStorage.getItem('active_workspace_id')
+  if (workspaceId) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/financial-analysis`, {
+        headers: getWorkspaceHeaders(),
+        signal: AbortSignal.timeout(5000),
+      })
+      if (res.ok) {
+        return res.json()
+      }
+    } catch (error) {
+      console.warn('Workspace persistent financial analysis fetch failed; checking preview fallback.', error)
+    }
+  }
+
   try {
     const res = await fetch(`${API_BASE_URL}/api/financials/preview-analysis`, {
       headers: getWorkspaceHeaders(),

@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     
     # Ingestion & Production Mode Configs
     APP_MODE: str = "development"
+    APP_VERSION: str = "1.0.0-rc1"
     ALLOW_DEMO_FALLBACK: bool = True
 
     # Auth / Tenant Context Foundation
@@ -34,12 +35,14 @@ class Settings(BaseSettings):
     )
 
     PERSISTENCE_BACKEND: str = "local"
+    STORAGE_BACKEND: str = "local"
     DATABASE_URL: str = "sqlite:///./storage_db/finsight_dev.db"
     DATABASE_ECHO: bool = False
 
     # Report Worker Harness Configuration
     REPORT_WORKER_ENABLED: bool = False
     REPORT_WORKER_MAX_JOBS_PER_TICK: int = 1
+    SCHEDULER_MODE: str = "manual"
 
     @property
     def normalized_persistence_backend(self) -> str:

@@ -28,7 +28,9 @@ This test matrix outlines the validation suites, current coverage status, and re
 | **Database / Local** | Report Worker Harness | Unit / Guardrail | High (Tick scanning, limit checks, error summaries, setting toggles) | None | Yes | Platform Team / T-131 |
 | **Database / Local** | Manual Report Worker Tick Route | Route / Guardrail | High (workspace-scoped manual tick, disabled summary, local no-DB-init, max-per-tick) | None | Yes | Platform Team / T-132 |
 | **Database / Local** | Product Smoke Flow | Integration / Route | High (E2E create, upload, run, report, job, worker tick flow) | None | Yes | Platform Team / T-132 |
+| **Database / Local** | RBAC Guardrails | Route / API | High (Endpoint roles, rejection validation, fallback admin) | None | Yes | Backend Team / T-133 |
 | **Database** | Reports | Unit / Integration / Route | High (Adapter + Route tests) | None | Yes | Backend Team / T-110 |
+| **Local / Database** | Finance Correctness Audit | Unit / Integration | High (Ratios, risk, valuation, precheck, and risk score tests) | None | Yes | Backend Team / T-134 |
 
 | **Database** | Integration Health Check | Route / Guardrail | High (Smoke + Side-effect tests) | None | Yes | Backend Team / T-116 |
 | **Local / Database** | Route Contract Guardrails | Route / API | High (Method/path checks) | None | Yes | Backend Team / T-118 |

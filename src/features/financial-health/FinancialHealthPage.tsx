@@ -205,7 +205,8 @@ export default function FinancialHealthPage() {
   const wacc = valuation?.wacc
   const failedChecks = analysis.integrityChecks.filter((check: IntegrityCheckResult) => !check.passed)
   const passedChecks = analysis.integrityChecks.length - failedChecks.length
-  const isPreview = Boolean(snapshot.metadata?.preview_only || snapshot.metadata?.previewOnly || snapshot.metadata?.source === 'data_room_workspace_preview')
+  const isPersistent = Boolean(snapshot?.metadata?.persistent || snapshot?.metadata?.source === 'workspace_persistent_snapshot')
+  const isPreview = Boolean(snapshot?.metadata?.preview_only || snapshot?.metadata?.previewOnly || snapshot?.metadata?.source === 'data_room_workspace_preview')
 
   return (
     <div className="space-y-8 pb-12">
@@ -214,10 +215,31 @@ export default function FinancialHealthPage() {
         subtitle="Liquidity, leverage, coverage, receivables, projection, and valuation diagnostics from the active financial snapshot."
         chip={
           <StatusChip variant={bandVariant(summary?.overallBand)}>
-            {isPreview ? 'Preview analysis' : formatBand(summary?.overallBand)}
+            {isPersistent ? formatBand(summary?.overallBand) : isPreview ? 'Preview analysis' : 'Demo sample'}
           </StatusChip>
         }
       />
+
+      {/* Fallback Badges / Banners */}
+      {!isPersistent && (
+        <div className="rounded-[24px] border border-white bg-white/70 p-5 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-softform-amber-500/10 text-softform-amber-500 border border-softform-amber-500/20">
+              <AlertTriangle size={14} />
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-softform-navy-950">
+                {isPreview ? "Preview Data Fallback" : "Demo Sample Data Fallback"}
+              </p>
+              <p className="text-xs text-softform-text-secondary leading-relaxed">
+                {isPreview 
+                  ? "Displaying diagnostics from temporary in-memory parsed statements. Re-compiling or restarting the server will reset this state. Please calibrate a persistent workspace snapshot in the Data Room." 
+                  : "Displaying Harbour & Finch mock demo metrics because no persistent active snapshot exists. Go to the Data Room to upload company records and calibrate outcomes."}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-3">
         <RunMetadataBadge metadata={analysis?.run_metadata} />
