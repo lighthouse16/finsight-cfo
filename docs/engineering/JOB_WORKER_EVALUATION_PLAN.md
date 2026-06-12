@@ -111,12 +111,17 @@ We propose the following six-step rollout plan:
   * Add POST route to create a pending report.generation job.
   * Enforce payload structure checks and raw bytes validation.
   * Keep background workers, queues, and execution deferred.
-* **Phase G: Process Supervision & Celery Setup**
+* **Phase G: Feature-Flagged Report Worker Harness** [COMPLETED]
+  * Add safe-off feature-flagged in-process worker harness (`run_report_worker_tick`).
+  * Process pending jobs synchronously up to the max batch size.
+  * Keep external queues and background threads deferred.
+* **Phase H: Process Supervision & Celery Setup**
   * Integrate Redis and Celery.
   * Separate the web container from the worker container in deployment configurations.
-* **Phase H: Observability & Monitoring**
+* **Phase I: Observability & Monitoring**
   * Expose Prometheus metrics for job latency, throughput, and error rates.
   * Hook up Slack/PagerDuty alerts for critical task failures.
+
 
 
 

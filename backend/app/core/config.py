@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./storage_db/finsight_dev.db"
     DATABASE_ECHO: bool = False
 
+    # Report Worker Harness Configuration
+    REPORT_WORKER_ENABLED: bool = False
+    REPORT_WORKER_MAX_JOBS_PER_TICK: int = 1
+
     @property
     def normalized_persistence_backend(self) -> str:
         return (self.PERSISTENCE_BACKEND or "local").strip().lower()

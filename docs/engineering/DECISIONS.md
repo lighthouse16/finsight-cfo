@@ -218,5 +218,11 @@ This document records key architectural and design decisions for FinSight CFO.
 - Decision: Add API endpoint `POST /api/workspaces/{workspace_id}/jobs/report-generation` in `backend/app/routes/jobs.py` and implement request model `ReportGenerationJobCreateRequest` in `backend/app/models/job.py` with custom Pydantic byte validators. The endpoint registers the job in `"pending"` status and delegates creation to `job_service.create_job`. Preserve the 501 Not Implemented response for local mode.
 - Consequences: Successfully completes the API flow to create pending jobs, enabling status checking via existing GET status routes and offline processing via the service worker prototype without introducing background thread/queue runners.
 
+## ADR-035: Add feature-flagged in-process report worker harness with safe-off default
+- Status: Approved
+- Context: In Phase G of the background processing rollout (Task T-131), we need a controlled in-process report worker harness to process pending report generation jobs using the existing worker service prototype, keeping the default runtime behavior unchanged.
+- Decision: Implement a deterministic `run_report_worker_tick` function in a new service `report_worker_harness.py`. Add settings `REPORT_WORKER_ENABLED` (default `False`) and `REPORT_WORKER_MAX_JOBS_PER_TICK` (default `1`). The harness executes in-process only when explicitly enabled, scans pending jobs, filters report generation types, and processes them up to the batch limit without loop/sleep/threads.
+- Consequences: Moves the backend closer to asynchronous capabilities in a controlled, feature-flagged manner while ensuring zero runtime changes or DB dependencies under default configurations.
+
 
 
