@@ -35,8 +35,10 @@ import {
   createReportGenerationJob,
   getWorkspaceJob,
   listWorkspaceJobs,
+  runReportWorkerTick,
   ReportJobsApiError,
   type ReportJob,
+  type ReportWorkerTickSummary,
 } from './api/reportJobsApi'
 import {
   getAdvisoryBlueprint,
@@ -190,6 +192,8 @@ export default function ReportsPage() {
   const [jobsError, setJobsError] = useState<string | null>(null)
   const [jobsNotice, setJobsNotice] = useState<string | null>(null)
   const [latestJobId, setLatestJobId] = useState<string | null>(null)
+  const [tickSummary, setTickSummary] = useState<ReportWorkerTickSummary | null>(null)
+  const [runningTick, setRunningTick] = useState(false)
 
   const activeSnapshotId = useMemo(() => {
     for (const key of requiredKeys) {
@@ -433,6 +437,46 @@ export default function ReportsPage() {
     }
   }
 
+  const handleRunWorkerTick = async () => {
+    const workspaceId = localStorage.getItem('active_workspace_id')
+    if (!workspaceId) {
+      setJobsError('Select a workspace before running the worker tick.')
+      setJobsNotice(null)
+      return
+    }
+
+    setRunningTick(true)
+    setJobsError(null)
+    setJobsNotice(null)
+    setTickSummary(null)
+
+    try {
+      const summary = await runReportWorkerTick(workspaceId)
+      setTickSummary(summary)
+
+      if (!summary.enabled) {
+        setJobsNotice('Report worker is disabled in this environment.')
+      } else {
+        await loadReportJobs()
+      }
+    } catch (error) {
+      console.error('Failed to run worker tick', error)
+
+      if (error instanceof ReportJobsApiError && error.status === 501) {
+        setJobsNotice(error.message)
+        setJobsError(null)
+      } else if (error instanceof Error) {
+        setJobsError(error.message)
+        setJobsNotice(null)
+      } else {
+        setJobsError('Unable to run worker tick right now.')
+        setJobsNotice(null)
+      }
+    } finally {
+      setRunningTick(false)
+    }
+  }
+
   const valuation =
     ((state.financial as unknown as {
       valuation?: {
@@ -537,8 +581,21 @@ export default function ReportsPage() {
           <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
+              onClick={() => void handleRunWorkerTick()}
+              disabled={runningTick || jobsRefreshing || creatingJob}
+              className="inline-flex items-center gap-2 rounded-xl border border-softform-teal-500/30 bg-softform-teal-50/50 px-4 py-2.5 text-xs font-semibold text-softform-teal-700 shadow-sm transition hover:bg-softform-teal-100/50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {runningTick ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Play size={14} />
+              )}
+              Run worker tick
+            </button>
+            <button
+              type="button"
               onClick={() => void loadReportJobs()}
-              disabled={jobsLoading || jobsRefreshing || creatingJob}
+              disabled={jobsLoading || jobsRefreshing || creatingJob || runningTick}
               className="inline-flex items-center gap-2 rounded-xl border border-white/70 bg-white/50 px-4 py-2.5 text-xs font-semibold text-softform-navy-950 shadow-sm transition hover:bg-white/70 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <RotateCw
@@ -566,6 +623,41 @@ export default function ReportsPage() {
         {hasSnapshot === false && (
           <div className="rounded-[24px] border border-softform-amber-200/50 bg-softform-cream/40 px-4 py-3 text-sm text-softform-text-secondary">
             Create an active financial snapshot before starting a new report job for this workspace.
+          </div>
+        )}
+
+        {tickSummary && tickSummary.enabled && (
+          <div className="rounded-[24px] border border-softform-aqua-300/30 bg-softform-mist-100/50 p-4 text-sm text-softform-text-secondary">
+            <div className="flex items-center gap-2 mb-3">
+              <CheckCircle2 size={16} className="text-softform-teal-500" />
+              <h4 className="font-semibold text-softform-navy-950">Worker Tick Summary</h4>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">Scanned</p>
+                <p className="mt-1 font-semibold text-softform-navy-950">{tickSummary.scanned}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">Processed</p>
+                <p className="mt-1 font-semibold text-softform-navy-950">{tickSummary.processed}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">Succeeded</p>
+                <p className="mt-1 font-semibold text-softform-teal-600">{tickSummary.succeeded}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">Failed</p>
+                <p className="mt-1 font-semibold text-red-600">{tickSummary.failed}</p>
+              </div>
+            </div>
+            {tickSummary.errors && tickSummary.errors.length > 0 && (
+              <div className="mt-4 pt-3 border-t border-softform-aqua-300/20 text-xs text-red-600">
+                <span className="font-semibold">Errors:</span>
+                <ul className="list-disc pl-5 mt-1 space-y-1">
+                  {tickSummary.errors.map((err, i) => <li key={i}>{err}</li>)}
+                </ul>
+              </div>
+            )}
           </div>
         )}
 
