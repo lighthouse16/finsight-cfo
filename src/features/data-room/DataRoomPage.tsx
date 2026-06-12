@@ -483,7 +483,7 @@ export default function DataRoomPage() {
                   onClick={handleLoadDemoWorkspace}
                   disabled={isResetting}
                   className="inline-flex items-center gap-1.5 px-4 py-2 border border-white/70 bg-white/60 hover:bg-white text-softform-navy-950 text-xs font-semibold rounded-xl shadow-sm disabled:opacity-50 transition-colors"
-                  title="Safe developer/demo helper to reset and populate sample company statements."
+                  title="Safe developer helper to reset and populate sample company statements."
                 >
                   {isResetting ? (
                     <Loader2 size={13} className="animate-spin text-softform-teal-deep" />
@@ -516,7 +516,7 @@ export default function DataRoomPage() {
                     onClick={handleLoadDemoWorkspace}
                     disabled={isResetting}
                     className="inline-flex items-center gap-1.5 px-4 py-2 border border-white/70 bg-white/60 hover:bg-white text-softform-navy-950 text-xs font-semibold rounded-xl shadow-sm disabled:opacity-50 transition-colors"
-                    title="Safe developer/demo helper to reset and populate sample company statements."
+                    title="Safe developer helper to reset and populate sample company statements."
                   >
                     {isResetting ? (
                       <Loader2 size={13} className="animate-spin text-softform-teal-deep" />
@@ -562,7 +562,7 @@ export default function DataRoomPage() {
                 onClick={handleLoadDemoWorkspace}
                 disabled={isResetting}
                 className="inline-flex items-center gap-1.5 px-4 py-2 border border-white/70 bg-white/60 hover:bg-white text-softform-navy-950 text-xs font-semibold rounded-xl shadow-sm disabled:opacity-50 transition-colors"
-                title="Safe developer/demo helper to reset and populate sample company statements."
+                title="Safe developer helper to reset and populate sample company statements."
               >
                 {isResetting ? (
                   <Loader2 size={13} className="animate-spin text-softform-teal-deep" />
@@ -953,7 +953,7 @@ export default function DataRoomPage() {
             </p>
             {activeSnapshot ? (
               <p className="text-[11px] text-softform-teal-deep font-semibold">
-                Active workspace snapshot: Period {activeSnapshot.reportingPeriod || 'FY2025'} ({activeSnapshot.currency || 'HKD'}) is compiled and approved.
+                Active workspace snapshot: Period {activeSnapshot.reportingPeriod || 'FY2025'} ({activeSnapshot.currency || 'HKD'}) is compiled and validated.
               </p>
             ) : (
               <p className="text-[11px] text-softform-amber-500 font-semibold">

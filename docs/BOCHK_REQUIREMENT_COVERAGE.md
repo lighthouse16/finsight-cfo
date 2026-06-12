@@ -33,5 +33,3 @@ The workspace-backed persistent Data Room ingestion implementation covers the fo
 - **Dynamic Parser Run**: Structured statements parsed on upload using CSV/XLSX modules.
 - **OCR/PDF Ingestion Feedback**: Instructs the user to use standard OCR when PDF/DOCX are uploaded.
 - **Analysis Rerun**: Executes ratios, risk diagnostics, projections, and DCF valuation on the compiled active snapshot on-the-fly.
-
-
