@@ -252,8 +252,8 @@ export default function ValuationPage() {
     )
   }
 
-  const valuation = analysis.valuation ?? {}
-  const snapshot = analysis.snapshot
+  const valuation = analysis.valuation ?? analysis ?? {}
+  const snapshot = activeSnapshot ?? analysis.snapshot ?? {}
   const dcf = valuation.dcf
   const wacc = valuation.wacc
   const valuationYears = dcf?.valuationYears ?? []
