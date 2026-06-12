@@ -242,6 +242,8 @@ This document records key architectural and design decisions for FinSight CFO.
 - Decision: Introduce reusable FastAPI dependency helpers (`require_admin`, `require_write_access`, `require_role`, `require_any_role`) in `auth.py` leveraging the existing `RequestContext`. Apply them to the jobs and workspaces routes to protect creation/trigger/delete endpoints. Fall back to `admin` by default to preserve local development experience.
 - Consequences: Enforces secure role-based restrictions (distinguishing admin, analyst, and viewer roles) with standard 403 Forbidden error handling, leaving read-only queries functional for all valid contexts without schema modifications.
 
-
-
-
+## ADR-039: Publish product finance correctness audit and enforce planning-only disclaimers
+- **Status**: Approved
+- **Context**: In preparing the FinSight CFO platform for presentation to the BOCHK Challenge 2026 judges, we must ensure all corporate finance formulas, risk indicators, WACC/DCF methods, and advisory checks are fully audited, verified, and traceably documented. We must also enforce strict disclaimer guidelines to prevent the product from claiming automated credit approval or underwriting capabilities.
+- **Decision**: Publish `docs/PRODUCT_FINANCE_CORRECTNESS.md` detailing the exact mathematical formula, implementation file, test evidence, and verdict for all 24 rules. Publish `docs/FINANCE_RULE_TRACEABILITY.md` to map requirement sources to their implementation and testing evidence. Publish `docs/BOCHK_REQUIREMENT_COVERAGE.md` to map platform capabilities against the challenge guidelines. Enforce a strict policy that all advisory and credit scoring outputs are context-only planning aids, not calibrated PD default models.
+- **Consequences**: Hardens the transparency and compliance posture of the product, matches judge expectations regarding finance-rule correctness, and provides a clear transition path from MVP assumptions to commercial production integrations.
