@@ -1,0 +1,91 @@
+# ──────────────────────────────────────────────────────────
+# FinSight CFO — Docker Compose (Local Production-Like Runtime)
+# ──────────────────────────────────────────────────────────
+# Usage:
+#   docker compose up -d              # Start all services
+#   docker compose down               # Stop all services
+#   docker compose logs -f            # Follow logs
+#   docker compose ps                 # Show service status
+#
+# Environment:
+#   Copy backend/.env.example → backend/.env and edit as needed.
+#   Variables in backend/.env are automatically loaded by the backend service.
+# ──────────────────────────────────────────────────────────
+
+services:
+
+  # ── Backend API (FastAPI) ──────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: finsight-cfo-backend:latest
+    container_name: finsight-cfo-backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      # Override for Docker networking — explicit default if .env is absent
+      - MARKET_WATCH_USE_FIXTURES=${MARKET_WATCH_USE_FIXTURES:-true}
+    # Uncomment when database support is added:
+    # depends_on:
+    #   postgres:
+    #     condition: service_healthy
+    # networks:
+    #   - finsight-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import http.client; c=http.client.HTTPConnection('127.0.0.1',8000); c.request('GET','/health'); r=c.getresponse(); assert r.status==200"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  # ── Frontend (nginx + static build) ────────────────────
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # In Docker, the frontend talks to the backend via nginx reverse proxy
+      # on the same origin, so we leave VITE_API_BASE_URL empty.
+      # The nginx config routes /api/* → backend:8000 internally.
+      args:
+        VITE_API_BASE_URL: ""
+    image: finsight-cfo-frontend:latest
+    container_name: finsight-cfo-frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      backend:
+        condition: service_started
+    # networks:
+    #   - finsight-network
+    restart: unless-stopped
+
+  # ── PostgreSQL Database (optional — uncomment when needed) ──
+  # postgres:
+  #   image: postgres:16-alpine
+  #   container_name: finsight-cfo-postgres
+  #   environment:
+  #     POSTGRES_USER: finsight
+  #     POSTGRES_PASSWORD: finsight_local_dev
+  #     POSTGRES_DB: finsight_cfo
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - pgdata:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U finsight -d finsight_cfo"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #   restart: unless-stopped
+  #   networks:
+  #     - finsight-network
+
+# volumes:
+#   pgdata:       ← Uncomment with Postgres
+# networks:
+#   finsight-network:
+#     driver: bridge

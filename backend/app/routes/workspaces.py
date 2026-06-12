@@ -4,6 +4,7 @@ from typing import List, Optional
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, Depends
 from sqlalchemy.orm import Session
 from app.core.config import settings
+from app.core.auth import require_admin, require_write_access, RequestContext
 from app.persistence.interfaces import WorkspaceRepository, FileMetadataRepository, AnalysisRunRepository, ReportRepository, AuditEventRepository
 from app.services.audit_service import record_audit_event_best_effort
 from app.services.report_service import (
@@ -670,6 +671,7 @@ async def delete_workspace_file(
     workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     file_repo: FileMetadataRepository = Depends(get_file_metadata_repository_dependency),
     audit_repo: AuditEventRepository = Depends(get_audit_event_repository_dependency),
+    context: RequestContext = Depends(require_write_access),
 ):
     return await service_delete_workspace_file(
         workspace_id=workspace_id,
@@ -686,6 +688,7 @@ async def delete_workspace(
     workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     file_repo: FileMetadataRepository = Depends(get_file_metadata_repository_dependency),
     audit_repo: AuditEventRepository = Depends(get_audit_event_repository_dependency),
+    context: RequestContext = Depends(require_admin),
 ):
     return await service_delete_workspace(
         workspace_id=workspace_id,
@@ -1107,6 +1110,7 @@ async def delete_workspace_report(
     workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     report_repo: ReportRepository = Depends(get_report_repository_dependency),
     audit_repo: AuditEventRepository = Depends(get_audit_event_repository_dependency),
+    context: RequestContext = Depends(require_write_access),
 ):
     return await service_delete_report(
         workspace_id=workspace_id,

@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import Header, HTTPException, status
+from fastapi import Header, HTTPException, status, Depends
 from pydantic import BaseModel, field_validator
 
 from app.core.config import settings
@@ -71,4 +71,44 @@ def get_request_context(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         ) from exc
+
+
+def require_role(role: str):
+    def dependency(context: RequestContext = Depends(get_request_context)) -> RequestContext:
+        if context.role != role:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Role '{role}' required.",
+            )
+        return context
+    return dependency
+
+
+def require_any_role(*roles: str):
+    def dependency(context: RequestContext = Depends(get_request_context)) -> RequestContext:
+        if context.role not in roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"One of roles {roles} required.",
+            )
+        return context
+    return dependency
+
+
+def require_write_access(context: RequestContext = Depends(get_request_context)) -> RequestContext:
+    if context.role not in ("admin", "analyst"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Write access required for this action.",
+        )
+    return context
+
+
+def require_admin(context: RequestContext = Depends(get_request_context)) -> RequestContext:
+    if context.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin role required for this action.",
+        )
+    return context
 
