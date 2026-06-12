@@ -22,10 +22,10 @@ def get_gap_remediation_summary() -> dict[str, Any]:
             "Macro prediction scenario endpoint",
             "Logistic PD demo endpoint",
             "Facility optimization demo endpoint",
+            "Wired provider credentials for HKMA, CME, Apify, SQX/Cbonds, and CDI gateways.",
         ],
         "remainingProductionWork": [
             "Replace mocked OCR with deployed OCR/PDF parser workers.",
-            "Wire provider credentials for HKMA, CME, Apify, SQX/Cbonds, and CDI gateways.",
             "Train and validate calibrated PD model with real bureau/CDI performance data.",
             "Replace heuristic optimizer with PuLP or scipy linprog after final constraints are approved.",
         ],
