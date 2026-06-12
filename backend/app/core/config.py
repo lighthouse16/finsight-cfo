@@ -74,6 +74,17 @@ class Settings(BaseSettings):
     def normalized_object_storage_backend(self) -> str:
         return (self.OBJECT_STORAGE_BACKEND or "local_file").strip().lower()
 
+    # Queue Configuration
+    QUEUE_BACKEND: str = "in_process"
+    QUEUE_REDIS_URL: str = "redis://localhost:6379/0"
+    QUEUE_IN_PROCESS_MAXSIZE: int = 0
+
+    # Rate Limiting Configuration
+    RATE_LIMIT_IP_RATE: float = 10.0
+    RATE_LIMIT_IP_BURST: float = 20.0
+    RATE_LIMIT_WS_RATE: float = 50.0
+    RATE_LIMIT_WS_BURST: float = 100.0
+
     @property
     def normalized_persistence_backend(self) -> str:
         return (self.PERSISTENCE_BACKEND or "local").strip().lower()

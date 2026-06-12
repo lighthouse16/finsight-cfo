@@ -3,6 +3,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings, get_settings
 from app.core.startup_checks import validate_startup_config
+from app.core.log_config import setup_json_logging
+from app.middleware.request_id import request_id_middleware
+from app.middleware.rate_limit import rate_limit_middleware
 from app.routes.market_watch import router as market_watch_router
 from app.routes.market_funding import router as market_funding_router
 from app.routes.financials import router as financials_router
@@ -13,12 +16,16 @@ from app.routes.cdi import router as cdi_router
 from app.routes.gap_remediation import router as gap_remediation_router
 from app.routes.workspaces import router as workspaces_router
 from app.routes.jobs import router as jobs_router
+from app.routes.metrics import router as metrics_router
+
+logger = setup_json_logging()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Run startup config check
     validate_startup_config(settings)
+    logger.info("FinSight CFO API started", extra={"mode": settings.APP_MODE})
     yield
 
 app = FastAPI(title="FinSight CFO API", lifespan=lifespan)
@@ -31,6 +38,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"]
 )
+
+# Internal middlewares (request_id first, then rate_limit)
+app.middleware("http")(request_id_middleware)
+app.middleware("http")(rate_limit_middleware)
+
 
 @app.get("/health")
 def health_check():
@@ -97,3 +109,4 @@ app.include_router(cdi_router, prefix="/api/cdi")
 app.include_router(gap_remediation_router, prefix="/api/gap-remediation")
 app.include_router(workspaces_router, prefix="/api/workspaces")
 app.include_router(jobs_router, prefix="/api/workspaces")
+app.include_router(metrics_router)
