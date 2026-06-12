@@ -411,6 +411,9 @@ class AdvisoryChatSource(AdvisoryBaseModel):
     title: str
     snippet: Optional[str] = None
     document_id: Optional[str] = None
+    chunk_index: Optional[int] = None
+    relevance_score: Optional[float] = None
+    source_mode: str = "workspace_derived"
 
 
 class AdvisoryChatRequest(AdvisoryBaseModel):
@@ -427,3 +430,46 @@ class AdvisoryChatResponse(AdvisoryBaseModel):
     disclaimer: str = ""
     warnings: List[str] = Field(default_factory=list)
 
+class AdvisorReportRequest(AdvisoryBaseModel):
+    objective: Optional[str] = None
+
+
+# Advisor-Ready Report Models
+class ReportCitation(AdvisoryBaseModel):
+    title: str
+    snippet: str
+    document_id: Optional[str] = None
+    chunk_index: Optional[int] = None
+    relevance_score: Optional[float] = None
+    source_mode: str = "workspace_derived"
+
+
+class AdvisorReportSection(AdvisoryBaseModel):
+    title: str
+    content: str
+    citations: List[ReportCitation] = Field(default_factory=list)
+
+
+class AdvisorReadyReportPayload(AdvisoryBaseModel):
+    report_type: str = "advisor_ready"
+    workspace_id: str
+    generated_at: str
+    title: str
+    company_snapshot: dict = Field(default_factory=dict)
+    data_quality: dict = Field(default_factory=dict)
+    sections: List[AdvisorReportSection] = Field(default_factory=list)
+    source_provenance: str = "Derived from workspace financial structured data and document excerpts."
+    disclaimers: List[str] = Field(default_factory=lambda: [
+        "This is a planning/advisory artifact only.",
+        "Not a formal credit approval.",
+        "Not a lending commitment.",
+        "Relationship manager review required."
+    ])
+    ai_mode: str = "deterministic_fallback"
+    limitations: List[str] = Field(default_factory=list)
+
+
+class AdvisorReportResponse(AdvisoryBaseModel):
+    report_id: Optional[str] = None
+    job_id: Optional[str] = None
+    payload: AdvisorReadyReportPayload
