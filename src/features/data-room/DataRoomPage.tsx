@@ -34,7 +34,7 @@ import {
 } from './api/dataRoomApi'
 import { getFinancialHealthAnalysis } from '../financial-health/financialHealthApi'
 import { API_BASE_URL } from '../../lib/apiBase'
-import { fetchBackendConfig } from '../../lib/workspaceRunHelpers'
+import { fetchBackendConfig, triggerAnalysisRun } from '../../lib/workspaceRunHelpers'
 
 type UploadState = {
   uploading: boolean
@@ -74,6 +74,7 @@ interface DataRoomRecord {
   requiredFor: string[]
   lastUpdated?: string | null
   actionLabel: string
+  extractionStatus?: string
 }
 
 interface DataRoomResponse {
@@ -107,6 +108,35 @@ export default function DataRoomPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('All')
   const [isResetting, setIsResetting] = useState(false)
   const [showDemoHelper, setShowDemoHelper] = useState(false)
+  const [isRunningWorkspaceAnalysis, setIsRunningWorkspaceAnalysis] = useState(false)
+
+  const activeDataMode = useMemo(() => {
+    if (!analysisResult?.snapshot) return 'demo_sample'
+    const meta = analysisResult.snapshot.metadata
+    if (meta?.source === 'workspace_persistent_snapshot' || meta?.persistent === true) {
+      return 'persistent_workspace'
+    }
+    if (meta?.source === 'data_room_workspace_preview' || meta?.preview_only === true) {
+      return 'preview_parsed'
+    }
+    return 'demo_sample'
+  }, [analysisResult])
+
+  const handleRunWorkspaceAnalysis = async () => {
+    if (!activeWorkspaceId) return
+    setIsRunningWorkspaceAnalysis(true)
+    try {
+      await triggerAnalysisRun(activeWorkspaceId, 'financial_health')
+      await reloadWorkspaceData(activeWorkspaceId)
+      setActiveNotification('Workspace financial health analysis run triggered and completed successfully.')
+      setTimeout(() => setActiveNotification(null), 4000)
+    } catch (err: any) {
+      console.error(err)
+      alert(err.message || 'Failed to trigger workspace financial analysis run.')
+    } finally {
+      setIsRunningWorkspaceAnalysis(false)
+    }
+  }
 
   const handleLoadDemoWorkspace = async () => {
     setIsResetting(true)
@@ -262,6 +292,11 @@ export default function DataRoomPage() {
             day: 'numeric',
           })}`,
           actionLabel: 'Upload' as const, // Support re-upload/overwrite
+          extractionStatus: uploaded.status,
+          fileName: uploaded.fileName,
+          parserStatus: uploaded.parserStatus || (uploaded as any).parser_status,
+          recordCount: uploaded.recordCount || (uploaded as any).record_count,
+          warnings: uploaded.warnings || [],
         }
       }
       return {
@@ -563,7 +598,59 @@ export default function DataRoomPage() {
         )}
       </AnimatePresence>
 
-      {/* 2. Data Readiness Overview */}
+      {/* 2. Active Data Mode Banner */}
+      <div className="rounded-[24px] border border-white bg-white/70 p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-floating-panel">
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-softform-text-muted uppercase tracking-[0.14em]">
+              Active Data Engine Mode
+            </span>
+            {activeDataMode === 'persistent_workspace' && (
+              <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 border border-emerald-500/20">
+                Persistent Workspace Active
+              </span>
+            )}
+            {activeDataMode === 'preview_parsed' && (
+              <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-600 border border-amber-500/20">
+                Temporary Preview Active
+              </span>
+            )}
+            {activeDataMode === 'demo_sample' && (
+              <span className="inline-flex items-center rounded-full bg-slate-500/10 px-2.5 py-0.5 text-xs font-semibold text-slate-600 border border-slate-500/20">
+                Demo Sample Active
+              </span>
+            )}
+          </div>
+          <p className="text-sm text-softform-navy-950 font-semibold">
+            {activeDataMode === 'persistent_workspace' && `Displaying persisted records for ${activeWorkspaceName || 'Workspace'}.`}
+            {activeDataMode === 'preview_parsed' && "Displaying temporary in-memory preview. Build active snapshot to persist."}
+            {activeDataMode === 'demo_sample' && "Displaying default sample records (Harbour & Finch fallback). Select a workspace to persist uploaded data."}
+          </p>
+          <p className="text-xs text-softform-text-secondary">
+            {activeDataMode === 'persistent_workspace' && "All outcome modules are fully calibrated against your uploaded CSV/XLSX statements."}
+            {activeDataMode === 'preview_parsed' && "Projections and diagnostic models will revert to default demo templates when the backend process restarts."}
+            {activeDataMode === 'demo_sample' && "Create a workspace and upload financial files to calibrate outcomes against actual SME performance."}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <button
+            onClick={handleBuildSnapshot}
+            disabled={isBuilding || locallyMissingRequiredStatements.length > 0}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-softform-navy-900 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-softform-navy-800 disabled:cursor-not-allowed disabled:opacity-45 shadow-sm"
+          >
+            {isBuilding ? <Loader2 size={12} className="animate-spin" /> : <Database size={12} />}
+            <span>Save as active workspace financial snapshot</span>
+          </button>
+          <button
+            onClick={handleRunWorkspaceAnalysis}
+            disabled={isRunningWorkspaceAnalysis || !activeSnapshot}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-white/80 bg-white/60 px-4 py-2.5 text-xs font-semibold text-softform-navy-950 hover:bg-white disabled:cursor-not-allowed disabled:opacity-45 shadow-sm transition"
+          >
+            {isRunningWorkspaceAnalysis ? <Loader2 size={12} className="animate-spin" /> : <Activity size={12} className="text-softform-teal-deep" />}
+            <span>Run workspace financial analysis</span>
+          </button>
+        </div>
+      </div>
       <section className="grid gap-4 sm:grid-cols-4">
         <div className="softform-metric-card rounded-[22px] p-5 hover-lift">
           <MetricDisplay
@@ -658,7 +745,7 @@ export default function DataRoomPage() {
                     type="file"
                     id={`file-input-${rec.id}`}
                     name={`file-input-${rec.id}`}
-                    accept=".csv,.xlsx"
+                    accept=".csv,.xlsx,.pdf,.docx"
                     aria-label={`Upload statement for ${rec.name}`}
                     className="sr-only"
                     onChange={(e) => handleFileSelected(rec, e)}
@@ -698,6 +785,58 @@ export default function DataRoomPage() {
                       <p className="text-xs text-softform-text-secondary leading-relaxed max-w-xl">
                         {rec.purpose}
                       </p>
+                      
+                      {isConnected && (
+                        <div className="mt-2 space-y-1 rounded-xl bg-white/40 border border-white/60 p-2.5">
+                          <p className="text-xs text-softform-navy-900 font-semibold truncate flex items-center gap-1.5">
+                            <FileText size={12} className="text-softform-teal-deep" />
+                            <span>File: {(rec as any).fileName}</span>
+                          </p>
+                          
+                          {/* Parser Status */}
+                          <div className="flex items-center gap-2 text-[10px] font-semibold pt-0.5">
+                            {(rec as any).parserStatus === 'parsed' && (
+                              <span className="text-emerald-600 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                                Parsed successfully ({(rec as any).recordCount} rows)
+                              </span>
+                            )}
+                            {(rec as any).parserStatus === 'unsupported_without_ocr' && (
+                              <span className="text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                                Accepted Metadata (PDF/Word requires OCR)
+                              </span>
+                            )}
+                            {(rec as any).parserStatus === 'unsupported_type' && (
+                              <span className="text-red-600 bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/20">
+                                Unsupported File Type
+                              </span>
+                            )}
+                            {(rec as any).parserStatus === 'failed' && (
+                              <span className="text-red-600 bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/20">
+                                Parsing Failed
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Parser status specific details */}
+                          {(rec as any).parserStatus === 'unsupported_without_ocr' && (
+                            <p className="text-[10px] text-softform-text-secondary leading-relaxed mt-1">
+                              <strong>Next Action:</strong> PDF statement text parsing and OCR are disabled in this build. Please convert to structured CSV or XLSX and upload.
+                            </p>
+                          )}
+
+                          {/* Parser warnings */}
+                          {(rec as any).warnings && (rec as any).warnings.length > 0 && (
+                            <div className="mt-1 space-y-0.5">
+                              {(rec as any).warnings.map((warn: string, wIdx: number) => (
+                                <p key={wIdx} className="text-[10px] text-softform-amber-500 font-semibold flex items-start gap-1">
+                                  <AlertCircle size={10} className="shrink-0 mt-0.5" />
+                                  <span>{warn}</span>
+                                </p>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -724,8 +863,23 @@ export default function DataRoomPage() {
                       <StatusChip variant={getStatusChipVariant(rec.status)}>
                         {getStatusLabel(rec.status)}
                       </StatusChip>
+                      {rec.extractionStatus && rec.extractionStatus !== 'parsed_structured' && (
+                        <div className="mt-1">
+                          {rec.extractionStatus === 'parsed_pdf_text_layer' && <StatusChip variant="signal">Parsed PDF Text</StatusChip>}
+                          {rec.extractionStatus === 'parsed_docx_text' && <StatusChip variant="signal">Parsed DOCX</StatusChip>}
+                          {rec.extractionStatus === 'ocr_provider_not_configured' && <StatusChip variant="caution">OCR Unavailable</StatusChip>}
+                          {rec.extractionStatus === 'ocr_provider_configured' && <StatusChip variant="caution">Review Required</StatusChip>}
+                          {rec.extractionStatus === 'unsupported' && <StatusChip variant="caution">Unsupported</StatusChip>}
+                          {rec.extractionStatus === 'validation_warning' && <StatusChip variant="caution">Review Required</StatusChip>}
+                        </div>
+                      )}
+                      {rec.extractionStatus && ['ocr_provider_not_configured', 'ocr_provider_configured', 'unsupported', 'validation_warning'].includes(rec.extractionStatus) && (
+                        <p className="hidden lg:block text-[10px] text-softform-amber-500 font-semibold mt-1">
+                          Try uploading CSV/XLSX
+                        </p>
+                      )}
                       {rec.lastUpdated && (
-                        <p className="hidden lg:block text-[10px] text-softform-text-muted/80">
+                        <p className="hidden lg:block text-[10px] text-softform-text-muted/80 mt-1">
                           {rec.lastUpdated}
                         </p>
                       )}

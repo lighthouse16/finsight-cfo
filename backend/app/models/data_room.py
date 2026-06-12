@@ -53,9 +53,14 @@ DataRoomUploadedFileStatus = Literal[
     "received",
     "pending_review",
     "accepted_metadata",
-    "unsupported_type",
+    "unsupported",
     "validation_warning",
     "unavailable",
+    "parsed_structured",
+    "parsed_pdf_text_layer",
+    "parsed_docx_text",
+    "ocr_provider_configured",
+    "ocr_provider_not_configured",
 ]
 
 ALLOWED_UPLOAD_EXTENSIONS = {"pdf", "csv", "xlsx", "xls", "docx"}
