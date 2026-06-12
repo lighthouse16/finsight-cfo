@@ -44,14 +44,13 @@ This board tracks active, planned, and completed tasks for current engineering s
 | **T-130** | `commercial/report-job-trigger-route-contract` | **Done** | Backend Architect | Low |
 | **T-131** | `commercial/feature-flagged-report-worker-harness` | **Done** | Backend Architect | Low |
 | **T-132** | `commercial/worker-runtime-manual-trigger` | **Done** | Backend Engineer | Low |
-| **T-132** | `commercial/end-to-end-product-smoke-tests` | **Done** | Backend Engineer | Low |
+| **T-133** | `commercial/end-to-end-product-smoke-tests` | **Done** | Backend Engineer | Low |
+| **T-134** | `commercial/rbac-route-guardrails` | **Done** | Backend Engineer | Low |
+| **T-135** | `commercial/final-product-readiness-validation` | **Done** | Backend Engineer | Low |
+| **T-136** | `commercial/product-finance-correctness` | **Done** | Backend Engineer | Low |
 
+## Sprint 2 — Market & Funding Intelligence [COMPLETED]
 
-
-
-
-
-
-
-
-
+| Task ID | Task Branch / Scope | Status | Suggested Owner | Risk Level |
+| :--- | :--- | :--- | :--- | :--- |
+| **T-201** | `commercial/market-funding-intelligence` | **Done** | Fullstack Engineer | Low |

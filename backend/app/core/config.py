@@ -1,3 +1,5 @@
+from functools import lru_cache
+
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
@@ -7,6 +9,7 @@ class Settings(BaseSettings):
     
     # Ingestion & Production Mode Configs
     APP_MODE: str = "development"
+    APP_VERSION: str = "1.0.0-rc1"
     ALLOW_DEMO_FALLBACK: bool = True
 
     # Auth / Tenant Context Foundation
@@ -26,6 +29,10 @@ class Settings(BaseSettings):
     ALPHA_VANTAGE_API_KEY: str = ""
     COMMODITY_PROVIDER: str = "fixture"
     MARKET_WATCH_AUTO_REFRESH_SECONDS: int = 300
+    CHINADATA_API_KEY: str = ""
+    IHS_MARKIT_API_KEY: str = ""
+    FEDWATCH_API_KEY: str = ""
+    BOCHK_CATALOG_CONFIGURED: bool = False
 
     CORS_ALLOW_ORIGINS: str = (
         "http://localhost:5173,http://127.0.0.1:5173,"
@@ -34,12 +41,38 @@ class Settings(BaseSettings):
     )
 
     PERSISTENCE_BACKEND: str = "local"
+    STORAGE_BACKEND: str = "local"
     DATABASE_URL: str = "sqlite:///./storage_db/finsight_dev.db"
     DATABASE_ECHO: bool = False
+
+    # Object Storage Configs
+    OBJECT_STORAGE_BACKEND: str = "local_file"
+    S3_ENDPOINT_URL: str = ""
+    S3_BUCKET: str = ""
+    S3_ACCESS_KEY_ID: str = ""
+    S3_SECRET_ACCESS_KEY: str = ""
+    S3_REGION: str = "us-east-1"
+    S3_FORCE_PATH_STYLE: bool = True
+
+    # AI / LLM Provider Configuration
+    LLM_PROVIDER: str = ""  # "openai", "azure_openai", or empty for deterministic fallback
+    OPENAI_API_KEY: str = ""
+    OPENAI_MODEL: str = "gpt-4o-mini"
+    AZURE_OPENAI_API_KEY: str = ""
+    AZURE_OPENAI_ENDPOINT: str = ""
+    AZURE_OPENAI_DEPLOYMENT: str = ""
+
+    # Queue / Scheduler Backend
+    QUEUE_BACKEND: str = "in_process"  # "in_process", "redis" (future), "celery" (future)
 
     # Report Worker Harness Configuration
     REPORT_WORKER_ENABLED: bool = False
     REPORT_WORKER_MAX_JOBS_PER_TICK: int = 1
+    SCHEDULER_MODE: str = "manual"
+
+    @property
+    def normalized_object_storage_backend(self) -> str:
+        return (self.OBJECT_STORAGE_BACKEND or "local_file").strip().lower()
 
     # Queue Configuration
     QUEUE_BACKEND: str = "in_process"
@@ -61,6 +94,28 @@ class Settings(BaseSettings):
         return self.normalized_persistence_backend == "database"
 
     @property
+    def normalized_ai_mode(self) -> str:
+        """Detect AI provider mode from env configuration."""
+        if self.LLM_PROVIDER.strip().lower() == "openai" and self.OPENAI_API_KEY.strip():
+            return "openai"
+        if self.LLM_PROVIDER.strip().lower() == "azure_openai" and self.AZURE_OPENAI_API_KEY.strip():
+            return "azure_openai"
+        if self.OPENAI_API_KEY.strip():
+            return "openai"
+        if self.AZURE_OPENAI_API_KEY.strip():
+            return "azure_openai"
+        return "deterministic_fallback"
+
+    @property
+    def is_llm_configured(self) -> bool:
+        """Returns True if at least one LLM provider is fully configured."""
+        return self.normalized_ai_mode in ("openai", "azure_openai")
+
+    @property
+    def normalized_queue_backend(self) -> str:
+        return (self.QUEUE_BACKEND or "in_process").strip().lower()
+
+    @property
     def normalized_auth_mode(self) -> str:
         return (self.AUTH_MODE or "local").strip().lower()
 
@@ -73,4 +128,11 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
 
+
 settings = Settings()
+
+
+@lru_cache
+def get_settings() -> Settings:
+    """Return a cached Settings instance (cleared in tests via cache_clear())."""
+    return Settings()

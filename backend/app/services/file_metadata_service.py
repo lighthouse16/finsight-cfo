@@ -5,6 +5,7 @@ from fastapi import HTTPException
 from app.models.workspace import UploadedFileRecord
 from app.storage.file_store import FileStore
 from app.services.audit_service import record_audit_event_best_effort
+from app.services.data_room.structured_parser import PARSEABLE_RECORD_KEYS, parse_csv_bytes, parse_xlsx_bytes
 
 async def upload_workspace_file(
     *,
@@ -32,25 +33,102 @@ async def upload_workspace_file(
     if not (filename or "").strip():
         raise HTTPException(status_code=422, detail="file is required")
 
-    if settings.normalized_persistence_backend == "database":
-        from app.storage.workspace_store import STORAGE_DIR
-        upload_root = os.path.join(STORAGE_DIR, "uploads")
-        workspace_dir = os.path.join(upload_root, workspace_id)
-        os.makedirs(workspace_dir, exist_ok=True)
-        ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "bin"
-        dest_filename = f"{record_key}.{ext}"
-        file_path = os.path.join(workspace_dir, dest_filename)
-        
-        if os.path.exists(file_path):
+    # Run parsing & classification
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    if not ext:
+        if "csv" in content_type.lower():
+            ext = "csv"
+        elif "spreadsheet" in content_type.lower() or "excel" in content_type.lower():
+            ext = "xlsx"
+        elif "pdf" in content_type.lower():
+            ext = "pdf"
+        elif "word" in content_type.lower():
+            ext = "docx"
+
+    parser_status = "unknown"
+    record_count = 0
+    warnings = []
+    
+    if record_key in PARSEABLE_RECORD_KEYS:
+        if ext == "csv":
             try:
-                os.remove(file_path)
-            except Exception:
-                pass
-        try:
-            with open(file_path, "wb") as f:
-                f.write(file_bytes)
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to write file to disk: {str(e)}")
+                preview = parse_csv_bytes(record_key, file_bytes)
+                parser_status = "parsed" if preview.parsedRecords else "failed"
+                record_count = preview.rowCount
+                warnings = [w for w in preview.warnings if "Preview only" not in w]
+            except Exception as e:
+                parser_status = "failed"
+                warnings = [f"Failed to parse CSV: {str(e)}"]
+        elif ext == "xlsx":
+            try:
+                preview = parse_xlsx_bytes(record_key, file_bytes)
+                parser_status = "parsed" if preview.parsedRecords else "failed"
+                record_count = preview.rowCount
+                warnings = [w for w in preview.warnings if "Preview only" not in w]
+            except Exception as e:
+                parser_status = "failed"
+                warnings = [f"Failed to parse XLSX: {str(e)}"]
+        elif ext in ("pdf", "docx"):
+            parser_status = "unsupported_without_ocr"
+            record_count = 0
+            warnings = ["OCR/PDF parsing is not enabled. Please run standard OCR processing or upload structured CSV/XLSX instead."]
+        else:
+            parser_status = "unsupported_type"
+            record_count = 0
+            warnings = [f"File type '{ext}' is not supported for structured parsing. Please upload CSV/XLSX."]
+    else:
+        # metadata-only record key
+        parser_status = "metadata_only"
+        record_count = 0
+        warnings = ["Metadata-only record key."]
+
+    metadata = {
+        "parser_status": parser_status,
+        "record_count": record_count,
+        "warnings": warnings,
+        "source_type": record_key,
+    }
+
+    if settings.normalized_persistence_backend == "database":
+        storage_mode = "local_file"
+        provider_status = "ok"
+        object_key = None
+        object_uri = None
+        file_path = None
+        
+        if settings.normalized_object_storage_backend == "s3":
+            from app.storage.s3_store import S3Store
+            s3_store = S3Store(settings)
+            success, s3_meta = s3_store.upload_file(workspace_id, record_key, filename, file_bytes, content_type)
+            provider_status = s3_meta.get("providerStatus")
+            storage_mode = s3_meta.get("storageMode")
+            warnings.extend(s3_meta.get("warnings", []))
+            
+            if success:
+                object_key = s3_meta.get("objectKey")
+                object_uri = s3_meta.get("objectUri")
+        
+        if storage_mode == "local_file":
+            from app.storage.workspace_store import STORAGE_DIR
+            upload_root = os.path.join(STORAGE_DIR, "uploads")
+            workspace_dir = os.path.join(upload_root, workspace_id)
+            os.makedirs(workspace_dir, exist_ok=True)
+            ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "bin"
+            dest_filename = f"{record_key}.{ext}"
+            file_path = os.path.join(workspace_dir, dest_filename)
+            
+            if os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                except Exception:
+                    pass
+            try:
+                with open(file_path, "wb") as f:
+                    f.write(file_bytes)
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Failed to write file to disk: {str(e)}")
+            
+        storage_uri_for_db = object_uri if object_uri else (file_path or "")
             
         res_dict = file_repo.save_file_record(
             workspace_id=workspace_id,
@@ -58,7 +136,13 @@ async def upload_workspace_file(
             filename=filename,
             content_type=content_type,
             file_size_bytes=len(file_bytes),
-            storage_uri=file_path,
+            storage_uri=storage_uri_for_db,
+            storage_mode=storage_mode,
+            object_key=object_key,
+            object_uri=object_uri,
+            provider_status=provider_status,
+            warnings=warnings,
+            metadata=metadata,
         )
         await record_audit_event_best_effort(
             audit_repo=audit_repo,
@@ -75,6 +159,7 @@ async def upload_workspace_file(
             file_name=filename,
             file_bytes=file_bytes,
             content_type=content_type,
+            metadata=metadata,
         )
         return record
 
@@ -119,12 +204,22 @@ async def delete_workspace_file(
         if not file_record or file_record.get("workspaceId") != workspace_id:
             raise HTTPException(status_code=404, detail="File not found in this workspace")
             
-        file_path = file_record.get("filePath")
-        if file_path and os.path.exists(file_path):
-            try:
-                os.remove(file_path)
-            except Exception:
-                pass
+        metadata = file_record.get("metadata", {})
+        storage_mode = file_record.get("storageMode") or metadata.get("storageMode", "local_file")
+        
+        if storage_mode == "s3_compatible":
+            from app.storage.s3_store import S3Store
+            s3_store = S3Store(settings)
+            object_key = file_record.get("objectKey") or metadata.get("objectKey")
+            if object_key:
+                s3_store.delete_file(object_key)
+        else:
+            file_path = file_record.get("filePath")
+            if file_path and os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                except Exception:
+                    pass
                 
         success = file_repo.delete_file_record(file_id)
         if not success:
@@ -159,14 +254,26 @@ def get_workspace_file_bytes(
     if settings.normalized_persistence_backend == "database":
         file_rec_dict = file_repo.get_file_record(file_id)
         file_bytes = None
-        if file_rec_dict and file_rec_dict.get("filePath"):
-            file_path = file_rec_dict["filePath"]
-            if os.path.exists(file_path):
-                try:
-                    with open(file_path, "rb") as f:
-                        file_bytes = f.read()
-                except Exception:
-                    pass
+        if file_rec_dict:
+            metadata = file_rec_dict.get("metadata", {})
+            # Read from top level or metadata fallback
+            storage_mode = file_rec_dict.get("storageMode") or metadata.get("storageMode", "local_file")
+            
+            if storage_mode == "s3_compatible":
+                from app.storage.s3_store import S3Store
+                s3_store = S3Store(settings)
+                object_key = file_rec_dict.get("objectKey") or metadata.get("objectKey")
+                if object_key:
+                    file_bytes = s3_store.get_file_bytes(object_key)
+            else:
+                if file_rec_dict.get("filePath"):
+                    file_path = file_rec_dict["filePath"]
+                    if os.path.exists(file_path):
+                        try:
+                            with open(file_path, "rb") as f:
+                                file_bytes = f.read()
+                        except Exception:
+                            pass
         return file_bytes
     else:
         return FileStore.get_file_content(file_id)
@@ -182,14 +289,29 @@ def cascade_delete_workspace_files(
     """
     if settings.normalized_persistence_backend == "database":
         db_records = file_repo.list_file_records(workspace_id)
+        
+        s3_store = None
+        if settings.normalized_object_storage_backend == "s3":
+            from app.storage.s3_store import S3Store
+            s3_store = S3Store(settings)
+            
         for r in db_records:
             fid = r.get("id")
-            fpath = r.get("filePath")
-            if fpath and os.path.exists(fpath):
-                try:
-                    os.remove(fpath)
-                except Exception:
-                    pass
+            metadata = r.get("metadata", {})
+            storage_mode = r.get("storageMode") or metadata.get("storageMode", "local_file")
+            
+            if storage_mode == "s3_compatible":
+                if s3_store:
+                    object_key = r.get("objectKey") or metadata.get("objectKey")
+                    if object_key:
+                        s3_store.delete_file(object_key)
+            else:
+                fpath = r.get("filePath")
+                if fpath and os.path.exists(fpath):
+                    try:
+                        os.remove(fpath)
+                    except Exception:
+                        pass
             file_repo.delete_file_record(fid)
             
         ws_dir = os.path.join(FileStore._upload_root, workspace_id)

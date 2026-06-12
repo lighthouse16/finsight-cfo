@@ -236,3 +236,132 @@ class AdvisoryBlueprintResponse(AdvisoryBaseModel):
     source_outputs: List[str] = Field(default_factory=list)
     disclaimer: str
     warnings: List[str] = Field(default_factory=list)
+
+
+# Phase 3 CDI Mock Models
+
+class CdiInvoiceRecord(AdvisoryBaseModel):
+    invoice_id: str
+    buyer_name: str
+    amount: float
+    currency: str
+    status: str
+    expected_payment_date: str
+
+class CdiMockResponse(AdvisoryBaseModel):
+    consent_token: Optional[str] = None
+    provider_name: str
+    invoices: List[CdiInvoiceRecord] = Field(default_factory=list)
+    delivered_invoice_total: float
+    in_transit_invoice_total: float
+    alternative_collateral_hkd: float
+    disclaimer: str
+    warnings: List[str] = Field(default_factory=list)
+
+class CdiConsentRequest(AdvisoryBaseModel):
+    company_id: str
+    consent_granted: bool
+
+class CdiConsentResponse(AdvisoryBaseModel):
+    consent_token: Optional[str] = None
+    status: str
+    message: str
+
+# Phase 3 PD Engine Models
+
+class PdFactorContribution(AdvisoryBaseModel):
+    factor: str
+    value: float
+    contribution: float
+
+class PdEstimateResponse(AdvisoryBaseModel):
+    company_id: str
+    z_score: float
+    probability_default: float
+    tier: str
+    score: int
+    factor_contributions: List[PdFactorContribution]
+    disclaimer: str
+
+# Phase 3 BoCHK Stress Testing Models
+
+class BochkStressRecommendation(AdvisoryBaseModel):
+    action: str
+    rationale: str
+
+class BochkStressTestResponse(AdvisoryBaseModel):
+    company_id: str
+    base_dscr: float
+    stressed_dscr: float
+    shock_bps: int
+    status: str
+    recommendations: List[BochkStressRecommendation]
+    disclaimer: str
+
+# Phase 3 Loan Structuring Models
+
+class LoanFacilityRecommendation(AdvisoryBaseModel):
+    facility: str
+    amount: float
+    interest_rate_bps: int
+    annual_cost: float
+    reason: str
+
+class LoanStructuringResponse(AdvisoryBaseModel):
+    company_id: str
+    requested_amount_hkd: float
+    recommended_facilities: List[LoanFacilityRecommendation]
+    total_estimated_cost: float
+    weighted_average_cost_bps: int
+    constraints_passed: List[str]
+    constraints_failed: List[str]
+    recommendation_summary: str
+    disclaimer: str
+
+# Phase 3 Funding Blueprint Models
+
+class FundingBlueprintRequest(AdvisoryBaseModel):
+    company_id: Optional[str] = None
+    requested_amount_hkd: float = 10000000.0
+    consent_granted: bool = False
+    scenario_shock_bps: int = 150
+
+class BlueprintSectionText(AdvisoryBaseModel):
+    title: str
+    content: str
+
+class FundingBlueprintResponse(AdvisoryBaseModel):
+    company_id: str
+    hard_gate_summary: str
+    unified_risk_score: int
+    unified_risk_tier: str
+    cdi_data: Optional[CdiMockResponse] = None
+    pd_estimate: PdEstimateResponse
+    stress_test: BochkStressTestResponse
+    loan_structure: LoanStructuringResponse
+    blueprint_sections: List[BlueprintSectionText]
+    disclaimers: List[str]
+
+
+# AI CFO Chat Models
+class AdvisoryChatSource(AdvisoryBaseModel):
+    """A cited source in a chat response."""
+    title: str
+    snippet: Optional[str] = None
+    document_id: Optional[str] = None
+
+
+class AdvisoryChatRequest(AdvisoryBaseModel):
+    """Request payload for the AI CFO chat endpoint."""
+    question: str
+    workspace_id: Optional[str] = None
+
+
+class AdvisoryChatResponse(AdvisoryBaseModel):
+    """Response from the AI CFO chat endpoint."""
+    ai_mode: str = "deterministic_fallback"
+    answer: str
+    sources: List[AdvisoryChatSource] = Field(default_factory=list)
+    disclaimer: str = ""
+    warnings: List[str] = Field(default_factory=list)
+

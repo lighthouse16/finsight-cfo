@@ -51,6 +51,11 @@ class LocalFileMetadataRepository(FileMetadataRepository):
         storage_uri: str,
         checksum_sha256: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        storage_mode: str = "local_file",
+        object_key: Optional[str] = None,
+        object_uri: Optional[str] = None,
+        provider_status: Optional[str] = None,
+        warnings: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         raise NotImplementedError("LocalFileMetadataRepository.save_file_record is not implemented. Use FileStore directly in local mode.")
 

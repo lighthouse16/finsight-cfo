@@ -1,0 +1,87 @@
+import math
+from typing import Optional
+from app.models.advisory import PdEstimateResponse, PdFactorContribution
+
+def calculate_pd(
+    company_id: str,
+    dscr: Optional[float],
+    debt_ratio: Optional[float],
+    margin: Optional[float],
+    cdi_collateral_hkd: float = 0.0
+) -> PdEstimateResponse:
+    """
+    Calculates a deterministic logistic-style Probability of Default (PD) score
+    for BOCHK challenge Phase 3 advisory context.
+    
+    Formula:
+    Z = β0 + β1(DSCR) + β2(DebtRatio) + β3(Margin) + β4(CDI_Collateral_Adjustment)
+    PD = 1 / (1 + e^-Z)
+    """
+    
+    # Defaults if missing to prevent math errors
+    safe_dscr = dscr if dscr is not None and not math.isnan(dscr) else 1.0
+    safe_debt_ratio = debt_ratio if debt_ratio is not None and not math.isnan(debt_ratio) else 0.5
+    safe_margin = margin if margin is not None and not math.isnan(margin) else 0.1
+    
+    # Coefficients
+    b0 = -1.5  # Base intercept
+    b1 = -2.0  # Higher DSCR lowers PD
+    b2 = 3.0   # Higher Debt Ratio increases PD
+    b3 = -4.0  # Higher margin lowers PD
+    
+    # CDI Collateral acts as a risk mitigant
+    # E.g. every 1M HKD in collateral lowers Z by 0.1
+    b4_effect = -0.1 * (cdi_collateral_hkd / 1_000_000.0)
+    
+    # Factor contributions
+    z_b0 = b0
+    z_dscr = b1 * safe_dscr
+    z_debt = b2 * safe_debt_ratio
+    z_margin = b3 * safe_margin
+    z_cdi = b4_effect
+    
+    z_score = z_b0 + z_dscr + z_debt + z_margin + z_cdi
+    
+    # Cap Z to avoid overflow
+    z_score_capped = max(-10.0, min(10.0, z_score))
+    
+    pd_raw = 1.0 / (1.0 + math.exp(-z_score_capped))
+    
+    # Map to tiers A-E
+    if pd_raw < 0.02:
+        tier = "Tier A (Excellent)"
+    elif pd_raw < 0.05:
+        tier = "Tier B (Good)"
+    elif pd_raw < 0.10:
+        tier = "Tier C (Adequate)"
+    elif pd_raw < 0.20:
+        tier = "Tier D (Elevated)"
+    else:
+        tier = "Tier E (High Risk)"
+        
+    # Map to 0-100 score (lower PD = higher score)
+    score_100 = int(max(0, min(100, 100 - (pd_raw * 200))))
+    
+    factors = [
+        PdFactorContribution(factor="Base Intercept", value=1.0, contribution=z_b0),
+        PdFactorContribution(factor="DSCR", value=safe_dscr, contribution=z_dscr),
+        PdFactorContribution(factor="Debt Ratio", value=safe_debt_ratio, contribution=z_debt),
+        PdFactorContribution(factor="Operating Margin", value=safe_margin, contribution=z_margin),
+        PdFactorContribution(factor="CDI Alternative Collateral mitigant", value=cdi_collateral_hkd, contribution=z_cdi)
+    ]
+    
+    disclaimer = (
+        "This is a deterministic logistic-style proxy for demonstration purposes only. "
+        "It is not a calibrated production probability-of-default (PD) model. "
+        "Real production models require calibration with historical default data."
+    )
+    
+    return PdEstimateResponse(
+        company_id=company_id,
+        z_score=z_score,
+        probability_default=pd_raw,
+        tier=tier,
+        score=score_100,
+        factor_contributions=factors,
+        disclaimer=disclaimer
+    )

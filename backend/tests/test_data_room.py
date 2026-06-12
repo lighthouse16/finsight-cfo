@@ -107,7 +107,7 @@ def test_demo_upload_metadata_unsupported_type():
     resp = response.json()
     assert resp["uploadedFile"]["recordKey"] == "pl-statement"
     assert resp["uploadedFile"]["fileName"] == "document.txt"
-    assert resp["uploadedFile"]["status"] == "unsupported_type"
+    assert resp["uploadedFile"]["status"] == "unsupported"
     assert resp["uploadedFile"]["validationMessages"]
     assert "not in the supported list" in resp["uploadedFile"]["validationMessages"][0]
     assert "Analysis will not be updated" in resp["warnings"][0]
@@ -163,7 +163,7 @@ def test_demo_parse_preview_pl_csv():
 
     assert response.status_code == 200
     resp = response.json()
-    assert resp["uploadedFile"]["status"] == "accepted_metadata"
+    assert resp["uploadedFile"]["status"] == "parsed_structured"
     assert resp["preview"]["statementType"] == "profit_and_loss"
     records = {item["fieldKey"]: item for item in resp["preview"]["parsedRecords"]}
     assert records["revenue"]["normalizedValue"] == 1000
@@ -492,3 +492,69 @@ def test_demo_snapshot_preview_no_persistence_claim_no_nan_and_no_unsafe_wording
     ]
     for phrase in forbidden:
         assert phrase not in lower_body
+
+from unittest.mock import patch
+
+@patch("app.services.data_room.pdf_parser.pypdf.PdfReader")
+def test_demo_parse_preview_pdf_text_layer(mock_reader):
+    class MockPage:
+        def extract_text(self):
+            return "Revenue  1000\nCOGS  (400)"
+    class MockReaderInstance:
+        pages = [MockPage()]
+    mock_reader.return_value = MockReaderInstance()
+    
+    files = {"file": ("pl.pdf", b"%PDF-1.4\n", "application/pdf")}
+    response = client.post(
+        "/api/data-room/demo-parse-preview",
+        data={"recordKey": "pl-statement"},
+        files=files,
+    )
+    assert response.status_code == 200
+    resp = response.json()
+    assert resp["uploadedFile"]["status"] == "parsed_pdf_text_layer"
+    records = {item["fieldKey"]: item for item in resp["preview"]["parsedRecords"]}
+    assert records["revenue"]["normalizedValue"] == 1000
+    assert records["cogs"]["normalizedValue"] == -400
+
+@patch("app.services.data_room.pdf_parser.pypdf.PdfReader")
+def test_demo_parse_preview_pdf_image_only(mock_reader):
+    class MockPage:
+        def extract_text(self):
+            return ""
+    class MockReaderInstance:
+        pages = [MockPage()]
+    mock_reader.return_value = MockReaderInstance()
+    
+    files = {"file": ("pl.pdf", b"%PDF-1.4\n", "application/pdf")}
+    response = client.post(
+        "/api/data-room/demo-parse-preview",
+        data={"recordKey": "pl-statement"},
+        files=files,
+    )
+    assert response.status_code == 200
+    resp = response.json()
+    assert resp["uploadedFile"]["status"] == "ocr_provider_not_configured"
+
+@patch("app.services.data_room.docx_parser.docx.Document")
+def test_demo_parse_preview_docx_text(mock_doc):
+    class MockPara:
+        text = "Revenue  1000\nCOGS  (400)"
+    class MockDocInstance:
+        paragraphs = [MockPara()]
+        tables = []
+    mock_doc.return_value = MockDocInstance()
+    
+    files = {"file": ("pl.docx", b"PK\x03\x04\n", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")}
+    response = client.post(
+        "/api/data-room/demo-parse-preview",
+        data={"recordKey": "pl-statement"},
+        files=files,
+    )
+    assert response.status_code == 200
+    resp = response.json()
+    assert resp["uploadedFile"]["status"] == "parsed_docx_text"
+    records = {item["fieldKey"]: item for item in resp["preview"]["parsedRecords"]}
+    assert records["revenue"]["normalizedValue"] == 1000
+    assert records["cogs"]["normalizedValue"] == -400
+

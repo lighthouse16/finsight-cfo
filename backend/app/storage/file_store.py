@@ -37,7 +37,8 @@ class FileStore:
         record_key: str, 
         file_name: str, 
         file_bytes: bytes,
-        content_type: str
+        content_type: str,
+        metadata: Optional[dict] = None
     ) -> UploadedFileRecord:
         with cls._lock:
             files_meta = cls._read_json()
@@ -85,7 +86,8 @@ class FileStore:
                 "fileSizeBytes": len(file_bytes),
                 "status": "uploaded",
                 "uploadedAt": datetime.now(timezone.utc).isoformat(),
-                "filePath": file_path
+                "filePath": file_path,
+                "metadata": metadata or {}
             }
             
             files_meta.append(new_file_record)

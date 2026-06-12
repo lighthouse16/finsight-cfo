@@ -11,7 +11,8 @@ from app.models.advisory import (
 
 def build_demo_stress_tests(
     analysis: FinancialAnalysisResponse,
-    risk_score: UnifiedRiskScoreResult
+    risk_score: UnifiedRiskScoreResult,
+    shock_bps: int = 150,
 ) -> StressTestingResponse:
     """
     Builds a context-only financial stress testing engine that applies deterministic
@@ -78,15 +79,16 @@ def build_demo_stress_tests(
     )
 
     # -------------------------------------------------------------------------
-    # Scenario A: Rate shock +150 bps
+    # Scenario A: Rate shock (configurable bps)
     # -------------------------------------------------------------------------
+    shock_decimal = shock_bps / 10000.0
     rate_assumptions = [
         StressScenarioAssumption(
             scenario_key="rate_shock",
-            label="Base reference rate shift",
+            label=f"Rate Shock +{shock_bps} bps",
             scenario_type="rate",
-            description="HIBOR reference rate shift of +150 basis points (+1.50%).",
-            parameters={"rate_increase": 0.015},
+            description=f"Reference rate shift of +{shock_bps} basis points (+{shock_decimal*100:.2f}%).",
+            parameters={"rate_increase": shock_decimal},
             source="Market Watch reference shock parameters"
         )
     ]
@@ -96,8 +98,8 @@ def build_demo_stress_tests(
     rate_takeaway = ""
     rate_warnings = []
     
-    if total_debt > 0 and total_debt_service > 0:
-        annual_increase = total_debt * 0.015
+    if total_debt > 0 and total_debt_service > 0 and shock_bps > 0:
+        annual_increase = total_debt * shock_decimal
         stressed_interest = interest_expense_base + annual_increase
         stressed_debt_service = total_debt_service + annual_increase
         
@@ -165,7 +167,7 @@ def build_demo_stress_tests(
         
     scenarios.append(StressScenarioResult(
         scenario_key="rate_shock",
-        label="Rate Shock +150 bps",
+        label=f"Rate Shock +{shock_bps} bps",
         scenario_type="rate",
         severity=rate_severity,
         assumptions=rate_assumptions,
@@ -508,4 +510,80 @@ def build_demo_stress_tests(
         scenarios=scenarios,
         disclaimer=disclaimer,
         warnings=warnings_list
+    )
+
+
+def build_bochk_stress_test(
+    analysis: FinancialAnalysisResponse,
+    shock_bps: int = 150
+) -> 'BochkStressTestResponse':
+    from app.models.advisory import BochkStressTestResponse, BochkStressRecommendation
+    
+    snapshot = analysis.snapshot
+    ratios = analysis.ratios
+    
+    company_id = snapshot.company_id if snapshot else "demo_company"
+    
+    disclaimer = (
+        "This is a context-only deterministic stress testing scenario analysis. "
+        "It is designed for the BOCHK challenge to demonstrate rate-shock logic."
+    )
+    
+    if not snapshot or not ratios:
+        return BochkStressTestResponse(
+            company_id=company_id,
+            base_dscr=0.0,
+            stressed_dscr=0.0,
+            shock_bps=shock_bps,
+            status="unavailable",
+            recommendations=[],
+            disclaimer=disclaimer
+        )
+        
+    ebitda_base = snapshot.income_statement.ebitda
+    taxes_base = snapshot.income_statement.taxes
+    capex = snapshot.cash_flow_statement.capex
+    dividends = snapshot.cash_flow_statement.dividends
+    cads_base = ebitda_base - taxes_base - capex - dividends
+    
+    total_debt = (
+        snapshot.balance_sheet.short_term_debt +
+        snapshot.balance_sheet.current_portion_long_term_debt +
+        snapshot.balance_sheet.long_term_debt +
+        snapshot.balance_sheet.lease_liabilities
+    )
+    
+    scheduled_interest = snapshot.debt_schedule.scheduled_interest
+    scheduled_principal = snapshot.debt_schedule.scheduled_principal
+    total_debt_service = scheduled_interest + scheduled_principal
+    
+    base_dscr = ratios.dscr.value or (cads_base / total_debt_service if total_debt_service > 0 else 0.0)
+    
+    annual_increase = total_debt * (shock_bps / 10000.0)
+    stressed_debt_service = total_debt_service + annual_increase
+    
+    stressed_dscr = cads_base / stressed_debt_service if stressed_debt_service > 0 else 0.0
+    
+    recommendations = []
+    
+    if stressed_dscr < 1.10:
+        status = "fail"
+        recommendations.append(BochkStressRecommendation(action="Interest Rate Swap Consideration", rationale="Mitigate immediate rate risk exposure on floating-rate debt."))
+        recommendations.append(BochkStressRecommendation(action="SFGS Principal Moratorium", rationale="Apply for principal moratorium under SFGS to relieve debt service burden temporarily."))
+    elif stressed_dscr < 1.25:
+        status = "watch"
+        recommendations.append(BochkStressRecommendation(action="Reduce Working Capital Draw", rationale="Lower overall debt balances to decrease interest exposure."))
+        recommendations.append(BochkStressRecommendation(action="Restructure Debt Tenor", rationale="Extend maturities to reduce near-term principal obligations and improve coverage margins."))
+    else:
+        status = "pass"
+        recommendations.append(BochkStressRecommendation(action="Maintain Capital Buffer", rationale="DSCR remains healthy under stress. Maintain liquidity buffer."))
+        
+    return BochkStressTestResponse(
+        company_id=company_id,
+        base_dscr=base_dscr,
+        stressed_dscr=stressed_dscr,
+        shock_bps=shock_bps,
+        status=status,
+        recommendations=recommendations,
+        disclaimer=disclaimer
     )

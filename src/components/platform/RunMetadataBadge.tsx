@@ -50,7 +50,7 @@ export default function RunMetadataBadge({ metadata }: RunMetadataBadgeProps) {
     return (
       <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700/60 rounded-full text-xs font-semibold backdrop-blur-sm shadow-sm">
         <HelpCircle size={13} className="text-slate-400" />
-        <span>Demo/Fallback Mode (Non-Persisted)</span>
+        <span>Local/Fallback Mode (Non-Persisted)</span>
       </div>
     )
   }

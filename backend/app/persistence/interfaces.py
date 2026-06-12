@@ -40,8 +40,13 @@ class FileMetadataRepository(Protocol):
         storage_uri: str,
         checksum_sha256: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        storage_mode: str = "local_file",
+        object_key: Optional[str] = None,
+        object_uri: Optional[str] = None,
+        provider_status: Optional[str] = None,
+        warnings: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
-        """Save/register a file metadata record."""
+        """Save a new file record or new version of an existing file record."""
         ...
 
     def delete_file_record(self, file_id: str) -> bool:

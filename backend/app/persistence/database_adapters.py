@@ -214,6 +214,11 @@ class DatabaseFileMetadataRepository(FileMetadataRepository):
             "status": file.status,
             "uploadedAt": file.created_at.isoformat() if file.created_at else None,
             "filePath": latest_version.storage_key if latest_version else "",
+            "storageMode": (file.file_metadata or {}).get("storageMode", "local_file"),
+            "objectKey": (file.file_metadata or {}).get("objectKey"),
+            "objectUri": (file.file_metadata or {}).get("objectUri"),
+            "providerStatus": (file.file_metadata or {}).get("providerStatus"),
+            "warnings": (file.file_metadata or {}).get("warnings", []),
             "metadata": file.file_metadata or {}
         }
 
@@ -227,6 +232,11 @@ class DatabaseFileMetadataRepository(FileMetadataRepository):
         storage_uri: str,
         checksum_sha256: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        storage_mode: str = "local_file",
+        object_key: Optional[str] = None,
+        object_uri: Optional[str] = None,
+        provider_status: Optional[str] = None,
+        warnings: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """
         Save/register a file metadata record and create the first version.
@@ -262,6 +272,17 @@ class DatabaseFileMetadataRepository(FileMetadataRepository):
             status="uploaded",
             file_metadata=metadata or {}
         )
+        if storage_mode:
+            file_rec.file_metadata["storageMode"] = storage_mode
+        if object_key:
+            file_rec.file_metadata["objectKey"] = object_key
+        if object_uri:
+            file_rec.file_metadata["objectUri"] = object_uri
+        if provider_status:
+            file_rec.file_metadata["providerStatus"] = provider_status
+        if warnings:
+            file_rec.file_metadata["warnings"] = warnings
+
         self.session.add(file_rec)
         self.session.flush()
 
@@ -287,6 +308,11 @@ class DatabaseFileMetadataRepository(FileMetadataRepository):
             "status": file_rec.status,
             "uploadedAt": file_rec.created_at.isoformat() if file_rec.created_at else None,
             "filePath": version.storage_key,
+            "storageMode": storage_mode,
+            "objectKey": object_key,
+            "objectUri": object_uri,
+            "providerStatus": provider_status,
+            "warnings": warnings or [],
             "metadata": file_rec.file_metadata or {}
         }
 

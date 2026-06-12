@@ -102,7 +102,7 @@ def build_provenance(
 _register(SourceRegistryEntry(
     sourceKey="timing_signal_v1",
     label="Golden Timing Index v1",
-    mode="workspace-derived",
+    mode="workspace_derived",
     freshness="Daily",
     caveat=(
         "Timing signal is derived from HKAB/HKMA rate data and "
@@ -115,7 +115,7 @@ _register(SourceRegistryEntry(
 _register(SourceRegistryEntry(
     sourceKey="industry_health_v1",
     label="Industry Health Context v1",
-    mode="fixture-backed",
+    mode="fixture",
     freshness="Monthly",
     caveat=(
         "Industry health uses fixture/workspace-derived sector benchmarks. "
@@ -128,7 +128,7 @@ _register(SourceRegistryEntry(
 _register(SourceRegistryEntry(
     sourceKey="funding_channel_ranking_v1",
     label="Funding Channel Ranking v1",
-    mode="workspace-derived",
+    mode="workspace_derived",
     freshness="Workspace",
     caveat=(
         "Funding channel ranking uses workspace-derived company context "
@@ -141,7 +141,7 @@ _register(SourceRegistryEntry(
 _register(SourceRegistryEntry(
     sourceKey="cross_border_funding_context_v1",
     label="Cross-border Funding Context v1",
-    mode="fixture-backed",
+    mode="fixture",
     freshness="Workspace",
     caveat=(
         "Cross-border funding context is fixture/workspace-derived. "
@@ -154,7 +154,7 @@ _register(SourceRegistryEntry(
 _register(SourceRegistryEntry(
     sourceKey="red_flags_macro_summary_v1",
     label="Red Flags & Macro Risk Summary v1",
-    mode="workspace-derived",
+    mode="workspace_derived",
     freshness="Workspace",
     caveat=(
         "Red Flags summary consolidates workspace-derived Phase 2 signals. "
@@ -169,7 +169,7 @@ _register(SourceRegistryEntry(
 _register(SourceRegistryEntry(
     sourceKey="rates_liquidity_v1",
     label="HKMA Rates & Liquidity",
-    mode="provider-backed",
+    mode="live",
     freshness="Daily",
     caveat=None,
     provider="HKAB / HKMA",
@@ -179,7 +179,7 @@ _register(SourceRegistryEntry(
 _register(SourceRegistryEntry(
     sourceKey="fx_gba_v1",
     label="FX & GBA (Frankfurter)",
-    mode="provider-backed",
+    mode="live",
     freshness="Daily",
     caveat=None,
     provider="Frankfurter",
@@ -189,7 +189,7 @@ _register(SourceRegistryEntry(
 _register(SourceRegistryEntry(
     sourceKey="commodities_v1",
     label="Commodities",
-    mode="fixture-backed",
+    mode="fixture",
     freshness="Monthly",
     caveat=(
         "Commodity provider is not configured or unavailable. "
@@ -202,7 +202,7 @@ _register(SourceRegistryEntry(
 _register(SourceRegistryEntry(
     sourceKey="sector_benchmarks_v1",
     label="Sector Benchmarks",
-    mode="fixture-backed",
+    mode="fixture",
     freshness="Monthly",
     caveat=(
         "Sector benchmarks are fixture/workspace-derived. "
@@ -213,24 +213,20 @@ _register(SourceRegistryEntry(
 ))
 
 
+
 # ── Convenience helpers ─────────────────────────────────────────────
 
 
 def get_mode_label(source_key: str) -> str:
     """Map a source key to a user-facing mode label for tooltips.
 
-    Returns one of: ``provider-backed``, ``workspace-derived``,
-    ``fixture-backed``, ``fallback``.
+    Returns one of: ``live``, ``provider_configured``, ``provider_not_configured``,
+    ``workspace_derived``, ``fixture``, ``unavailable``.
     """
     entry = _REGISTRY.get(source_key)
     if entry is None:
-        return "workspace-derived"
-    mode = entry["mode"]
-    if mode == "provider-backed":
-        return "provider-backed"
-    if mode == "fixture-backed":
-        return "fixture-backed"
-    return "workspace-derived"
+        return "workspace_derived"
+    return entry["mode"]
 
 
 def get_caveat(source_key: str) -> Optional[str]:
@@ -248,9 +244,9 @@ def get_disclaimer_base(source_key: str) -> str:
         return "Context only. Not a financing instruction."
     label = entry["label"]
     mode = entry["mode"]
-    if mode == "provider-backed":
+    if mode in ("live", "provider_configured"):
         return f"{label} is provider-backed. Not a financing instruction."
-    if mode == "fixture-backed":
+    if mode in ("fixture", "provider_not_configured"):
         return (
             f"{label} is fixture/workspace-derived. "
             "Production provider integration pending."
@@ -269,18 +265,17 @@ def get_adapter(source_key: str) -> str:
     - ``WorkspaceDerivedAdapter`` — workspace-derived sources
     - ``MissingProviderAdapter`` — unavailable sources
     - ``provider-backed`` — sources with a live provider connection
-
-    This lets services self-describe their provider integration status
-    without importing adapter classes directly.
     """
     entry = _REGISTRY.get(source_key)
     if entry is None:
         return "MissingProviderAdapter"
     mode = entry["mode"]
-    if mode == "provider-backed":
+    if mode in ("live", "provider_configured"):
         return "provider-backed"
-    if mode == "fixture-backed":
+    if mode == "fixture":
         return "FixtureMarketDataAdapter"
+    if mode == "provider_not_configured":
+        return "MissingProviderAdapter"
     return "WorkspaceDerivedAdapter"
 
 
@@ -297,4 +292,5 @@ def get_adapter_provider_name(source_key: str) -> str:
     if provider:
         return provider
     return "Provider integration pending"
+
 

@@ -114,6 +114,12 @@ export type RateSnapshot = {
   changeBasisPoints: number
   trend: 'up' | 'down' | 'flat'
   context: string
+  sourceName?: string | null
+  sourceMode?: string | null
+  asOf?: string | null
+  freshness?: string | null
+  caveat?: string | null
+  confidence?: string | null
 }
 
 export type LiquidityEvent = {
@@ -129,6 +135,12 @@ export type FxPair = {
   rate: string
   trend: 'up' | 'down' | 'flat'
   context: string
+  sourceName?: string | null
+  sourceMode?: string | null
+  asOf?: string | null
+  freshness?: string | null
+  caveat?: string | null
+  confidence?: string | null
 }
 
 export type GbaFundingSignal = {
@@ -162,6 +174,12 @@ export type CommodityExposure = {
   affectedSectors: string[]
   marginSensitivity: string
   displayValue?: string
+  sourceName?: string | null
+  sourceMode?: string | null
+  asOf?: string | null
+  freshness?: string | null
+  caveat?: string | null
+  confidence?: string | null
 }
 
 export type StressScenario = {
@@ -252,6 +270,12 @@ export interface SectorBenchmarkItem {
   context: string
   severity: SignalSeverity
   sourceTimestamp: string | null
+  sourceName?: string | null
+  sourceMode?: string | null
+  asOf?: string | null
+  freshness?: string | null
+  caveat?: string | null
+  confidence?: string | null
 }
 
 export interface SectorWatchSignal {
@@ -619,6 +643,19 @@ export interface FundingCompanyContext {
   importCostStress: boolean
 }
 
+export interface FundingProduct {
+  product_id: string
+  provider: string
+  product_name: string
+  eligible_use_cases: string[]
+  limits: string
+  tenor_range: string
+  currency: string
+  collateral_requirements: string
+  caveats?: string | null
+  source_mode: string
+}
+
 export interface FundingChannelItem {
   key: FundingChannelKey
   label: string
@@ -630,6 +667,13 @@ export interface FundingChannelItem {
   supportingSignals: string[]
   source: string
   constraints: string[]
+  sourceName?: string | null
+  sourceMode?: string | null
+  asOf?: string | null
+  freshness?: string | null
+  caveat?: string | null
+  confidence?: string | null
+  matchedProducts?: FundingProduct[]
 }
 
 export interface FundingChannelRankingResponse {

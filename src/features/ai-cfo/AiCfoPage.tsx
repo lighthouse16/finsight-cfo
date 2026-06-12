@@ -25,6 +25,7 @@ import { getAdvisoryBlueprint, getCreditScore } from '../advisory-blueprint/api/
 import { getFundingChannelRanking, getRedFlagsMacroSummary } from '../market-watch/api/marketWatchApi'
 import type { AdvisoryBlueprintResponse, CreditScoringResult } from '../advisory-blueprint/types'
 import type { FinancialAnalysisResponse, FundingChannelRankingResponse, RedFlagsMacroSummaryResponse } from '../market-watch/types'
+import { postChatQuestion, type AdvisoryChatSource } from './api/aiCfoApi'
 import {
   triggerAnalysisRun,
   fetchAllRunStatuses,
@@ -37,7 +38,10 @@ type AiMessage = {
   id: string
   role: 'user' | 'assistant'
   content: string
-  sources?: string[]
+  sources?: AdvisoryChatSource[]
+  aiMode?: string
+  disclaimer?: string
+  warnings?: string[]
 }
 
 type AiContext = {
@@ -68,78 +72,7 @@ function getValuation(financial: FinancialAnalysisResponse | null) {
   return financial?.valuation ?? null
 }
 
-function buildAnswer(question: string, context: AiContext): AiMessage {
-  const q = question.toLowerCase()
-  const financial = context.financial
-  const credit = context.credit
-  const funding = context.funding
-  const macro = context.macro
-  const valuation = getValuation(financial)
-  const blueprint = context.blueprint
-  const topChannel = funding?.channels?.find((channel) => channel.key === funding.topChannelKey) ?? funding?.channels?.[0]
-  const company = financial?.snapshot.companyName ?? 'the company'
 
-  if (q.includes('valuation') || q.includes('value') || q.includes('dcf') || q.includes('wacc')) {
-    return {
-      id: crypto.randomUUID(),
-      role: 'assistant',
-      sources: ['Valuation', 'Financial Health'],
-      content: `${company}'s indicative valuation context is ${formatHKD(valuation?.dcf?.enterpriseValue)} enterprise value and ${formatHKD(valuation?.dcf?.equityValue)} equity value. The model WACC is ${formatPercent(valuation?.wacc?.wacc)}. Treat this as planning context only: it supports the funding narrative, but should not be used as a formal appraisal without validating assumptions, forecast drivers, discount rate, and terminal value.`,
-    }
-  }
-
-  if (q.includes('credit') || q.includes('readiness') || q.includes('pd') || q.includes('score')) {
-    return {
-      id: crypto.randomUUID(),
-      role: 'assistant',
-      sources: ['Credit Readiness', 'Financial Health'],
-      content: `The readiness scorecard is ${credit?.compositeScore ?? 'unavailable'}, with funding readiness marked as ${formatBand(credit?.fundingReadiness)}. ${credit?.pdProxyBand ?? 'The PD proxy band is unavailable.'} Key positives include ${(credit?.positiveDrivers ?? []).slice(0, 2).join('; ') || 'no positive drivers available'}. Key watch items include ${(credit?.riskDrivers ?? []).slice(0, 2).join('; ') || 'no risk drivers available'}. This is context-only and not a lending decision.`,
-    }
-  }
-
-  if (q.includes('funding') || q.includes('facility') || q.includes('loan') || q.includes('channel')) {
-    return {
-      id: crypto.randomUUID(),
-      role: 'assistant',
-      sources: ['Funding Strategy', 'Advisory Blueprint'],
-      content: topChannel
-        ? `The top funding channel context is ${topChannel.label} with ${formatBand(topChannel.fitBand)} fit and score ${topChannel.score}. Use case: ${topChannel.useCase}. Rationale: ${topChannel.rationale}. Before using this externally, validate facility amount, collateral, tenor, covenants, and updated bank eligibility requirements.`
-        : 'Funding channel ranking is unavailable. Open Funding Strategy after backend/data context is available to review channels, facility fit, and constraints.',
-    }
-  }
-
-  if (q.includes('risk') || q.includes('macro') || q.includes('red flag') || q.includes('market')) {
-    return {
-      id: crypto.randomUUID(),
-      role: 'assistant',
-      sources: ['Market Watch', 'Macro Risk Summary'],
-      content: `${macro?.headline ?? 'Macro context is currently unavailable.'} Key red flags: ${(macro?.redFlags ?? []).slice(0, 3).map((flag) => `${flag.label} (${flag.severity})`).join('; ') || 'none available'}. Suggested mitigants: ${(macro?.mitigants ?? []).slice(0, 2).map((item) => item.label).join('; ') || 'none available'}.`,
-    }
-  }
-
-  if (q.includes('report') || q.includes('summary') || q.includes('brief') || q.includes('advisor')) {
-    const actionSummary = (blueprint?.recommendedActions ?? [])
-      .slice(0, 3)
-      .map((action) => `${action.label}: ${action.rationale}`)
-      .join(' ')
-
-    return {
-      id: crypto.randomUUID(),
-      role: 'assistant',
-      sources: ['Reports', 'Advisory Blueprint'],
-      content: blueprint?.executiveBrief
-        ? `${blueprint.executiveBrief} Recommended next actions: ${actionSummary || 'review the advisory blueprint actions.'} Open Reports for a CFO snapshot or Advisory Blueprint for the advisor-facing version.`
-        : 'The advisor-ready summary is unavailable. Open Reports for the current CFO snapshot and Advisory Blueprint for detailed advisory output.',
-    }
-  }
-
-  return {
-    id: crypto.randomUUID(),
-    role: 'assistant',
-    sources: ['Overview', 'Financial Health', 'Credit Readiness', 'Funding Strategy'],
-    content: `${company} currently shows financial health as ${formatBand(financial?.summary?.overallBand)}, readiness as ${formatBand(credit?.fundingReadiness)}, top funding context as ${topChannel?.label ?? 'unavailable'}, and valuation EV as ${formatHKD(valuation?.dcf?.enterpriseValue)}. A practical next step is to review Financial Health watch items, then move to Funding Strategy and Advisory Blueprint for a lender-facing narrative.`,
-  }
-}
 
 export default function AiCfoPage() {
   const [context, setContext] = useState<AiContext>({ financial: null, credit: null, funding: null, macro: null, blueprint: null })
@@ -147,6 +80,9 @@ export default function AiCfoPage() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [chatLoading, setChatLoading] = useState(false)
+  const [chatError, setChatError] = useState<string | null>(null)
+  const [latestAiMode, setLatestAiMode] = useState<string | null>(null)
 
   // Readiness gate states
   const [snapshot, setSnapshot] = useState<any>(null)
@@ -225,8 +161,7 @@ export default function AiCfoPage() {
         {
           id: crypto.randomUUID(),
           role: 'assistant',
-          sources: ['Workspace context'],
-          content: 'I have loaded the current CFO workspace context. Ask about valuation, credit readiness, funding strategy, macro risks, or the advisor-ready brief. Answers are deterministic and context-only for demo purposes.',
+          content: 'I have loaded the current CFO workspace context. Ask about valuation, credit readiness, funding strategy, macro risks, or the advisor-ready brief.',
         },
       ])
     } catch (e) {
@@ -294,13 +229,42 @@ export default function AiCfoPage() {
     [],
   )
 
-  const submitQuestion = (question: string) => {
+  const submitQuestion = async (question: string) => {
     const trimmed = question.trim()
-    if (!trimmed) return
+    if (!trimmed || chatLoading) return
     const userMessage: AiMessage = { id: crypto.randomUUID(), role: 'user', content: trimmed }
-    const answer = buildAnswer(trimmed, context)
-    setMessages((prev) => [...prev, userMessage, answer])
+    setMessages((prev) => [...prev, userMessage])
     setInput('')
+    setChatLoading(true)
+    setChatError(null)
+    try {
+      const response = await postChatQuestion({ question: trimmed })
+      const assistantMessage: AiMessage = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: response.answer,
+        sources: response.sources,
+        aiMode: response.aiMode,
+        disclaimer: response.disclaimer,
+        warnings: response.warnings,
+      }
+      setMessages((prev) => [...prev, assistantMessage])
+      setLatestAiMode(response.aiMode)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to get response from AI CFO.'
+      setChatError(errorMessage)
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: `Unable to get a response: ${errorMessage}. Please check the backend connection and try again.`,
+          aiMode: 'error',
+        },
+      ])
+    } finally {
+      setChatLoading(false)
+    }
   }
 
   const onSubmit = (event: FormEvent) => {
@@ -426,7 +390,7 @@ export default function AiCfoPage() {
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
             {isProdMode 
               ? 'Required context runs are missing. In production mode, the AI CFO cannot start a consultation until the required workspace context is generated.' 
-              : 'Some recommended context runs are missing. You can consult the AI CFO in demo mode, but running all core analyses is recommended for accurate answers.'}
+              : 'Some recommended context runs are missing. You can consult the AI CFO in local mode, but running all core analyses is recommended for accurate answers.'}
           </p>
         </div>
 
@@ -523,7 +487,7 @@ export default function AiCfoPage() {
         chip={<StatusChip variant={isReady ? 'signal' : 'neutral'}>{isReady ? 'Context ready' : 'Context incomplete'}</StatusChip>}
       />
 
-      {/* Show context warning banner in dev/demo mode if not ready */}
+      {/* Show context warning banner in dev/local mode if not ready */}
       {!isReady && renderContextNotReadyPanel()}
 
       {/* Digital CFO Assistant Hero Section in Premium Navy Contrast Card */}
@@ -536,7 +500,7 @@ export default function AiCfoPage() {
               {financial?.snapshot.companyName ?? 'Workspace Company'} · ask your CFO workspace
             </h2>
             <p className="text-sm leading-relaxed text-white/80 max-w-3xl">
-              This demo assistant uses deterministic context templates instead of an external LLM call. It is designed to show how the product can answer across the CFO workflow while keeping sources visible.
+              Ask questions across financial health, valuation, credit readiness, funding strategy, macro risks, and the advisory blueprint. Responses are powered by the configured advisory engine with visible sources.
             </p>
           </div>
 
@@ -615,7 +579,7 @@ export default function AiCfoPage() {
             ))}
           </div>
           <p className="text-[11px] leading-relaxed text-softform-text-muted mt-4">
-            Demo note: answers are generated locally from current app context, not from a production LLM service.
+            Local testing note: answers are generated locally from current app context, not from a production LLM service.
           </p>
         </SectionBlock>
 
@@ -626,7 +590,22 @@ export default function AiCfoPage() {
                 <BotMessageSquare size={20} className="text-softform-teal-500 animate-pulse" />
                 Conversation
               </h2>
-              {isReady && renderContextBadge()}
+              <div className="flex flex-wrap items-center gap-2">
+                {latestAiMode && (
+                  <span className={`rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] ${
+                    latestAiMode === 'provider_configured'
+                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-300'
+                      : latestAiMode === 'deterministic_fallback'
+                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/20 dark:text-amber-300'
+                      : latestAiMode === 'provider_not_configured'
+                      ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                      : 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-300'
+                  }`}>
+                    {latestAiMode === 'provider_configured' ? 'AI Powered' : latestAiMode === 'deterministic_fallback' ? 'Deterministic' : latestAiMode === 'provider_not_configured' ? 'No AI Provider' : latestAiMode}
+                  </span>
+                )}
+                {isReady && renderContextBadge()}
+              </div>
             </div>
 
             <div className="max-h-[560px] overflow-y-auto px-6 py-5 space-y-4 bg-white/25">
@@ -637,10 +616,31 @@ export default function AiCfoPage() {
                     {message.sources && message.sources.length > 0 && (
                       <div className="mt-3 flex flex-wrap gap-1.5 border-t border-softform-navy-950/5 pt-2">
                         {message.sources.map((source) => (
-                          <span key={source} className="rounded-full bg-softform-mist-100 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-softform-teal-deep">
-                            {source}
+                          <span
+                            key={source.title}
+                            title={source.snippet ?? undefined}
+                            className="rounded-full bg-softform-mist-100 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-softform-teal-deep cursor-help"
+                          >
+                            {source.title}
                           </span>
                         ))}
+                      </div>
+                    )}
+                    {message.warnings && message.warnings.length > 0 && (
+                      <div className="mt-3 space-y-1 border-t border-amber-200/50 pt-2">
+                        {message.warnings.map((warning, i) => (
+                          <p key={i} className="text-[10px] text-amber-700 dark:text-amber-400 flex items-start gap-1.5">
+                            <AlertTriangle size={10} className="mt-0.5 shrink-0" />
+                            <span>{warning}</span>
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                    {message.disclaimer && (
+                      <div className="mt-2">
+                        <p className="text-[9px] text-slate-400 dark:text-slate-500 italic leading-relaxed">
+                          {message.disclaimer}
+                        </p>
                       </div>
                     )}
                   </div>
@@ -650,19 +650,31 @@ export default function AiCfoPage() {
           </div>
 
           <form onSubmit={onSubmit} className="border-t border-softform-navy-950/5 p-4 bg-white/70">
+            {chatError && (
+              <p className="mb-3 px-3 py-2 rounded-xl bg-red-50 dark:bg-red-950/10 border border-red-100 dark:border-red-900/20 text-[11px] text-red-700 dark:text-red-400 flex items-center gap-1.5">
+                <AlertTriangle size={12} />
+                {chatError}
+              </p>
+            )}
             <div className="flex gap-3">
               <input
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
                 placeholder="Ask about valuation, funding readiness, macro risks, or advisor brief..."
-                className="min-w-0 flex-1 rounded-xl border border-softform-aqua-300/25 bg-white px-4 py-3 text-sm text-softform-navy-950 outline-none focus:border-softform-teal-deep/50"
+                disabled={chatLoading}
+                className="min-w-0 flex-1 rounded-xl border border-softform-aqua-300/25 bg-white px-4 py-3 text-sm text-softform-navy-950 outline-none focus:border-softform-teal-deep/50 disabled:opacity-50 disabled:cursor-not-allowed"
               />
               <button
                 type="submit"
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-softform-navy-900 px-4 py-3 text-xs font-semibold text-white shadow-sm hover:bg-softform-navy-800 transition"
+                disabled={chatLoading}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-softform-navy-900 px-4 py-3 text-xs font-semibold text-white shadow-sm hover:bg-softform-navy-800 transition disabled:opacity-55 disabled:cursor-not-allowed"
               >
-                <Send size={15} />
-                Ask
+                {chatLoading ? (
+                  <Loader2 size={15} className="animate-spin" />
+                ) : (
+                  <Send size={15} />
+                )}
+                {chatLoading ? 'Thinking...' : 'Ask'}
               </button>
             </div>
           </form>

@@ -209,6 +209,8 @@ async def get_industry_health(
     sector: Optional[str] = None,
     geography: Optional[str] = None,
 ) -> IndustryHealthResponse:
+    from app.services.market_watch.provider_adapters import IHSSectorBenchmarkAdapter
+    
     data = await get_sector_benchmarks(sector=sector, geography=geography)
 
     demand, demand_component = _demand_signal(data)
@@ -217,20 +219,30 @@ async def get_industry_health(
     benchmark, benchmark_component = _benchmark_signal(data)
     band = _overall_band(demand, margin, working_capital, benchmark)
 
-    provenance = IndustryHealthProvenance(
-        **build_provenance(
-            "industry_health_v1",
-            as_of=data.metadata.asOf,
-            provider_override=data.metadata.source.name,
-            freshness_override=data.metadata.freshness,
-        ),
-    )
+    ihs = IHSSectorBenchmarkAdapter()
+    ihs_res = await ihs.fetch()
+    ihs_mode = ihs_res["status"]["mode"]
+
     warnings = [
         "Industry Health Context v1 is fixture/workspace-derived. Production sector provider integration is pending.",
         *data.metadata.warnings,
     ]
     if band == "unavailable":
         warnings.append("One or more sector proxy inputs are unavailable; overall band is unavailable.")
+    if ihs_mode == "provider_not_configured":
+        warnings.append("IHS Markit provider is not configured. Serving fallback/degraded benchmarks.")
+
+    prov_dict = build_provenance(
+        "industry_health_v1",
+        as_of=data.metadata.asOf,
+        provider_override=data.metadata.source.name,
+        freshness_override=data.metadata.freshness,
+    )
+    if ihs_mode == "provider_configured":
+        prov_dict["providerAdapter"] = "IHSSectorBenchmarkAdapter"
+        prov_dict["providerIntegration"] = "IHS Markit"
+
+    provenance = IndustryHealthProvenance(**prov_dict)
 
     explanation = (
         f"{data.selectedSector.name} is {band} based on demand, margin, "
@@ -251,3 +263,4 @@ async def get_industry_health(
         warnings=warnings,
         disclaimer=DISCLAIMER,
     )
+

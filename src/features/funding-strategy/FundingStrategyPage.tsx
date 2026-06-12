@@ -9,10 +9,10 @@ import NavyHeroSection from '../../components/platform/NavyHeroSection'
 import PageLoadingSkeleton from '../../components/platform/PageLoadingSkeleton'
 import WorkflowFooter from '../../components/platform/WorkflowFooter'
 import { getCreditScore, getAdvisoryFacilityStructures } from '../advisory-blueprint/api/advisoryBlueprintApi'
-import { getCrossBorderFundingContext, getFundingChannelRanking } from '../market-watch/api/marketWatchApi'
+import { getFundingChannelRanking, getMarketFundingIntelligence } from '../market-watch/api/marketWatchApi'
 import { createAndFetchMockCdiData } from '../cdi/cdiApi'
 import type { FacilityStructuringResponse } from '../advisory-blueprint/types'
-import type { CrossBorderFundingContextResponse, FundingChannelItem, FundingChannelRankingResponse } from '../market-watch/types'
+import type { FundingChannelRankingResponse } from '../market-watch/types'
 import type { CdiConsentSession, CdiMockDataResponse } from '../cdi/cdiApi'
 import { formatHKD, formatPercent, formatBand, bandVariant } from '../../lib/formatters'
 import RunMetadataBadge from '../../components/platform/RunMetadataBadge'
@@ -29,10 +29,10 @@ function fitTone(value?: string) {
 export default function FundingStrategyPage() {
   const [creditScore, setCreditScore] = useState<any>(null)
   const [ranking, setRanking] = useState<FundingChannelRankingResponse | null>(null)
-  const [crossBorder, setCrossBorder] = useState<CrossBorderFundingContextResponse | null>(null)
   const [facilities, setFacilities] = useState<FacilityStructuringResponse | null>(null)
   const [cdiConsent, setCdiConsent] = useState<CdiConsentSession | null>(null)
   const [cdiData, setCdiData] = useState<CdiMockDataResponse | null>(null)
+  const [marketFunding, setMarketFunding] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [hasSnapshotButNoRun, setHasSnapshotButNoRun] = useState(false)
@@ -43,6 +43,10 @@ export default function FundingStrategyPage() {
     setError(null)
     setHasSnapshotButNoRun(false)
     try {
+      // Fetch market-funding intelligence in parallel
+      const marketFundingRes = await getMarketFundingIntelligence().catch(() => null)
+      setMarketFunding(marketFundingRes)
+
       // 1. Check legacy/direct funding channels to determine if we have insufficient data
       const legacyScore = await getCreditScore().catch(() => null)
       const legacyRanking = await getFundingChannelRanking().catch(() => null)
@@ -75,8 +79,7 @@ export default function FundingStrategyPage() {
           }
           
           // Load other requirements for strategy dashboard in parallel
-          const [crossBorderContext, facilityContext, scoreData] = await Promise.all([
-            getCrossBorderFundingContext().catch(() => null),
+          const [facilityContext, scoreData] = await Promise.all([
             getAdvisoryFacilityStructures().catch(() => null),
             getCreditScore().catch(() => null),
           ])
@@ -92,7 +95,6 @@ export default function FundingStrategyPage() {
 
           setRanking(runRanking)
           setCreditScore(scoreData)
-          setCrossBorder(crossBorderContext)
           setFacilities(facilityContext)
         } else {
           // Snapshot exists, but no run yet
@@ -233,6 +235,16 @@ export default function FundingStrategyPage() {
         )}
       </div>
 
+      {ranking?.warnings?.some(w => w.toLowerCase().includes('fixture')) && (
+        <div className="mb-6 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 text-xs text-amber-800 flex items-start gap-2.5">
+          <span className="shrink-0 mt-0.5 text-amber-600">⚠️</span>
+          <div>
+            <span className="font-semibold">Fixture Data Warning:</span>{' '}
+            {ranking.warnings.find(w => w.toLowerCase().includes('fixture'))}
+          </div>
+        </div>
+      )}
+
       {/* Cockpit Strategy Bridge Hero Section in Premium Navy Contrast Card */}
       <NavyHeroSection
         eyebrow="Strategy bridge"
@@ -318,36 +330,131 @@ export default function FundingStrategyPage() {
         </SectionBlock>
       )}
 
-      {/* Funding Channel Ranking */}
-      {ranking && ranking.channels.length > 0 && (
+      {/* Market Timing & Red Flags */}
+      {marketFunding && (
         <SectionBlock
-          title="Funding Channel Ranking"
+          title="Market Research & Timing Signals"
           icon={<TrendingUp size={20} className="text-softform-teal-500" />}
-          action={<StatusChip variant="signal">Context Ranking</StatusChip>}
+          action={
+            <StatusChip variant="signal">
+              Timing Index: {marketFunding.golden_timing_index}/100
+            </StatusChip>
+          }
           containerType="card"
           className="rounded-[32px] p-6 sm:p-8 space-y-6"
         >
-          <div className="grid gap-4 lg:grid-cols-3">
-            {ranking.channels.slice(0, 3).map((channel: FundingChannelItem) => {
-              const rankBadgeColor =
-                channel.rank === 1 ? 'bg-amber-500/10 text-amber-600 border-amber-500/20' :
-                channel.rank === 2 ? 'bg-slate-500/10 text-slate-600 border-slate-500/20' :
-                'bg-orange-500/10 text-orange-600 border-orange-500/20'
-              const rankLabel = channel.rank === 1 ? '1st' : channel.rank === 2 ? '2nd' : '3rd'
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Rates & Spread Analysis */}
+            <div className="space-y-4 rounded-[22px] bg-white/45 border border-white/60 p-5 shadow-sm">
+              <h3 className="text-sm font-semibold text-softform-navy-950">Rates & Spread Analysis</h3>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-xl border border-white bg-white/50 p-3">
+                  <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-softform-text-muted">1M HIBOR</p>
+                  <p className="mt-1 text-base font-bold text-softform-navy-950">{marketFunding.current_hibor.toFixed(2)}%</p>
+                </div>
+                <div className="rounded-xl border border-white bg-white/50 p-3">
+                  <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-softform-text-muted">1Y LPR Proxy</p>
+                  <p className="mt-1 text-base font-bold text-softform-navy-950">{marketFunding.lpr_or_proxy_rate.toFixed(2)}%</p>
+                </div>
+                <div className="rounded-xl border border-white bg-white/50 p-3">
+                  <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-softform-text-muted">Spread (HIBOR - LPR)</p>
+                  <p className="mt-1 text-base font-bold text-softform-navy-950">+{marketFunding.hibor_lpr_spread.toFixed(2)}%</p>
+                </div>
+                <div className="rounded-xl border border-white bg-white/50 p-3">
+                  <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-softform-text-muted">FX Hedging Cost</p>
+                  <p className="mt-1 text-base font-bold text-softform-navy-950">{marketFunding.fx_hedging_cost_proxy.toFixed(2)}%</p>
+                </div>
+              </div>
+              <div className="rounded-xl bg-softform-teal-deep/5 border border-softform-teal-deep/10 p-3 text-xs">
+                <span className="font-semibold text-softform-teal-deep uppercase tracking-wider text-[10px] block mb-1">Spread Signal</span>
+                <p className="text-softform-navy-950 leading-relaxed">
+                  The current spread is <strong className="capitalize">{marketFunding.spread_signal}</strong> for GBA cross-border funding options.
+                </p>
+              </div>
+            </div>
 
+            {/* Market Red Flags */}
+            <div className="space-y-4 rounded-[22px] bg-white/45 border border-white/60 p-5 shadow-sm">
+              <h3 className="text-sm font-semibold text-softform-navy-950">Market Red Flags</h3>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between border-b border-softform-navy-950/5 pb-2">
+                  <span className="text-xs text-softform-text-primary">Quarter-End Window Dressing</span>
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${marketFunding.market_red_flags.window_dressing ? 'bg-red-500/10 text-red-600' : 'bg-emerald-500/10 text-emerald-600'}`}>
+                    {marketFunding.market_red_flags.window_dressing ? '🚨 Active' : '✓ Normal'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between border-b border-softform-navy-950/5 pb-2">
+                  <span className="text-xs text-softform-text-primary">Mega IPO Liquidity Drain</span>
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${marketFunding.market_red_flags.mega_ipo_liquidity ? 'bg-red-500/10 text-red-600' : 'bg-emerald-500/10 text-emerald-600'}`}>
+                    {marketFunding.market_red_flags.mega_ipo_liquidity ? '🚨 Active' : '✓ Normal'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between border-b border-softform-navy-950/5 pb-2">
+                  <span className="text-xs text-softform-text-primary">Yield Curve Inversion</span>
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${marketFunding.market_red_flags.inverted_curve ? 'bg-red-500/10 text-red-600' : 'bg-emerald-500/10 text-emerald-600'}`}>
+                    {marketFunding.market_red_flags.inverted_curve ? '🚨 Inverted' : '✓ Normal'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between pb-1">
+                  <span className="text-xs text-softform-text-primary">High Rate Environment</span>
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${marketFunding.market_red_flags.high_rate_environment ? 'bg-red-500/10 text-red-600' : 'bg-emerald-500/10 text-emerald-600'}`}>
+                    {marketFunding.market_red_flags.high_rate_environment ? '🚨 High' : '✓ Low'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </SectionBlock>
+      )}
+
+      {/* Ranked Funding Channels */}
+      {marketFunding && marketFunding.funding_channels && marketFunding.funding_channels.length > 0 && (
+        <SectionBlock
+          title="Ranked Funding Channels & SFGS Options"
+          icon={<Landmark size={20} className="text-softform-teal-500" />}
+          action={<StatusChip variant="signal">Policy Mapping</StatusChip>}
+          containerType="card"
+          className="rounded-[32px] p-6 sm:p-8 space-y-6"
+        >
+          <div className="space-y-6">
+            {marketFunding.funding_channels.map((channel: any, idx: number) => {
+              const isSfgs = channel.name.includes("SFGS")
               return (
-                <div key={channel.key} className="rounded-[22px] bg-white/45 border border-white/60 p-5 shadow-sm hover-lift space-y-4 flex flex-col justify-between">
-                  <div className="space-y-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${rankBadgeColor}`}>
-                          {rankLabel}
-                        </span>
-                        <h3 className="text-sm font-semibold text-softform-navy-950 leading-snug">{channel.label}</h3>
-                      </div>
-                      <span className={`shrink-0 rounded px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider ${fitTone(channel.fitBand)}`}>
-                        {formatBand(channel.fitBand)}
+                <div key={idx} className="rounded-[22px] bg-white/45 border border-white/60 p-5 shadow-sm hover:shadow-md transition duration-200 space-y-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-softform-teal-deep text-white text-xs font-bold shrink-0">
+                        {idx + 1}
                       </span>
+                      <h3 className="text-sm font-semibold text-softform-navy-950 leading-snug">{channel.name}</h3>
+                      {isSfgs && (
+                        <span className="rounded bg-softform-teal-deep/10 text-softform-teal-deep text-[10px] font-semibold px-2 py-0.5 uppercase tracking-wider">
+                          Govt Guaranteed
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-softform-text-primary">
+                      <span>Max Limit: <strong className="text-softform-navy-950 font-bold">{formatHKD(channel.max_amount_hkd)}</strong></span>
+                      <span className="h-3 w-px bg-softform-navy-950/15" />
+                      <span>Tenor: <strong className="text-softform-navy-950 font-semibold">{channel.tenor}</strong></span>
+                    </div>
+
+                    {/* Source metadata + mode badge */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[10px] text-softform-text-muted">
+                        Source: <span className="font-medium text-slate-700 dark:text-slate-300">{channel.sourceName || 'Unknown'}</span>
+                      </span>
+                      {channel.sourceMode && (
+                        <span className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider ${
+                          channel.sourceMode === 'live' || channel.sourceMode === 'provider_configured'
+                            ? 'bg-emerald-500/10 text-emerald-700'
+                            : channel.sourceMode === 'fixture'
+                            ? 'bg-amber-500/10 text-amber-800'
+                            : 'bg-softform-navy-900/10 text-softform-text-secondary'
+                        }`}>
+                          {channel.sourceMode.replace('_', ' ')}
+                        </span>
+                      )}
                     </div>
 
                     {/* Fit Score Progress Bar */}
@@ -360,17 +467,74 @@ export default function FundingStrategyPage() {
                         <div className="h-full bg-softform-teal-500" style={{ width: `${channel.score}%` }} />
                       </div>
                     </div>
+  
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 text-xs border-t border-b border-softform-navy-950/5 py-3 my-2">
+                    <div>
+                      <span className="text-[10px] uppercase font-semibold text-softform-text-muted block tracking-wider mb-0.5">Estimated Cost</span>
+                      <span className="text-softform-navy-950 font-medium">{channel.estimated_cost_band}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-semibold text-softform-text-muted block tracking-wider mb-0.5">Speed</span>
+                      <span className="text-softform-navy-950 font-medium">{channel.speed_band}</span>
+                    </div>
+                    <div className="md:col-span-2 lg:col-span-1">
+                      <span className="text-[10px] uppercase font-semibold text-softform-text-muted block tracking-wider mb-0.5">Eligibility</span>
+                      <span className="text-softform-navy-950">{channel.eligibility_notes}</span>
+                    </div>
+                  </div>                  </div>
 
-                    <p className="text-xs leading-relaxed text-softform-text-secondary">{channel.rationale}</p>
+                  <div className="grid gap-4 md:grid-cols-2 text-xs">
+                    <div className="space-y-1.5 bg-emerald-500/5 border border-emerald-500/10 rounded-xl p-3">
+                      <span className="text-[10px] font-semibold text-emerald-800 uppercase tracking-wider block">Pros</span>
+                      <ul className="list-disc list-inside space-y-0.5 text-emerald-700">
+                        {channel.pros.map((pro: string, i: number) => (
+                          <li key={i}>{pro}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div className="space-y-1.5 bg-red-500/5 border border-red-500/10 rounded-xl p-3">
+                      <span className="text-[10px] font-semibold text-red-800 uppercase tracking-wider block">Cons</span>
+                      <ul className="list-disc list-inside space-y-0.5 text-red-700">
+                        {channel.cons.map((con: string, i: number) => (
+                          <li key={i}>{con}</li>
+                        ))}
+                      </ul>
+                    </div>
                   </div>
 
-                  <div className="space-y-2 border-t border-softform-navy-950/5 pt-3 mt-2">
-                    {channel.supportingSignals.slice(0, 2).map((signal, idx) => (
-                      <p key={idx} className="text-[11px] leading-relaxed text-softform-text-secondary">
-                        <strong className="text-softform-navy-950 font-semibold">Signal:</strong> {signal}
+                  <div className="bg-softform-mist-50 border border-softform-navy-950/5 rounded-xl p-3 text-xs leading-relaxed text-softform-text-primary">
+                    <strong className="text-softform-navy-950">Reason:</strong> {channel.recommendation_reason}
+                  </div>
+
+                  {channel.matchedProducts && channel.matchedProducts.length > 0 && (
+                    <div className="mt-4 pt-3 border-t border-softform-navy-950/5 space-y-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-softform-teal-deep">
+                        Matched Lender Products
                       </p>
-                    ))}
-                  </div>
+                      <div className="space-y-2.5">
+                        {channel.matchedProducts.map((prod: any) => (
+                          <div key={prod.product_id} className="text-[11px] leading-relaxed bg-white/20 dark:bg-slate-900/20 rounded-xl p-2.5 border border-white/30 dark:border-slate-800/30">
+                            <div className="flex justify-between items-start gap-1 font-medium text-softform-navy-950">
+                              <span>{prod.product_name}</span>
+                              <span className="text-[9px] text-softform-text-muted uppercase tracking-wider">
+                                {prod.provider}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-x-2 gap-y-1 mt-1 text-[10px] text-softform-text-secondary">
+                              <div><span className="font-medium text-softform-text-muted">Limit:</span> {prod.limits}</div>
+                              <div><span className="font-medium text-softform-text-muted">Tenor:</span> {prod.tenor_range}</div>
+                              <div className="col-span-2"><span className="font-medium text-softform-text-muted">Collateral:</span> {prod.collateral_requirements}</div>
+                            </div>
+                            {prod.caveats && (
+                              <div className="mt-1 text-[9px] text-softform-text-muted leading-snug italic border-l border-softform-teal-deep/30 pl-1.5">
+                                Caveat: {prod.caveats}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )
             })}
@@ -417,31 +581,14 @@ export default function FundingStrategyPage() {
         </SectionBlock>
       )}
 
-      {/* Cross-Border Funding Context */}
-      {crossBorder && (
-        <SectionBlock
-          title="Cross-Border Funding Context"
-          icon={<ShieldCheck size={20} className="text-softform-teal-500" />}
-          action={<StatusChip variant="neutral">HKD / RMB</StatusChip>}
-          containerType="card"
-          className="rounded-[32px] p-6 sm:p-8 space-y-6"
-        >
-          <p className="text-sm leading-relaxed text-softform-text-secondary">{crossBorder.explanation}</p>
-          <div className="grid gap-4 sm:grid-cols-3 pt-2">
-            <div className="rounded-[18px] border border-white/60 bg-white/45 p-4">
-              <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-softform-text-muted">HKD reference</p>
-              <p className="mt-1 text-sm font-semibold text-softform-navy-950">{crossBorder.hkdFundingReference.displayValue}</p>
-            </div>
-            <div className="rounded-[18px] border border-white/60 bg-white/45 p-4">
-              <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-softform-text-muted">RMB reference</p>
-              <p className="mt-1 text-sm font-semibold text-softform-navy-950">{crossBorder.rmbFundingReference.displayValue}</p>
-            </div>
-            <div className="rounded-[18px] border border-white/60 bg-white/45 p-4">
-              <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-softform-text-muted">Spread band</p>
-              <p className="mt-1 text-sm font-semibold text-softform-navy-950">{formatBand(crossBorder.spreadBand)}</p>
-            </div>
+      {/* Disclaimer */}
+      {marketFunding && (
+        <div className="rounded-[22px] border border-softform-navy-950/10 bg-softform-navy-950/[0.025] p-5 text-xs text-softform-text-secondary leading-relaxed">
+          <div className="flex items-start gap-3">
+            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-softform-navy-950/10 text-[10px] font-bold text-softform-navy-700 shrink-0 mt-0.5">i</span>
+            <p className="font-medium">{marketFunding.advisory_disclaimer}</p>
           </div>
-        </SectionBlock>
+        </div>
       )}
 
       {/* Navigation Footer */}

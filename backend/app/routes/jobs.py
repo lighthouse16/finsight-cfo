@@ -19,6 +19,7 @@ from app.models.job import (
     ReportGenerationJobCreateRequest,
     ReportWorkerTickResponse,
 )
+from app.core.auth import require_write_access, RequestContext
 
 router = APIRouter()
 
@@ -118,6 +119,7 @@ async def create_report_generation_job(
     req: ReportGenerationJobCreateRequest,
     workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     job_repo: JobRepository = Depends(get_job_repository_dependency),
+    context: RequestContext = Depends(require_write_access),
 ):
     """
     Creates a pending report.generation job for the workspace.
@@ -169,6 +171,7 @@ async def trigger_report_worker_tick(
     workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
     job_repo: JobRepository = Depends(get_job_repository_dependency),
     report_repo: ReportRepository = Depends(get_report_repository_for_jobs_dependency),
+    context: RequestContext = Depends(require_write_access),
 ):
     """
     Runs exactly one controlled report worker tick for the workspace.
