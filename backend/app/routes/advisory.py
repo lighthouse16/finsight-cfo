@@ -8,7 +8,10 @@ from app.models.advisory import (
     CreditScoringResult,
     StressTestingResponse,
     FacilityStructuringResponse,
-    AdvisoryBlueprintResponse
+    AdvisoryBlueprintResponse,
+    AdvisoryChatRequest,
+    AdvisoryChatResponse,
+    AdvisoryChatSource,
 )
 from app.models.financials import FinancialAnalysisResponse, CompanyFinancialSnapshot
 from app.routes.financials import get_demo_analysis
@@ -368,3 +371,144 @@ def generate_funding_blueprint(
         disclaimers=disclaimers
     )
 
+
+# -------------------------------------------------------------------------
+# AI CFO Chat Endpoint
+# -------------------------------------------------------------------------
+
+from app.services.advisory.ai_provider import (
+    get_advisory_response,
+    get_ai_mode,
+    AdvisorySource,
+)
+
+
+@router.post("/chat", response_model=AdvisoryChatResponse)
+def post_advisory_chat(
+    request: AdvisoryChatRequest,
+    x_workspace_id: Optional[str] = Header(None, alias="x-workspace-id"),
+):
+    """
+    AI CFO chat endpoint.
+
+    Accepts a natural-language question and optional workspace context.
+    If a workspace_id is provided, the endpoint also retrieves relevant
+    document excerpts from the workspace document index (RAG) and includes
+    them in the advisory context passed to the AI provider.
+
+    Returns an advisory response whose mode depends on provider configuration:
+
+    - **deterministic_fallback**:  no LLM provider configured — template answer
+    - **openai / azure_openai**:   LLM provider configured
+    - **provider_not_configured**: no env keys at all
+    """
+    ws_id = request.workspace_id or x_workspace_id
+
+    # Gather workspace context if available
+    workspace_data = None
+    if ws_id:
+        try:
+            analysis = get_demo_analysis(x_workspace_id=x_workspace_id, workspace_id=ws_id)
+            if analysis and not (isinstance(analysis, dict) and analysis.get("status") == "insufficient_data"):
+                workspace_data = _build_chat_workspace_data(analysis, ws_id)
+        except Exception:
+            pass  # continue without workspace data
+
+    # --- RAG: retrieve relevant document excerpts ---
+    if ws_id:
+        try:
+            from app.services.data_room.document_index import get_document_index
+            index = get_document_index()
+            chunks = index.retrieve(
+                workspace_id=ws_id,
+                query=request.question,
+                top_k=5,
+            )
+            if chunks:
+                excerpts = []
+                for c in chunks:
+                    excerpts.append({
+                        "title": c.metadata.get("title", c.source_file or "Untitled"),
+                        "snippet": c.text[:500],
+                        "document_id": c.document_id,
+                    })
+                if workspace_data is None:
+                    workspace_data = {}
+                workspace_data["document_excerpts"] = excerpts
+        except Exception:
+            pass  # RAG retrieval is best-effort
+
+    resp = get_advisory_response(question=request.question, workspace_data=workspace_data)
+
+    return AdvisoryChatResponse(
+        ai_mode=str(resp.ai_mode),
+        answer=resp.answer,
+        sources=[
+            AdvisoryChatSource(title=s.title, snippet=s.snippet, document_id=s.document_id)
+            for s in resp.sources
+        ],
+        disclaimer=resp.disclaimer,
+        warnings=resp.warnings,
+    )
+
+
+def _build_chat_workspace_data(
+    analysis: FinancialAnalysisResponse,
+    workspace_id: str,
+) -> dict:
+    """Flatten a FinancialAnalysisResponse into a dict suitable for RAG context."""
+    data: dict = {}
+
+    snapshot = analysis.snapshot
+    if snapshot:
+        data["company_name"] = snapshot.company_name
+        data["company_id"] = snapshot.company_id
+        data["period_label"] = snapshot.reporting_period
+        data["currency"] = snapshot.currency
+
+    # Financial summary from income statement
+    if snapshot and snapshot.income_statement:
+        inc = snapshot.income_statement
+        data["financial_summary"] = {
+            "revenue": inc.revenue,
+            "gross_profit": inc.gross_profit,
+            "ebitda": inc.ebitda,
+            "net_income": inc.net_income,
+            "ebit": inc.ebit,
+            "interest_expense": inc.interest_expense,
+        }
+
+    # Balance sheet fields
+    if snapshot and snapshot.balance_sheet:
+        bs = snapshot.balance_sheet
+        fs = data.setdefault("financial_summary", {})
+        fs["cash_and_equivalents"] = bs.cash
+        fs["total_assets"] = bs.total_assets
+        fs["total_liabilities"] = bs.total_liabilities
+        fs["equity"] = bs.equity
+        fs["accounts_receivable"] = bs.accounts_receivable
+        fs["current_assets"] = bs.current_assets
+        fs["current_liabilities"] = bs.current_liabilities
+
+    # Ratios
+    ratios_obj = analysis.ratios
+    if ratios_obj:
+        data["ratios"] = {
+            "current_ratio": getattr(ratios_obj.current_ratio, "value", None),
+            "quick_ratio": getattr(ratios_obj.quick_ratio, "value", None),
+            "interest_coverage": getattr(ratios_obj.interest_coverage, "value", None),
+            "dscr": getattr(ratios_obj.dscr, "value", None),
+            "debt_ratio": getattr(ratios_obj.debt_ratio, "value", None),
+            "net_debt_to_ebitda": getattr(ratios_obj.net_debt_to_ebitda, "value", None),
+            "dso": getattr(ratios_obj.dso, "value", None),
+            "working_capital_gap": getattr(ratios_obj.working_capital_gap, "value", None),
+        }
+
+    # Valuation from metadata
+    metadata = getattr(snapshot, "metadata", None) if snapshot else None
+    if metadata and isinstance(metadata, dict):
+        val = metadata.get("valuation_summary") or metadata.get("valuation")
+        if val:
+            data["valuation_summary"] = val if isinstance(val, dict) else {"value": str(val)}
+
+    return data

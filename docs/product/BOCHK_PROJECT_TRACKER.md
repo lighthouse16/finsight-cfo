@@ -2,7 +2,7 @@
 
 > **Source of truth**: `BOCHK Challenge 2026.docx` (team document)
 > **Repo**: `D:\projects\finsight-cfo`
-> **Last updated**: 2026-06-09
+> **Last updated**: 2026-06-12
 
 ---
 
@@ -127,9 +127,9 @@ Demo Flow Rail ([DemoFlowRail.tsx](file:///D:/projects/finsight-cfo/src/componen
 | 3.2 | Unified PD (Xác suất vỡ nợ) | **Done** | Unified risk scoring foundation added. Logistic-style deterministic PD engine implemented in `pd_engine.py` using DSCR, Debt Ratio, and Margin. |
 | 3.3 | Stress-Testing Engine | **Done** | Deterministic stress testing foundation added. specific BOCHK HIBOR shock +150 bps stress test implemented in `stress_testing_engine.py`. |
 | 3.4 | Băm nhỏ Gói vay (Optimization) | **Done** | Candidate structure foundation added. Full multi-tranche loan structuring optimizer implemented in `loan_structuring_engine.py` (SFGS 80, Trade Finance CDI, Working Capital Buffer). |
-| 3.5 | RAG & GenAI Output (Blueprint) | **Done** | Deterministic advisory blueprint foundation added. A unified `/api/advisory/funding-blueprint` API brings together all Phase 3 advisory modules into a single response. Frontend "Funding Blueprint Engine" added to `AdvisoryBlueprintPage.tsx`. |
+| 3.5 | RAG & GenAI Output (Blueprint) | **Done** | Production-grade multi-mode AI provider interface at [ai_provider.py](file:///D:/projects/finsight-cfo/backend/app/services/advisory/ai_provider.py) with `provider_configured`/`provider_not_configured`/`deterministic_fallback` modes, env-var-based provider config, no hardcoded keys, bounded RAG context (workspace financial summary + ratios + top-5 BM25 document chunks), deterministic fallback templates with safety system prompt (no loan approval/underwriting/guaranteed funding; RM review required). BM25 keyword document index at [document_index.py](file:///D:/projects/finsight-cfo/backend/app/services/data_room/document_index.py) with workspace-scoped CRUD, persistence, and top-k retrieval. `/api/advisory/chat` and `/api/advisory/funding-blueprint` endpoints integrate RAG + AI provider. Frontend [AiCfoPage.tsx](file:///D:/projects/finsight-cfo/src/features/ai-cfo/AiCfoPage.tsx) with context readiness gating, conversation history, response cards with source badges, fallback/warning badges, and disclaimer. Three dedicated test suites (29 tests) validate AI mode detection, deterministic fallback content safety, document index CRUD/workspace isolation/persistence/BM25 scoring, and runtime status endpoint fields. |
 
-**Phase 3 verdict**: 🟢 **All 5 Tasks Done.** Hard-gate precheck, unified risk scoring, CDI alternative data mock gateway, deterministic PD engine, specific HIBOR stress tests, deterministic multi-tranche loan structuring, and unified blueprint endpoint are implemented.
+**Phase 3 verdict**: 🟢 **All 5 Tasks Done.** Hard-gate precheck, unified risk scoring, CDI alternative data mock gateway, deterministic PD engine, specific HIBOR stress tests, deterministic multi-tranche loan structuring, unified blueprint endpoint, and full multi-mode AI CFO RAG pipeline (provider interface, document index, chat endpoint, frontend) are all implemented and tested (29 dedicated AI CFO + runtime tests).
 
 ---
 
@@ -137,7 +137,7 @@ Demo Flow Rail ([DemoFlowRail.tsx](file:///D:/projects/finsight-cfo/src/componen
 
 | ID | Task | Repo Status | Evidence |
 |---|---|---|---|
-| 4.1 | Interactive Dashboard | **Partial** | Market Watch UI tabs (Market Pulse, Rates & Liquidity, FX & GBA, Sector Benchmarks, Commodities, Stress Signals) are polished and interactive. Motion system ([MotionReveal.tsx](file:///D:/projects/finsight-cfo/src/features/market-watch/components/MotionReveal.tsx), [MotionStagger.tsx](file:///D:/projects/finsight-cfo/src/features/market-watch/components/MotionStagger.tsx), [motion.ts](file:///D:/projects/finsight-cfo/src/features/market-watch/utils/motion.ts)) is production-quality. Market Watch now shows Data Room preview context panels when backend preview-analysis is active, while provider market data remains unchanged. However, **Phase 1 sliders** (HIBOR shock, commodity stress) and **AI CFO chat interface** do not exist. |
+| 4.1 | Interactive Dashboard | **Partial** | Market Watch UI tabs (Market Pulse, Rates & Liquidity, FX & GBA, Sector Benchmarks, Commodities, Stress Signals) are polished and interactive. Motion system ([MotionReveal.tsx](file:///D:/projects/finsight-cfo/src/features/market-watch/components/MotionReveal.tsx), [MotionStagger.tsx](file:///D:/projects/finsight-cfo/src/features/market-watch/components/MotionStagger.tsx), [motion.ts](file:///D:/projects/finsight-cfo/src/features/market-watch/utils/motion.ts)) is production-quality. Market Watch now shows Data Room preview context panels when backend preview-analysis is active, while provider market data remains unchanged. AI CFO chat interface is live at [AiCfoPage.tsx](file:///D:/projects/finsight-cfo/src/features/ai-cfo/AiCfoPage.tsx) with context readiness gating, conversation history, response source badges, and AI mode badges. **Phase 1 sliders** (HIBOR shock, commodity stress) do not exist yet. |
 | 4.2 | Advisory Blueprint UI | **Done** | [AdvisoryBlueprintPage.tsx](file:///D:/projects/finsight-cfo/src/features/advisory-blueprint/AdvisoryBlueprintPage.tsx) at `/platform/advisory-blueprint` consumes `demo-blueprint`, `demo-precheck`, `demo-risk-score`, `demo-stress-tests`, and `demo-facility-structures` backend endpoints. It also displays a Data Room preview financial context block when `/api/financials/preview-analysis` is available. The core advisory response remains unchanged and demo-context. Context-only financing readiness brief. Lazy-loaded. |
 | 4.3 | Data Room UI Foundation | **Done** | [DataRoomPage.tsx](file:///D:/projects/finsight-cfo/src/features/data-room/DataRoomPage.tsx) at `/platform/data-room` displays financial record readiness with backend integration via [dataRoomApi.ts](file:///D:/projects/finsight-cfo/src/features/data-room/api/dataRoomApi.ts). It supports upload metadata, structured CSV/XLSX/PDF/DOCX parse preview, financial snapshot preview UI, local preview session persistence, and explicit local workspace context activation/reset. Falls back to local seed data when backend unavailable. Displays OCR provider status, but lacks permanent file storage. Lazy-loaded. |
 | 4.4 | Data Room Backend API Integration | **Done** | [data_room.py](file:///D:/projects/finsight-cfo/backend/app/routes/data_room.py) serves `GET /api/data-room/demo-readiness`, `POST /api/data-room/demo-upload-metadata`, `POST /api/data-room/demo-parse-preview`, and `POST /api/data-room/demo-snapshot-preview`. [demo_data_room.py](file:///D:/projects/finsight-cfo/backend/app/services/data_room/demo_data_room.py) provides deterministic demo data. [test_data_room.py](file:///D:/projects/finsight-cfo/backend/tests/test_data_room.py) validates contracts. |
@@ -148,7 +148,7 @@ Demo Flow Rail ([DemoFlowRail.tsx](file:///D:/projects/finsight-cfo/src/componen
 | 4.9 | E2E & Edge Case Testing | **Partial** | Backend has 110 passing tests across `test_financials.py`, `test_market_watch.py`, `test_advisory.py`, `test_advisory_blueprint.py`, `test_health.py`, `test_data_room.py`. Frontend has no test infrastructure. Division-by-zero handling exists in ratio engine. |
 | 4.10 | Demo / Pitch Polish v1 | **Done** | Reusable [DemoFlowRail.tsx](file:///D:/projects/finsight-cfo/src/components/platform/DemoFlowRail.tsx) guides judges through 4 demo steps (Data Room → Financial Preview → Market Watch → Advisory Blueprint) with icons, descriptions, route links, and status chips (Preview-only / Source-aware / Context-only). Rendered on Data Room, Market Watch, and Advisory Blueprint pages below headings. CTA wording improved across the demo path. Frontend lint/build passes. Manual checks passed on `/platform/data-room`, `/platform/market-watch`, `/platform/advisory-blueprint` — 0 console errors. Backend not touched. UI/pitch polish only — no backend features, provider integrations, or production decision logic added. |
 
-**Phase 4 verdict**: 🟡 **4.1 Partial, 4.2-4.7 Done, 4.8 Partial, 4.9 Partial, 4.10 Done.** Platform UI foundation is strong — Market Watch, Advisory Blueprint, Data Room pages exist with workflow navigation, lazy loading, accessibility fixes, Data Room preview ingestion, snapshot preview UI, local preview session persistence, backend preview context, `/api/financials/preview-analysis`, downstream preview panels, and DemoFlowRail pitch polish. Still lacks OCR/PDF parsing, permanent storage, production analysis replacement, AI CFO chat, Phase 1 sliders, and frontend test infrastructure.
+**Phase 4 verdict**: 🟡 **4.1 Partial, 4.2-4.7 Done, 4.8 Partial, 4.9 Partial, 4.10 Done.** Platform UI foundation is strong — Market Watch, Advisory Blueprint, Data Room pages exist with workflow navigation, lazy loading, accessibility fixes, Data Room preview ingestion, snapshot preview UI, local preview session persistence, backend preview context, `/api/financials/preview-analysis`, downstream preview panels, DemoFlowRail pitch polish, and AI CFO chat interface. Still lacks OCR/PDF parsing, permanent storage, production analysis replacement, Phase 1 sliders, and frontend test infrastructure.
 
 ---
 
@@ -182,11 +182,11 @@ Demo Flow Rail ([DemoFlowRail.tsx](file:///D:/projects/finsight-cfo/src/componen
 | Phase 0: Infrastructure | 5 | 🟡 2 Done, 1 Partial, 2 Not Started |
 | Phase 1: Business Valuation | 7 | 🟡 5 Partial, 2 Done |
 | Phase 2: Market Prediction | 7 | 🟢 7 Done |
-| Phase 3: Advisory & Structuring | 5 | 🟡 5 Partial |
+| Phase 3: Advisory & Structuring | 5 | 🟢 5 Done |
 | Phase 4: UI/UX & E2E | 10 | 🟢 7 Done, 3 Partial |
 | Phase 5: First Round | 3 | 🟡 1 Partial, 2 Not Started |
 | Phase 6: Finalist | 2 | 🔴 2 Not Started |
-| **Total** | **39** | **17 Done, 16 Partial, 6 Not Started** |
+| **Total** | **39** | **21 Done, 12 Partial, 6 Not Started** |
 
 ---
 
@@ -301,3 +301,9 @@ Market Watch UI should remain at its current polish level — clean and professi
 | Company Context | ⚠️ Partial | Workspace-derived demo | [company_context.py](file:///D:/projects/finsight-cfo/backend/app/services/market_watch/company_context.py) | All tabs (profile strip) |
 | Production Company Financial Records | ✅ Live | Persistent workspace records | — | Financial analysis outcome pages |
 | Financial Ratio Engine | ✅ Live | Workspace persistent-backed and preview ratio engine | [ratio_engine.py](file:///D:/projects/finsight-cfo/backend/app/services/financials/ratio_engine.py) | Platform dashboards |
+| AI CFO Multi-mode Provider | ✅ Live | Multi-mode (provider-backed / deterministic fallback) | [ai_provider.py](file:///D:/projects/finsight-cfo/backend/app/services/advisory/ai_provider.py) | AI CFO |
+| BM25 Document Index (RAG) | ✅ Live | Local file persistence | [document_index.py](file:///D:/projects/finsight-cfo/backend/app/services/data_room/document_index.py) | AI CFO |
+| AI CFO Chat API | ✅ Live | RAG-backed chat | [advisory.py](file:///D:/projects/finsight-cfo/backend/app/routes/advisory.py) | AI CFO |
+| Runtime Status API | ✅ Live | Config reflection | [main.py](file:///D:/projects/finsight-cfo/backend/app/routes/main.py) | AI CFO |
+| AI CFO Frontend | ✅ Live | React conversation UI | [AiCfoPage.tsx](file:///D:/projects/finsight-cfo/src/features/ai-cfo/AiCfoPage.tsx) | AI CFO at `/platform/ai-cfo` |
+

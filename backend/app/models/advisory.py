@@ -342,3 +342,26 @@ class FundingBlueprintResponse(AdvisoryBaseModel):
     blueprint_sections: List[BlueprintSectionText]
     disclaimers: List[str]
 
+
+# AI CFO Chat Models
+class AdvisoryChatSource(AdvisoryBaseModel):
+    """A cited source in a chat response."""
+    title: str
+    snippet: Optional[str] = None
+    document_id: Optional[str] = None
+
+
+class AdvisoryChatRequest(AdvisoryBaseModel):
+    """Request payload for the AI CFO chat endpoint."""
+    question: str
+    workspace_id: Optional[str] = None
+
+
+class AdvisoryChatResponse(AdvisoryBaseModel):
+    """Response from the AI CFO chat endpoint."""
+    ai_mode: str = "deterministic_fallback"
+    answer: str
+    sources: List[AdvisoryChatSource] = Field(default_factory=list)
+    disclaimer: str = ""
+    warnings: List[str] = Field(default_factory=list)
+
