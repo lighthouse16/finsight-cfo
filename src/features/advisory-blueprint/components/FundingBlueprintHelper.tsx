@@ -7,12 +7,27 @@ interface FundingBlueprintHelperProps {
   onRun?: () => void;
 }
 
+interface FundingResult {
+  pd_estimate?: { tier?: string };
+  stress_test?: { stressed_dscr?: number; status?: string };
+  loan_structure?: {
+    weighted_average_cost_bps?: number;
+    recommended_facilities?: Array<{ facility: string; amount: number }>;
+    recommendation_summary?: string;
+  };
+  cdi_data?: {
+    provider_name?: string;
+    delivered_invoice_total?: number;
+    alternative_collateral_hkd?: number;
+  };
+}
+
 export default function FundingBlueprintHelper({ onRun }: FundingBlueprintHelperProps) {
   const [amount, setAmount] = useState(10000000)
   const [consent, setConsent] = useState(false)
   const [shockBps, setShockBps] = useState(150)
   const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<any>(null)
+  const [result, setResult] = useState<FundingResult | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const handleRun = async () => {
@@ -43,8 +58,8 @@ export default function FundingBlueprintHelper({ onRun }: FundingBlueprintHelper
       const data = await res.json()
       setResult(data)
       if (onRun) onRun()
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err))
     } finally {
       setLoading(false)
     }
@@ -148,7 +163,7 @@ export default function FundingBlueprintHelper({ onRun }: FundingBlueprintHelper
                     <span className="text-xs bg-white/10 px-2 py-0.5 rounded-md border border-white/20">{result.loan_structure.weighted_average_cost_bps} bps avg</span>
                   </div>
                   <div className="space-y-2">
-                    {result.loan_structure.recommended_facilities?.map((f: any, i: number) => (
+                    {result.loan_structure.recommended_facilities?.map((f: { facility: string; amount: number }, i: number) => (
                       <div key={i} className="flex justify-between items-center text-xs border-b border-white/10 pb-2 last:border-0 last:pb-0">
                         <span className="text-white/80">{f.facility}</span>
                         <span className="font-bold">HKD {f.amount.toLocaleString()}</span>
