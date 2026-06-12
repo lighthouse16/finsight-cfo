@@ -42,6 +42,9 @@ from app.services.report_generation_job_service import (
 from app.services.report_worker_service import (
     process_report_generation_job,
 )
+from app.services.report_worker_harness import (
+    run_report_worker_tick,
+)
 
 
 

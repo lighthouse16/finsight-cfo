@@ -76,6 +76,8 @@ This document outlines the high-level roadmap for transitioning FinSight CFO fro
     - Add service-layer retry, attempts, and progress semantics for jobs, and update the report worker service to record attempts and progress.
 30. **Report Job Trigger Route Contract (Phase 12)** [COMPLETED]
     - Add a POST route to trigger/create pending report generation jobs for a workspace, validating inputs and safeguarding against raw file bytes.
+31. **Feature-Flagged Report Worker Harness (Phase 13)** [COMPLETED]
+    - Add a feature-flagged in-process report worker harness (`run_report_worker_tick`) to process pending report generation jobs synchronously without daemons/external queues.
 
 
 
