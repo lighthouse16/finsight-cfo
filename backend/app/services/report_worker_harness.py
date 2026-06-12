@@ -1,36 +1,48 @@
 from typing import Any, Dict, List
 from app.services.report_worker_service import process_report_generation_job
 
+
+def _build_tick_summary(*, enabled: bool, skipped_reason: str | None = None) -> Dict[str, Any]:
+    summary = {
+        "enabled": enabled,
+        "scanned": 0,
+        "processed": 0,
+        "succeeded": 0,
+        "failed": 0,
+        "jobIds": [],
+        "errors": [],
+    }
+    if skipped_reason:
+        summary["skippedReason"] = skipped_reason
+    return summary
+
+
 def run_report_worker_tick(
     *,
     settings: Any,
     job_repository: Any,
     report_repository: Any,
+    workspace_id: str | None = None,
 ) -> Dict[str, Any]:
     """
     Executes a single tick of the feature-flagged report worker harness.
     Scans and processes pending report.generation jobs in-process.
     """
     if not getattr(settings, "REPORT_WORKER_ENABLED", False):
-        return {
-            "enabled": False,
-            "processed": 0,
-            "skipped_reason": "REPORT_WORKER_ENABLED flag is False",
-        }
+        return _build_tick_summary(
+            enabled=False,
+            skipped_reason="REPORT_WORKER_ENABLED flag is False",
+        )
 
     # 1. List pending jobs
     try:
         all_pending = job_repository.list_jobs(status="pending")
     except NotImplementedError:
-        return {
-            "enabled": True,
-            "scanned": 0,
-            "processed": 0,
-            "succeeded": 0,
-            "failed": 0,
-            "jobIds": [],
-            "errors": [{"error": "NotImplementedError: Background jobs are not supported under local persistence mode."}],
-        }
+        result = _build_tick_summary(enabled=True)
+        result["errors"] = [
+            {"error": "NotImplementedError: Background jobs are not supported under local persistence mode."}
+        ]
+        return result
 
     scanned_jobs = []
     processable_jobs = []
@@ -38,6 +50,10 @@ def run_report_worker_tick(
     for job in all_pending:
         jtype = job.get("jobType") or job.get("job_type")
         if jtype != "report.generation":
+            continue
+
+        job_workspace_id = job.get("workspaceId") or job.get("workspace_id")
+        if workspace_id and job_workspace_id != workspace_id:
             continue
 
         scanned_jobs.append(job)
@@ -82,17 +98,11 @@ def run_report_worker_tick(
                 "error": str(e)
             })
 
-    result = {
-        "enabled": True,
-        "scanned": len(scanned_jobs),
-        "processed": len(processed_job_ids),
-        "succeeded": len(succeeded_jobs),
-        "failed": len(failed_jobs),
-        "jobIds": processed_job_ids,
-    }
-    if errors_list:
-        result["errors"] = errors_list
-    else:
-        result["errors"] = []
-
+    result = _build_tick_summary(enabled=True)
+    result["scanned"] = len(scanned_jobs)
+    result["processed"] = len(processed_job_ids)
+    result["succeeded"] = len(succeeded_jobs)
+    result["failed"] = len(failed_jobs)
+    result["jobIds"] = processed_job_ids
+    result["errors"] = errors_list
     return result

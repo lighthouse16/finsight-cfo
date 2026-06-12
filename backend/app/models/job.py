@@ -56,3 +56,17 @@ class ReportGenerationJobCreateRequest(BaseModel):
             _check_no_file_bytes(self.metadata)
         return self
 
+
+class ReportWorkerTickResponse(BaseModel):
+    enabled: bool
+    scanned: int = 0
+    processed: int = 0
+    succeeded: int = 0
+    failed: int = 0
+    job_ids: list[str] = Field(default_factory=list, alias="jobIds")
+    errors: list[Dict[str, Any]] = Field(default_factory=list)
+    skipped_reason: Optional[str] = Field(None, alias="skippedReason")
+
+    class Config:
+        populate_by_name = True
+

@@ -78,6 +78,8 @@ This document outlines the high-level roadmap for transitioning FinSight CFO fro
     - Add a POST route to trigger/create pending report generation jobs for a workspace, validating inputs and safeguarding against raw file bytes.
 31. **Feature-Flagged Report Worker Harness (Phase 13)** [COMPLETED]
     - Add a feature-flagged in-process report worker harness (`run_report_worker_tick`) to process pending report generation jobs synchronously without daemons/external queues.
+32. **Manual Report Worker Tick Route (Phase 14)** [COMPLETED]
+    - Add a controlled backend route to trigger one workspace-scoped report worker tick on demand, respecting `REPORT_WORKER_ENABLED` and `REPORT_WORKER_MAX_JOBS_PER_TICK` without auto-start behavior.
 
 
 

@@ -64,6 +64,19 @@ def test_local_mode_jobs_endpoint_throws_501(monkeypatch):
         assert res_post.status_code == 501
         assert "Background jobs are not supported" in res_post.json()["detail"]
 
+        res_tick = client.post("/api/workspaces/ws_local_123/jobs/report-worker/tick")
+        assert res_tick.status_code == 200
+        assert res_tick.json() == {
+            "enabled": False,
+            "scanned": 0,
+            "processed": 0,
+            "succeeded": 0,
+            "failed": 0,
+            "jobIds": [],
+            "errors": [],
+            "skippedReason": "REPORT_WORKER_ENABLED flag is False",
+        }
+
         # Ensure no DB engine/session was initialized
         assert db_session_mod._engine is None
         assert db_session_mod.SessionLocal is None
@@ -380,6 +393,164 @@ def test_create_report_generation_job_route(db_session, monkeypatch):
         jobs_list = list_res.json()
         assert len(jobs_list) == 1
         assert jobs_list[0]["id"] == job_data["id"]
+
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_trigger_report_worker_tick_route(db_session, monkeypatch):
+    """
+    In database mode:
+    1. POST worker tick processes only pending report jobs in the requested workspace.
+    2. Respects feature flag and existing max jobs per tick.
+    3. Moves matching jobs to completed while leaving other jobs untouched.
+    """
+    monkeypatch.setattr(settings, "PERSISTENCE_BACKEND", "database")
+    monkeypatch.setattr(settings, "REPORT_WORKER_ENABLED", True)
+    monkeypatch.setattr(settings, "REPORT_WORKER_MAX_JOBS_PER_TICK", 1)
+
+    def override_get_db_session():
+        set_active_db_session(db_session)
+        try:
+            yield db_session
+        finally:
+            set_active_db_session(None)
+
+    app.dependency_overrides[get_db_session_optional] = override_get_db_session
+    client = TestClient(app)
+
+    try:
+        from app.db.models import Organization, Workspace as DbWorkspace, Job as DbJob, Report as DbReport
+
+        org = Organization(id="org_tick", name="Tick Org")
+        db_session.add(org)
+        db_session.add(DbWorkspace(id="ws_1", organization_id="org_tick", name="Workspace One", status="active"))
+        db_session.add(DbWorkspace(id="ws_2", organization_id="org_tick", name="Workspace Two", status="active"))
+        db_session.commit()
+
+        db_session.add(DbJob(
+            id="job_ws1_a",
+            workspace_id="ws_1",
+            organization_id="org_tick",
+            task_name="report.generation",
+            status="pending",
+            arguments={"report_type": "financial_health", "report_payload": {"revenue": 1000}},
+            job_metadata={"title": "WS1 Report A"},
+            result_payload={},
+        ))
+        db_session.add(DbJob(
+            id="job_ws1_b",
+            workspace_id="ws_1",
+            organization_id="org_tick",
+            task_name="report.generation",
+            status="pending",
+            arguments={"report_type": "financial_health", "report_payload": {"revenue": 2000}},
+            job_metadata={"title": "WS1 Report B"},
+            result_payload={},
+        ))
+        db_session.add(DbJob(
+            id="job_ws2_a",
+            workspace_id="ws_2",
+            organization_id="org_tick",
+            task_name="report.generation",
+            status="pending",
+            arguments={"report_type": "financial_health", "report_payload": {"revenue": 3000}},
+            job_metadata={"title": "WS2 Report A"},
+            result_payload={},
+        ))
+        db_session.add(DbJob(
+            id="job_ws1_analysis",
+            workspace_id="ws_1",
+            organization_id="org_tick",
+            task_name="analysis.run",
+            status="pending",
+            arguments={"run_type": "valuation"},
+            job_metadata={"title": "Analysis"},
+            result_payload={},
+        ))
+        db_session.commit()
+
+        res = client.post("/api/workspaces/ws_1/jobs/report-worker/tick")
+        assert res.status_code == 200
+        data = res.json()
+
+        assert data["enabled"] is True
+        assert data["scanned"] == 2
+        assert data["processed"] == 1
+        assert data["succeeded"] == 1
+        assert data["failed"] == 0
+        assert len(data["jobIds"]) == 1
+        assert data["errors"] == []
+
+        processed_job_id = data["jobIds"][0]
+        processed_job = db_session.query(DbJob).filter_by(id=processed_job_id).first()
+        assert processed_job.workspace_id == "ws_1"
+        assert processed_job.status == "completed"
+
+        remaining_ws1_job = db_session.query(DbJob).filter_by(id="job_ws1_a" if processed_job_id == "job_ws1_b" else "job_ws1_b").first()
+        assert remaining_ws1_job.status == "pending"
+
+        ws2_job = db_session.query(DbJob).filter_by(id="job_ws2_a").first()
+        assert ws2_job.status == "pending"
+
+        analysis_job = db_session.query(DbJob).filter_by(id="job_ws1_analysis").first()
+        assert analysis_job.status == "pending"
+
+        reports = db_session.query(DbReport).all()
+        assert len(reports) == 1
+        assert reports[0].workspace_id == "ws_1"
+
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_trigger_report_worker_tick_route_returns_disabled_summary(db_session, monkeypatch):
+    monkeypatch.setattr(settings, "PERSISTENCE_BACKEND", "database")
+    monkeypatch.setattr(settings, "REPORT_WORKER_ENABLED", False)
+
+    def override_get_db_session():
+        set_active_db_session(db_session)
+        try:
+            yield db_session
+        finally:
+            set_active_db_session(None)
+
+    app.dependency_overrides[get_db_session_optional] = override_get_db_session
+    client = TestClient(app)
+
+    try:
+        from app.db.models import Organization, Workspace as DbWorkspace, Job as DbJob
+
+        org = Organization(id="org_tick_disabled", name="Tick Disabled Org")
+        db_session.add(org)
+        db_session.add(DbWorkspace(id="ws_disabled", organization_id="org_tick_disabled", name="Workspace Disabled", status="active"))
+        db_session.add(DbJob(
+            id="job_disabled",
+            workspace_id="ws_disabled",
+            organization_id="org_tick_disabled",
+            task_name="report.generation",
+            status="pending",
+            arguments={"report_type": "financial_health"},
+            job_metadata={"title": "Disabled Report"},
+            result_payload={},
+        ))
+        db_session.commit()
+
+        res = client.post("/api/workspaces/ws_disabled/jobs/report-worker/tick")
+        assert res.status_code == 200
+        assert res.json() == {
+            "enabled": False,
+            "scanned": 0,
+            "processed": 0,
+            "succeeded": 0,
+            "failed": 0,
+            "jobIds": [],
+            "errors": [],
+            "skippedReason": "REPORT_WORKER_ENABLED flag is False",
+        }
+
+        job = db_session.query(DbJob).filter_by(id="job_disabled").first()
+        assert job.status == "pending"
 
     finally:
         app.dependency_overrides.clear()

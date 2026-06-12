@@ -142,6 +142,11 @@ def test_local_mode_no_db_side_effects(monkeypatch):
         jobs_res = client.get(f"/api/workspaces/{ws_id}/jobs")
         assert jobs_res.status_code == 501
 
+        tick_res = client.post(f"/api/workspaces/{ws_id}/jobs/report-worker/tick")
+        assert tick_res.status_code == 200
+        assert tick_res.json()["enabled"] is False
+        assert tick_res.json()["processed"] == 0
+
         # Assert no DB engine/session was initialized
         assert db_session_mod._engine is None
         assert db_session_mod.SessionLocal is None
