@@ -28,12 +28,26 @@ export interface TimingSignalComponent {
   explanation: string
 }
 
-export interface TimingSignalProvenance {
-  source: string
-  provider: string
+export interface SourceProvenance {
+  source_name?: string
+  source_mode?: 'live' | 'provider_configured' | 'provider_not_configured' | 'workspace_derived' | 'fixture' | 'unavailable'
+  last_updated?: string | null
+  provider_adapter?: string | null
+  confidence?: 'high' | 'medium' | 'low' | 'unavailable'
+  warning?: string | null
+  docs_url?: string | null
+  raw_url?: string | null
+
+  // Backward compatibility fields
+  source?: string
+  provider?: string
   asOf?: string | null
-  freshness: FreshnessStatus
+  freshness?: FreshnessStatus
+  providerAdapter?: string | null
+  providerIntegration?: string | null
 }
+
+export interface TimingSignalProvenance extends SourceProvenance {}
 
 export interface TimingSignalResponse {
   mode: 'context_only'
@@ -63,12 +77,7 @@ export interface IndustryHealthComponent {
   explanation: string
 }
 
-export interface IndustryHealthProvenance {
-  source: string
-  provider: string
-  asOf?: string | null
-  freshness: FreshnessStatus
-}
+export interface IndustryHealthProvenance extends SourceProvenance {}
 
 export interface IndustryHealthResponse {
   mode: 'context_only'
@@ -499,12 +508,7 @@ export interface CrossBorderFundingComponent {
   explanation: string
 }
 
-export interface CrossBorderFundingProvenance {
-  source: string
-  provider: string
-  asOf?: string | null
-  freshness: FreshnessStatus
-}
+export interface CrossBorderFundingProvenance extends SourceProvenance {}
 
 export interface CrossBorderFundingContextResponse {
   mode: 'context_only'
@@ -528,12 +532,7 @@ export type RedFlagSeverity = 'low' | 'moderate' | 'elevated' | 'stressed' | 'un
 export type RedFlagCategory = 'rates' | 'fx' | 'sector' | 'funding' | 'cross_border' | 'timing' | 'liquidity'
 export type SummaryBand = 'clear' | 'watch' | 'elevated' | 'stressed' | 'unavailable'
 
-export interface RedFlagProvenance {
-  source: string
-  provider: string
-  asOf?: string | null
-  freshness: FreshnessStatus
-}
+export interface RedFlagProvenance extends SourceProvenance {}
 
 export interface RedFlagMitigant {
   label: string
@@ -599,12 +598,7 @@ export interface FundingChannelComponent {
   explanation: string
 }
 
-export interface FundingChannelProvenance {
-  source: string
-  provider: string
-  asOf?: string | null
-  freshness: FreshnessStatus
-}
+export interface FundingChannelProvenance extends SourceProvenance {}
 
 export interface FundingCompanyContext {
   companyName: string
@@ -630,6 +624,7 @@ export interface FundingChannelItem {
   supportingSignals: string[]
   source: string
   constraints: string[]
+  provenance?: SourceProvenance
 }
 
 export interface FundingChannelRankingResponse {

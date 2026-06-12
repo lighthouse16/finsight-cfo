@@ -138,6 +138,7 @@ async def get_cross_border_funding_context(workspace_id: Optional[str] = None) -
     warnings = [
         _WARNING_BASE,
         "LPR reference is a fixture placeholder. Production LPR provider integration required for actual rates.",
+        "FX/RMB reference rates are based on Frankfurter daily benchmarks, which do not reflect real-time executable market rates.",
     ]
 
     return CrossBorderFundingContextResponse(

@@ -24,8 +24,14 @@ class Settings(BaseSettings):
     FX_PROVIDER: str = "frankfurter"
     FX_PROVIDER_BASE_URL: str = "https://api.frankfurter.dev/v2"
     ALPHA_VANTAGE_API_KEY: str = ""
+    CHINADATA_API_KEY: str = ""
+    IHS_API_KEY: str = ""
+    FEDWATCH_API_KEY: str = ""
+    RMB_BENCHMARK_API_KEY: str = ""
+    LENDER_CATALOG_PATH: str = ""
     COMMODITY_PROVIDER: str = "fixture"
     MARKET_WATCH_AUTO_REFRESH_SECONDS: int = 300
+
 
     CORS_ALLOW_ORIGINS: str = (
         "http://localhost:5173,http://127.0.0.1:5173,"

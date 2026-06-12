@@ -6,7 +6,17 @@ export type SourceItem = {
   asOf?: string | null
   freshness?: string
   warnings?: string[]
-  mode?: 'provider-backed' | 'workspace-derived' | 'fixture-backed' | 'local-fallback' | 'unavailable'
+  mode?:
+    | 'live'
+    | 'provider_configured'
+    | 'provider_not_configured'
+    | 'workspace_derived'
+    | 'fixture'
+    | 'unavailable'
+    | 'provider-backed'
+    | 'workspace-derived'
+    | 'fixture-backed'
+    | 'local-fallback'
 }
 
 type SourceInfoTooltipProps = {
@@ -39,13 +49,19 @@ export default function SourceInfoTooltip({ title = "Source Provenance", sources
             // Map mode to label and styling
             let modeBadge = ''
             let modeBg = ''
-            if (src.mode === 'provider-backed') {
-              modeBadge = 'Workspace-derived' // Using user-facing wording: "Workspace-derived"
+            if (src.mode === 'live') {
+              modeBadge = 'Live'
               modeBg = 'bg-emerald-500/10 text-emerald-700'
-            } else if (src.mode === 'workspace-derived') {
+            } else if (src.mode === 'provider_configured' || src.mode === 'provider-backed') {
+              modeBadge = 'Provider Configured'
+              modeBg = 'bg-teal-500/10 text-teal-700'
+            } else if (src.mode === 'provider_not_configured') {
+              modeBadge = 'Provider Not Configured'
+              modeBg = 'bg-amber-500/10 text-amber-800'
+            } else if (src.mode === 'workspace_derived' || src.mode === 'workspace-derived') {
               modeBadge = 'Workspace-derived'
               modeBg = 'bg-softform-navy-900/10 text-softform-text-secondary'
-            } else if (src.mode === 'fixture-backed') {
+            } else if (src.mode === 'fixture' || src.mode === 'fixture-backed') {
               modeBadge = 'Context-only'
               modeBg = 'bg-amber-500/10 text-amber-800'
             } else if (src.mode === 'local-fallback') {

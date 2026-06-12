@@ -202,12 +202,17 @@ async def get_fx_gba() -> FxGbaResponse:
             )
         ]
         
+        from app.services.market_watch.source_registry import build_provenance
+        from app.models.market_watch import SourceProvenance
+        prov = SourceProvenance(**build_provenance("fx_gba_v1", as_of=now))
+
         response = FxGbaResponse(
             metadata=metadata,
             fxPairs=fx_pairs,
             gbaFundingSignal=gba_signals,
             exposureNotes=exposure_notes,
-            sourceStatus=source_status
+            sourceStatus=source_status,
+            provenance=prov
         )
         
         cache.set(CACHE_KEY_FX, response, settings.rates_ttl_seconds)
@@ -232,4 +237,7 @@ async def get_fx_gba() -> FxGbaResponse:
         res.metadata.warnings = [
             "FX provider is not configured or unavailable. Showing workspace seed data."
         ]
+        from app.services.market_watch.source_registry import build_provenance
+        from app.models.market_watch import SourceProvenance
+        res.provenance = SourceProvenance(**build_provenance("fx_gba_v1"))
         return res

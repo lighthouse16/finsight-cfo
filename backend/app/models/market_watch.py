@@ -57,11 +57,31 @@ class LiquidityEvent(BaseModel):
     impact: str
     severity: SignalSeverity
 
+class SourceProvenance(BaseModel):
+    source_name: str
+    source_mode: Literal["live", "provider_configured", "provider_not_configured", "workspace_derived", "fixture", "unavailable"]
+    last_updated: Optional[str] = None
+    provider_adapter: Optional[str] = None
+    confidence: Literal["high", "medium", "low", "unavailable"]
+    warning: Optional[str] = None
+    docs_url: Optional[str] = None
+    raw_url: Optional[str] = None
+
+    # Backward compatibility fields
+    source: Optional[str] = None
+    provider: Optional[str] = None
+    asOf: Optional[str] = None
+    freshness: Optional[str] = None
+    providerAdapter: Optional[str] = None
+    providerIntegration: Optional[str] = None
+
 class RatesLiquidityResponse(BaseModel):
     metadata: ResponseMetadata
     rates: List[RateSnapshot]
     liquidityEvents: List[LiquidityEvent]
     sourceStatus: List[SourceStatusItem]
+    provenance: Optional[SourceProvenance] = None
+
 
 
 class TimingSignalComponent(BaseModel):
@@ -71,13 +91,8 @@ class TimingSignalComponent(BaseModel):
     explanation: str
 
 
-class TimingSignalProvenance(BaseModel):
-    source: str
-    provider: str
-    asOf: Optional[str] = None
-    freshness: FreshnessStatus
-    providerAdapter: Optional[str] = None
-    providerIntegration: Optional[str] = None
+class TimingSignalProvenance(SourceProvenance):
+    pass
 
 
 class TimingSignalResponse(BaseModel):
@@ -109,13 +124,9 @@ class IndustryHealthComponent(BaseModel):
     explanation: str
 
 
-class IndustryHealthProvenance(BaseModel):
-    source: str
-    provider: str
-    asOf: Optional[str] = None
-    freshness: FreshnessStatus
-    providerAdapter: Optional[str] = None
-    providerIntegration: Optional[str] = None
+class IndustryHealthProvenance(SourceProvenance):
+    pass
+
 
 
 class IndustryHealthResponse(BaseModel):
@@ -157,15 +168,12 @@ class FundingChannelItem(BaseModel):
     supportingSignals: List[str] = Field(default_factory=list)
     source: str
     constraints: List[str] = Field(default_factory=list)
+    provenance: Optional[SourceProvenance] = None
 
 
-class FundingChannelProvenance(BaseModel):
-    source: str
-    provider: str
-    asOf: Optional[str] = None
-    freshness: FreshnessStatus
-    providerAdapter: Optional[str] = None
-    providerIntegration: Optional[str] = None
+class FundingChannelProvenance(SourceProvenance):
+    pass
+
 
 
 class FundingCompanyContext(BaseModel):
@@ -216,13 +224,8 @@ class CrossBorderFundingComponent(BaseModel):
     explanation: str
 
 
-class CrossBorderFundingProvenance(BaseModel):
-    source: str
-    provider: str
-    asOf: Optional[str] = None
-    freshness: FreshnessStatus
-    providerAdapter: Optional[str] = None
-    providerIntegration: Optional[str] = None
+class CrossBorderFundingProvenance(SourceProvenance):
+    pass
 
 
 class CrossBorderFundingContextResponse(BaseModel):
@@ -250,13 +253,9 @@ RedFlagCategory = Literal[
 SummaryBand = Literal["clear", "watch", "elevated", "stressed", "unavailable"]
 
 
-class RedFlagProvenance(BaseModel):
-    source: str
-    provider: str
-    asOf: Optional[str] = None
-    freshness: FreshnessStatus
-    providerAdapter: Optional[str] = None
-    providerIntegration: Optional[str] = None
+class RedFlagProvenance(SourceProvenance):
+    pass
+
 
 
 class RedFlagMitigant(BaseModel):
@@ -335,6 +334,8 @@ class FxGbaResponse(BaseModel):
     gbaFundingSignal: List[GbaFundingSignal]
     exposureNotes: List[ExposureNote]
     sourceStatus: List[SourceStatusItem]
+    provenance: Optional[SourceProvenance] = None
+
 
 
 class SelectedSector(BaseModel):
@@ -394,6 +395,7 @@ class SectorBenchmarksResponse(BaseModel):
     benchmarks: List[SectorBenchmark]
     watchSignals: List[SectorWatchSignal]
     sourceStatus: List[SourceStatusItem]
+    provenance: Optional[SourceProvenance] = None
 
 
 class CommodityExposure(BaseModel):
@@ -434,6 +436,8 @@ class CommoditiesResponse(BaseModel):
     marginPressureSignal: List[MarginPressureSignal]
     watchSignals: List[CommodityWatchSignal]
     sourceStatus: List[SourceStatusItem]
+    provenance: Optional[SourceProvenance] = None
+
 
 
 ShockType = Literal["rate", "fx", "commodity", "receivables", "liquidity"]
@@ -484,6 +488,8 @@ class StressSignalsResponse(BaseModel):
     requiredData: List[RequiredDataItem]
     watchSignals: List[StressWatchSignal]
     sourceStatus: List[SourceStatusItem]
+    provenance: Optional[SourceProvenance] = None
+
 
 
 class ConsolidatedSourceStatusItem(BaseModel):

@@ -228,22 +228,46 @@ async def get_funding_channel_ranking(workspace_id: Optional[str] = None) -> Fun
     else:
         ranking_band = "risk_context_priority"
 
+    # --- Load lender product catalog (indicative entries) ---
+    from app.services.market_watch.catalog_loader import load_lender_catalog
+    from app.models.market_watch import SourceProvenance
+    lenders = load_lender_catalog()
+    catalog_products = []
+    for lender in lenders:
+        for prod in lender.get("products", []):
+            catalog_products.append((lender.get("shortName", lender.get("name")), prod))
+
     # --- Build channel items ---
-    channel_items = [
-        FundingChannelItem(
+    channel_items = []
+    for idx, (key, label, score, fit, rationale, signals, source, constraints) in enumerate(channels_sorted):
+        # Find matching indicative products
+        matching_prods = [p for p in catalog_products if p[1].get("type") == key]
+        updated_rationale = rationale
+        updated_constraints = list(constraints)
+        
+        if matching_prods:
+            prod_info_list = []
+            for short_name, prod in matching_prods:
+                prod_info_list.append(f"{short_name} {prod.get('name')} (Indicative APR: {prod.get('indicativeApr')}% - NOT guaranteed)")
+                if prod.get("disclaimer"):
+                    updated_constraints.append(prod.get("disclaimer"))
+            updated_rationale += " Indicative products: " + "; ".join(prod_info_list) + "."
+
+        item_prov = SourceProvenance(**build_provenance("funding_channel_ranking_v1"))
+
+        channel_items.append(FundingChannelItem(
             key=key,
             label=label,
             rank=idx + 1,
             fitBand=fit,
             score=score,
             useCase=_use_case_for_key(key),
-            rationale=rationale,
+            rationale=updated_rationale,
             supportingSignals=signals,
             source=source,
-            constraints=constraints,
-        )
-        for idx, (key, label, score, fit, rationale, signals, source, constraints) in enumerate(channels_sorted)
-    ]
+            constraints=updated_constraints,
+            provenance=item_prov,
+        ))
 
     # --- Build components ---
     components = [

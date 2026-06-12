@@ -1,0 +1,64 @@
+{
+  "lenders": [
+    {
+      "name": "Bank of China (Hong Kong)",
+      "shortName": "BOCHK",
+      "products": [
+        {
+          "productId": "bochk_sme_wc_line",
+          "name": "SME Working Capital Loan",
+          "type": "working_capital_line",
+          "indicativeApr": 5.25,
+          "rateStructure": "HIBOR + 1.5% to 2.5%",
+          "maxAmountHkd": 10000000,
+          "description": "Indicative working capital financing for HK SMEs.",
+          "guarantees": "Subject to BOCHK credit assessment and optional HKMC SFGS guarantee.",
+          "isIndicative": true,
+          "disclaimer": "This is an indicative placeholder entry only. The actual APR is subject to formal underwriting and is not guaranteed."
+        },
+        {
+          "productId": "bochk_trade_finance",
+          "name": "Trade Finance & L/C Facility",
+          "type": "trade_finance_lc",
+          "indicativeApr": 4.75,
+          "rateStructure": "HIBOR + 1.25% to 2.0%",
+          "maxAmountHkd": 20000000,
+          "description": "Letters of credit and import/export financing.",
+          "guarantees": "Required commercial invoices and trade documents.",
+          "isIndicative": true,
+          "disclaimer": "This is an indicative placeholder entry. Actual rates and fees depend on transactional risk and are not guaranteed."
+        }
+      ]
+    },
+    {
+      "name": "HKMC Insurance Limited",
+      "shortName": "SFGS",
+      "products": [
+        {
+          "productId": "sfgs_guarantee_80",
+          "name": "SFGS 80% Guarantee Product",
+          "type": "term_loan",
+          "indicativeApr": 6.0,
+          "rateStructure": "Prime Rate - 0.5% to Prime Rate + 1.0%",
+          "maxAmountHkd": 18000000,
+          "description": "SME Financing Guarantee Scheme (SFGS) backed by HKMC.",
+          "guarantees": "80% government guarantee cover.",
+          "isIndicative": true,
+          "disclaimer": "Indicative SFGS product entry. APR and eligibility subject to HKMC approvals and lending banks. Rates are not guaranteed."
+        },
+        {
+          "productId": "sfgs_guarantee_90",
+          "name": "SFGS 90% Guarantee Product",
+          "type": "term_loan",
+          "indicativeApr": 5.5,
+          "rateStructure": "Prime Rate - 1.0% to Prime Rate + 0.5%",
+          "maxAmountHkd": 8000000,
+          "description": "Concessionary SFGS interest rate product for small businesses.",
+          "guarantees": "90% government guarantee cover.",
+          "isIndicative": true,
+          "disclaimer": "Indicative concessionary product placeholder. Final APR is not guaranteed and requires bank credit vetting."
+        }
+      ]
+    }
+  ]
+}

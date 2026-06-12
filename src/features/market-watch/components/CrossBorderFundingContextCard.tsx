@@ -41,9 +41,38 @@ export default function CrossBorderFundingContextCard({
         <span className="rounded-full border border-softform-navy-950/10 bg-softform-navy-950/[0.03] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-softform-navy-700">
           Cross-border Funding Context v1
         </span>
-        <span className="rounded-full border border-softform-navy-950/10 bg-white px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-softform-text-muted">
-          Context-only
-        </span>
+        {(() => {
+          const mode = (context.provenance?.source_mode || 'fixture') as string;
+          let modeBadge = 'Context-only';
+          let modeBg = 'bg-white text-softform-text-muted border-softform-navy-950/10';
+          if (mode === 'live') {
+            modeBadge = 'Live';
+            modeBg = 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20';
+          } else if (mode === 'provider_configured' || mode === 'provider-backed') {
+            modeBadge = 'Provider Configured';
+            modeBg = 'bg-teal-500/10 text-teal-700 border-teal-500/20';
+          } else if (mode === 'provider_not_configured') {
+            modeBadge = 'Provider Not Configured';
+            modeBg = 'bg-amber-500/10 text-amber-800 border-amber-500/20';
+          } else if (mode === 'workspace_derived' || mode === 'workspace-derived') {
+            modeBadge = 'Workspace-derived';
+            modeBg = 'bg-softform-navy-900/10 text-softform-text-secondary border-softform-navy-900/20';
+          } else if (mode === 'fixture' || mode === 'fixture-backed') {
+            modeBadge = 'Context-only';
+            modeBg = 'bg-amber-500/10 text-amber-800 border-amber-500/20';
+          } else if (mode === 'local-fallback') {
+            modeBadge = 'Source pending';
+            modeBg = 'bg-amber-500/20 text-amber-900 border-amber-500/30';
+          } else if (mode === 'unavailable') {
+            modeBadge = 'Unavailable';
+            modeBg = 'bg-red-500/10 text-red-700 border-red-500/20';
+          }
+          return (
+            <span className={clsx("rounded-full border px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.14em]", modeBg)}>
+              {modeBadge}
+            </span>
+          );
+        })()}
         <SourceInfoTooltip
           title="Cross-border funding provenance"
           sources={buildSourceItems(context.provenance)}
