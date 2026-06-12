@@ -1,13 +1,29 @@
-# Market Watch Source Registry and API Investigation Plan
+# Market Watch Source Registry and API Provenance Registry
 
 This document maps the data needs, current integration statuses, target public/paid APIs, fallback behavior, freshness requirements, and UI source labels for every data group within the Market Watch CFO dashboard. It serves as a blueprint for evolving from fixture-backed indicators to a robust production data pipeline.
 
 ---
 
-## 1. Safety & Copy Guidelines
+## 1. Safety, Provenance & Copy Guidelines
 All data sources, status banners, and tooltips must adhere to strict compliance and messaging guidelines:
-- **Forbidden Wording**: Do not use terms like *realtime*, *live*, *bank verified*, *guaranteed*, *lender approved*, or *quantified DSCR impact*.
-- **Allowed Wording**: Use terms like *source-fresh*, *daily*, *monthly*, *delayed*, *workspace-derived*, *fixture-backed*, or *provider-backed*.
+- **Forbidden Wording**: Do not use terms like *realtime*, *live*, *bank verified*, *guaranteed*, *lender approved*, or *quantified DSCR impact* for unconfigured or mock data.
+- **Allowed Wording**: Use terms like *source-fresh*, *daily*, *monthly*, *delayed*, *workspace-derived*, *fixture*, or *provider-backed*.
+
+### Standardized `SourceProvenance` Schema
+All Market Watch responses include a standardized `SourceProvenance` schema:
+- `source_name`: User-facing source label (e.g., `"HKAB HIBOR"`, `"Frankfurter FX"`).
+- `source_mode`: The operational mode of the data provider:
+  - `live`: Connected to active public feeds without credentials.
+  - `provider_configured`: Connected to paid/private endpoints with active credential configuration.
+  - `provider_not_configured`: Paid/private provider is unconfigured. Warnings and configuration hints are returned; sandbox seed data is returned honestly.
+  - `workspace_derived`: Dynamically computed from connected company records and regional scenario rules.
+  - `fixture`: Static seed placeholder data.
+  - `unavailable`: Data feed is explicitly disabled or down.
+- `last_updated`: Timestamp of the last successful data fetch.
+- `provider_adapter`: Identifier of the integration adapter (e.g., `"frankfurter_adapter"`, `"hkma_adapter"`).
+- `confidence`: Confidence band (`"high"`, `"medium"`, `"low"`, or `"unavailable"`).
+- `warning`: Detailed warning string or configuration hint.
+- `docs_url` / `raw_url`: Reference links (where safe).
 
 ---
 

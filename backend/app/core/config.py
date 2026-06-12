@@ -21,8 +21,6 @@ class Settings(BaseSettings):
     AUTH_DEFAULT_USER_ID: str = "demo-user"
     AUTH_DEFAULT_ROLE: str = "admin"
     AUTH_ALLOW_HEADER_OVERRIDES: bool = True
-    JWT_SECRET_KEY: str = ""
-    JWT_ALGORITHM: str = "HS256"
 
     # Cache TTL settings
     rates_ttl_seconds: int = 21600
@@ -34,7 +32,10 @@ class Settings(BaseSettings):
     ALPHA_VANTAGE_API_KEY: str = ""
     CHINADATA_API_KEY: str = ""
     IHS_MARKIT_API_KEY: str = ""
+    IHS_API_KEY: str = ""
     FEDWATCH_API_KEY: str = ""
+    RMB_BENCHMARK_API_KEY: str = ""
+    LENDER_CATALOG_PATH: str = ""
     BOCHK_CATALOG_CONFIGURED: bool = False
     COMMODITY_PROVIDER: str = "fixture"
     MARKET_WATCH_AUTO_REFRESH_SECONDS: int = 300

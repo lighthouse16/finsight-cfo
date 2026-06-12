@@ -228,54 +228,46 @@ async def get_funding_channel_ranking(workspace_id: Optional[str] = None) -> Fun
     else:
         ranking_band = "risk_context_priority"
 
-    from app.services.market_watch.product_catalog import product_catalog_service
-    from app.core.config import settings
-
-    # Fetch all products from catalog service
-    all_products = await product_catalog_service.get_products()
+    # --- Load lender product catalog (indicative entries) ---
+    from app.services.market_watch.catalog_loader import load_lender_catalog
+    from app.models.market_watch import SourceProvenance
+    lenders = load_lender_catalog()
+    catalog_products = []
+    for lender in lenders:
+        for prod in lender.get("products", []):
+            catalog_products.append((lender.get("shortName", lender.get("name")), prod))
 
     # --- Build channel items ---
     channel_items = []
     for idx, (key, label, score, fit, rationale, signals, source, constraints) in enumerate(channels_sorted):
-        # Match products by key in eligible_use_cases
-        matched = [p for p in all_products if key in p.eligible_use_cases]
+        # Find matching indicative products
+        matching_prods = [p for p in catalog_products if p[1].get("type") == key]
+        updated_rationale = rationale
+        updated_constraints = list(constraints)
         
-        # Determine metadata provenance
-        if settings.BOCHK_CATALOG_CONFIGURED:
-            source_name = "Bank of China (Hong Kong)"
-            source_mode = "provider_configured"
-            as_of = "2026-06-12T00:00:00Z"
-            freshness = "Workspace"
-            caveat = None
-            confidence = "high"
-        else:
-            source_name = "FinSight Local Demo"
-            source_mode = "fixture"
-            as_of = "2026-06-12T00:00:00Z"
-            freshness = "Workspace"
-            caveat = "Demo product catalog in use. Official BOCHK products not configured."
-            confidence = "low"
+        if matching_prods:
+            prod_info_list = []
+            for short_name, prod in matching_prods:
+                prod_info_list.append(f"{short_name} {prod.get('name')} (Indicative APR: {prod.get('indicativeApr')}% - NOT guaranteed)")
+                if prod.get("disclaimer"):
+                    updated_constraints.append(prod.get("disclaimer"))
+            updated_rationale += " Indicative products: " + "; ".join(prod_info_list) + "."
 
-        channel_item = FundingChannelItem(
+        item_prov = SourceProvenance(**build_provenance("funding_channel_ranking_v1"))
+
+        channel_items.append(FundingChannelItem(
             key=key,
             label=label,
             rank=idx + 1,
             fitBand=fit,
             score=score,
             useCase=_use_case_for_key(key),
-            rationale=rationale,
+            rationale=updated_rationale,
             supportingSignals=signals,
             source=source,
-            constraints=constraints,
-            sourceName=source_name,
-            sourceMode=source_mode,
-            asOf=as_of,
-            freshness=freshness,
-            caveat=caveat,
-            confidence=confidence,
-            matchedProducts=matched,
-        )
-        channel_items.append(channel_item)
+            constraints=updated_constraints,
+            provenance=item_prov,
+        ))
 
     # --- Build components ---
     components = [
@@ -330,23 +322,7 @@ async def get_funding_channel_ranking(workspace_id: Optional[str] = None) -> Fun
     if company_context.dscr is not None and company_context.dscr < 1.0:
         warnings.append("Estimated DSCR is below 1.0x; debt-service capacity review recommended before any additional borrowing.")
 
-    # Warning banner if fixture data materially affects ranking
-    is_fixture_present = False
-    if not settings.BOCHK_CATALOG_CONFIGURED:
-        is_fixture_present = True
-    # Check if timing or industry health has fixture elements
-    if timing.provenance.providerAdapter == "FixtureMarketDataAdapter" or "fixture" in timing.provenance.source:
-        is_fixture_present = True
-    if industry.provenance.providerAdapter == "FixtureMarketDataAdapter" or "fixture" in industry.provenance.source:
-        is_fixture_present = True
-
-    if is_fixture_present:
-        warnings.append(
-            "Warning: Fixture data is used for catalog matching/timing signals. "
-            "Ranking recommendations are for demonstration only and may be affected."
-        )
-
-    response = FundingChannelRankingResponse(
+    return FundingChannelRankingResponse(
         mode="context_only",
         companyContext=company_context,
         rankingBand=ranking_band,
@@ -359,51 +335,6 @@ async def get_funding_channel_ranking(workspace_id: Optional[str] = None) -> Fun
         warnings=warnings,
         disclaimer=DISCLAIMER,
     )
-
-    # Forbidden language scan / sanitization if provider is not configured
-    if not settings.BOCHK_CATALOG_CONFIGURED:
-        def sanitize_model(obj):
-            from pydantic import BaseModel
-            if isinstance(obj, BaseModel):
-                for field_name in obj.model_fields:
-                    val = getattr(obj, field_name)
-                    if isinstance(val, str):
-                        setattr(obj, field_name, sanitize_str(val))
-                    elif isinstance(val, list):
-                        for i, item in enumerate(val):
-                            if isinstance(item, str):
-                                val[i] = sanitize_str(item)
-                            else:
-                                sanitize_model(item)
-                    elif isinstance(val, dict):
-                        for k, v in val.items():
-                            if isinstance(v, str):
-                                val[k] = sanitize_str(v)
-                            else:
-                                sanitize_model(v)
-                    else:
-                        sanitize_model(val)
-            elif isinstance(obj, list):
-                for item in obj:
-                    sanitize_model(item)
-            elif isinstance(obj, dict):
-                for k, v in obj.items():
-                    if isinstance(v, str):
-                        obj[k] = sanitize_str(v)
-                    else:
-                        sanitize_model(v)
-
-        def sanitize_str(s: str) -> str:
-            import re
-            s = re.sub(r'(?i)guaranteed', 'estimated', s)
-            s = re.sub(r'(?i)approved', 'reviewed', s)
-            s = re.sub(r'(?i)arbitrage\s+profit', 'spread opportunity', s)
-            s = re.sub(r'(?i)official\s+BOCHK\s+offer', 'indicative product reference', s)
-            return s
-
-        sanitize_model(response)
-
-    return response
 
 
 def _use_case_for_key(key: FundingChannelKey) -> str:
