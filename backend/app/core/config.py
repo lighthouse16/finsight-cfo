@@ -11,10 +11,12 @@ class Settings(BaseSettings):
 
     # Auth / Tenant Context Foundation
     AUTH_MODE: str = "local"
+    AUTH_SECRET: str = ""
     AUTH_DEFAULT_ORGANIZATION_ID: str = "demo-org"
     AUTH_DEFAULT_USER_ID: str = "demo-user"
     AUTH_DEFAULT_ROLE: str = "admin"
     AUTH_ALLOW_HEADER_OVERRIDES: bool = True
+
 
     # Cache TTL settings
     rates_ttl_seconds: int = 21600
@@ -36,6 +38,11 @@ class Settings(BaseSettings):
     PERSISTENCE_BACKEND: str = "local"
     DATABASE_URL: str = "sqlite:///./storage_db/finsight_dev.db"
     DATABASE_ECHO: bool = False
+
+    # Queue Configs
+    QUEUE_BACKEND: str = "local"
+    REDIS_URL: str = "redis://localhost:6379/0"
+
 
     # Report Worker Harness Configuration
     REPORT_WORKER_ENABLED: bool = False

@@ -23,7 +23,8 @@ def test_valid_production_config_passes():
         APP_MODE="production",
         ALLOW_DEMO_FALLBACK=False,
         MARKET_WATCH_USE_FIXTURES=False,
-        CORS_ALLOW_ORIGINS="http://localhost:5173"
+        CORS_ALLOW_ORIGINS="http://localhost:5173,https://my-production-app.com",
+        AUTH_SECRET="super-secret-key-32-chars-long"
     )
     # Should not raise any exception
     validate_startup_config(settings)
@@ -36,7 +37,8 @@ def test_production_with_demo_fallback_fails():
         APP_MODE="production",
         ALLOW_DEMO_FALLBACK=True,
         MARKET_WATCH_USE_FIXTURES=False,
-        CORS_ALLOW_ORIGINS="http://localhost:5173"
+        CORS_ALLOW_ORIGINS="http://localhost:5173,https://my-production-app.com",
+        AUTH_SECRET="super-secret-key-32-chars-long"
     )
     with pytest.raises(RuntimeError) as exc_info:
         validate_startup_config(settings)
@@ -50,7 +52,8 @@ def test_production_with_market_fixtures_fails():
         APP_MODE="production",
         ALLOW_DEMO_FALLBACK=False,
         MARKET_WATCH_USE_FIXTURES=True,
-        CORS_ALLOW_ORIGINS="http://localhost:5173"
+        CORS_ALLOW_ORIGINS="http://localhost:5173,https://my-production-app.com",
+        AUTH_SECRET="super-secret-key-32-chars-long"
     )
     with pytest.raises(RuntimeError) as exc_info:
         validate_startup_config(settings)
@@ -76,5 +79,49 @@ def test_cors_origins_parsing_behavior():
         CORS_ALLOW_ORIGINS=" http://localhost:5173 , , http://127.0.0.1:5173  , "
     )
     assert settings.parsed_cors_origins == ["http://localhost:5173", "http://127.0.0.1:5173"]
-    # Should pass startup validation
+    # Should pass startup validation in development mode
     validate_startup_config(settings)
+
+def test_production_cors_only_localhost_fails():
+    """
+    Verifies that production mode fails if CORS only contains localhost.
+    """
+    settings = Settings(
+        APP_MODE="production",
+        ALLOW_DEMO_FALLBACK=False,
+        MARKET_WATCH_USE_FIXTURES=False,
+        CORS_ALLOW_ORIGINS="http://localhost:5173,http://127.0.0.1:8080",
+        AUTH_SECRET="super-secret-key-32-chars-long"
+    )
+    with pytest.raises(RuntimeError) as exc_info:
+        validate_startup_config(settings)
+    assert "CORS_ALLOW_ORIGINS cannot only contain localhost origins" in str(exc_info.value)
+
+def test_production_without_auth_secret_fails():
+    """
+    Verifies that production mode fails if AUTH_SECRET is empty.
+    """
+    settings = Settings(
+        APP_MODE="production",
+        ALLOW_DEMO_FALLBACK=False,
+        MARKET_WATCH_USE_FIXTURES=False,
+        CORS_ALLOW_ORIGINS="https://my-production-app.com",
+        AUTH_SECRET=""
+    )
+    with pytest.raises(RuntimeError) as exc_info:
+        validate_startup_config(settings)
+    assert "AUTH_SECRET must be configured" in str(exc_info.value)
+
+def test_database_persistence_without_url_fails():
+    """
+    Verifies that if PERSISTENCE_BACKEND is database,DATABASE_URL cannot be empty.
+    """
+    settings = Settings(
+        APP_MODE="development",
+        PERSISTENCE_BACKEND="database",
+        DATABASE_URL=""
+    )
+    with pytest.raises(RuntimeError) as exc_info:
+        validate_startup_config(settings)
+    assert "DATABASE_URL must be configured when PERSISTENCE_BACKEND is set to database" in str(exc_info.value)
+

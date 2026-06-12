@@ -1,0 +1,83 @@
+version: '3.8'
+
+services:
+  # Backend FastAPI service
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: finsight-cfo-backend
+    restart: always
+    environment:
+      - APP_MODE=production
+      - ALLOW_DEMO_FALLBACK=false
+      - MARKET_WATCH_USE_FIXTURES=false
+      - CORS_ALLOW_ORIGINS=http://localhost,https://your-production-domain.com
+      - PERSISTENCE_BACKEND=database
+      - DATABASE_URL=postgresql://postgres:postgres_password@postgres:5432/finsight
+      - AUTH_MODE=production
+      - AUTH_SECRET=change-me-to-a-secure-key-in-production
+      - QUEUE_BACKEND=redis
+      - REDIS_URL=redis://redis:6379/0
+      # - FX_PROVIDER=frankfurter
+      # - FX_PROVIDER_BASE_URL=https://api.frankfurter.dev/v2
+      # - ALPHA_VANTAGE_API_KEY=your_key
+    # Note: Port 8000 does not need to be exposed to the public host since Nginx proxies traffic internally.
+    # We expose it here for optional debugging or testing (remove/comment out in absolute strict private setups).
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    # depends_on:
+    #   - postgres
+    #   - redis
+
+  # Frontend Nginx static server + reverse proxy
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        - VITE_API_BASE_URL=
+    container_name: finsight-cfo-frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Optional production PostgreSQL Database
+  # postgres:
+  #   image: postgres:15-alpine
+  #   container_name: finsight-cfo-db
+  #   restart: always
+  #   environment:
+  #     POSTGRES_USER: postgres
+  #     POSTGRES_PASSWORD: postgres_password
+  #     POSTGRES_DB: finsight
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+
+  # Optional production Redis server
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: finsight-cfo-redis
+  #   restart: always
+  #   volumes:
+  #     - redis_data:/data
+  #   ports:
+  #     - "6379:6379"
+
+# volumes:
+#   postgres_data:
+#   redis_data:
