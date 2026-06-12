@@ -83,7 +83,10 @@ jobs:
           cd backend
           if [ -z "$DATABASE_URL" ]; then
             echo "::warning:: DATABASE_URL secret not provided. Skipping real migration, performing alembic check only."
-            # Check alembic configuration syntax/integrity
+            # Check alembic configuration syntax/integrity with default fallback URL
+            unset DATABASE_URL
+            mkdir -p storage_db
+            alembic upgrade head
             alembic check
           else
             echo "DATABASE_URL is present. Running migrations..."

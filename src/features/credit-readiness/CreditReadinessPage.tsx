@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState, useMemo } from 'react'
-import { ShieldCheck, TrendingUp, AlertTriangle, Loader2, RefreshCw, Play } from 'lucide-react'
+import { ShieldCheck, TrendingUp, AlertTriangle, Loader2, RefreshCw, Play, BookOpen } from 'lucide-react'
 import PageHeader from '../../components/platform/PageHeader'
 import StatusChip from '../../components/platform/StatusChip'
 import SectionBlock from '../../components/platform/SectionBlock'
@@ -249,6 +249,9 @@ export default function CreditReadinessPage() {
             <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-white/80">
               CDI {formatBand(cdiConsent?.status ?? 'not requested')}
             </span>
+            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-white/80">
+              PD Model: {(creditScore.calibrationStatus || creditScore.calibration_status) === 'calibrated' ? 'STATISTICALLY CALIBRATED' : 'INDICATIVE INDEX'}
+            </span>
           </div>
         }
         aside={
@@ -449,6 +452,60 @@ export default function CreditReadinessPage() {
           </div>
         </section>
       )}
+
+      {/* Formula Traceability & Methodology Definitions */}
+      <SectionBlock
+        title="Credit Risk Formulas & Methodological Traceability"
+        icon={<BookOpen size={20} className="text-softform-teal-500" />}
+        action={<StatusChip variant="neutral">BOCHK Plan Compliance</StatusChip>}
+        containerType="card"
+        className="rounded-[32px] p-6 sm:p-8 space-y-6"
+      >
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-[22px] bg-white/45 border border-white/60 p-5 space-y-3">
+            <h3 className="text-sm font-semibold text-softform-navy-950">Altman Z'' Score (Services Model)</h3>
+            <div className="space-y-2 text-xs text-softform-text-secondary">
+              <p>
+                Predicts credit/distress risk tailored for private services/non-manufacturing firms.
+                <code className="block mt-1 p-2 bg-slate-900/5 dark:bg-slate-900/40 rounded text-slate-800 dark:text-slate-200 font-mono">
+                  Z'' = 6.56 × X1 + 3.26 × X2 + 6.72 × X3 + 1.05 × X4
+                </code>
+                Where:
+                <ul className="list-disc list-inside mt-1 space-y-1">
+                  <li><code className="font-mono">X1</code> = Working Capital / Total Assets</li>
+                  <li><code className="font-mono">X2</code> = Retained Earnings / Total Assets</li>
+                  <li><code className="font-mono">X3</code> = EBIT / Total Assets</li>
+                  <li><code className="font-mono">X4</code> = Equity / Total Liabilities</li>
+                </ul>
+                Bands: Distress (&lt; 1.10), Grey (1.10 - 2.60), Safe (&gt; 2.60).
+                Implemented in <code className="font-mono text-softform-teal-deep">risk_diagnostics.py:calculate_altman_z_service</code>
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-[22px] bg-white/45 border border-white/60 p-5 space-y-3">
+            <h3 className="text-sm font-semibold text-softform-navy-950">ECL on Accounts Receivable</h3>
+            <div className="space-y-2 text-xs text-softform-text-secondary">
+              <p>
+                Calculates Expected Credit Losses based on aging buckets:
+                <code className="block mt-1 p-2 bg-slate-900/5 dark:bg-slate-900/40 rounded text-slate-800 dark:text-slate-200 font-mono">
+                  ECL AR = 0.5% × Current + 2% × (31-60d) + 8% × (61-90d) + 25% × (90d+)
+                </code>
+                Implemented in <code className="font-mono text-softform-teal-deep">ratio_engine.py:calculate_ratios</code>
+              </p>
+              <h3 className="text-sm font-semibold text-softform-navy-950 border-t border-softform-navy-950/5 pt-3 mt-3">Calibrated Logistic PD Path</h3>
+              <p>
+                Computes logistic Probability of Default (PD) dynamically trained via gradient descent:
+                <code className="block mt-1 p-2 bg-slate-900/5 dark:bg-slate-900/40 rounded text-slate-800 dark:text-slate-200 font-mono">
+                  Z = β0 + β1(DSCR) + β2(DebtRatio) + β3(Margin) + β4(CDI_Collateral)
+                  PD = 1 / (1 + e^-Z)
+                </code>
+                If no default dataset is found at workspace root, falls back to uncalibrated Indicative Index. Implemented in <code className="font-mono text-softform-teal-deep">pd_engine.py:calculate_pd</code>
+              </p>
+            </div>
+          </div>
+        </div>
+      </SectionBlock>
 
       {/* Continue CTA */}
       <WorkflowFooter
