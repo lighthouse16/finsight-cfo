@@ -42,6 +42,7 @@ import type { FinancialAnalysisResponse } from '../market-watch/types'
 
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import FundingBlueprintHelper from './components/FundingBlueprintHelper'
 
 export default function AdvisoryBlueprintPage() {
   const [blueprint, setBlueprint] = useState<AdvisoryBlueprintResponse | null>(null)
@@ -787,6 +788,9 @@ export default function AdvisoryBlueprintPage() {
           </div>
         </SectionBlock>
       )}
+
+      {/* 9. BOCHK Phase 3 Interactive Engine */}
+      <FundingBlueprintHelper />
 
       {/* Subtle CTA to Data Room & Market Watch */}
       <section className="flex flex-col sm:flex-row gap-6 items-center justify-between p-8 rounded-[36px] border border-white/70 bg-gradient-to-r from-softform-mist-100/50 to-white/50 backdrop-blur-md shadow-base-card">
