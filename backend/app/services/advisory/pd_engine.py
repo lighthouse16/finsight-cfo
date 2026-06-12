@@ -2,6 +2,18 @@ import math
 from typing import Optional
 from app.models.advisory import PdEstimateResponse, PdFactorContribution
 
+class ICalibratedPdModel:
+    """
+    Interface/Placeholder for future calibrated Probability of Default (PD) model.
+    To be implemented when historical default data becomes available for calibration.
+    """
+    def calibrate(self, historical_data: list) -> None:
+        raise NotImplementedError("Calibration requires historical default data and is not implemented.")
+
+    def predict_calibrated_pd(self, features: dict) -> float:
+        raise NotImplementedError("Predicting calibrated PD is not implemented. Use uncalibrated proxy.")
+
+
 def calculate_pd(
     company_id: str,
     dscr: Optional[float],
@@ -49,15 +61,15 @@ def calculate_pd(
     
     # Map to tiers A-E
     if pd_raw < 0.02:
-        tier = "Tier A (Excellent)"
+        tier = "Planning Tier A (Excellent)"
     elif pd_raw < 0.05:
-        tier = "Tier B (Good)"
+        tier = "Planning Tier B (Good)"
     elif pd_raw < 0.10:
-        tier = "Tier C (Adequate)"
+        tier = "Planning Tier C (Adequate)"
     elif pd_raw < 0.20:
-        tier = "Tier D (Elevated)"
+        tier = "Planning Tier D (Elevated)"
     else:
-        tier = "Tier E (High Risk)"
+        tier = "Planning Tier E (High Risk)"
         
     # Map to 0-100 score (lower PD = higher score)
     score_100 = int(max(0, min(100, 100 - (pd_raw * 200))))
@@ -76,6 +88,28 @@ def calculate_pd(
         "Real production models require calibration with historical default data."
     )
     
+    pd_assumptions = [
+        "Base intercept represents long-run baseline default expectation.",
+        "DSCR coefficients imply higher coverage capacity reduces probability of default.",
+        "Debt ratio coefficient implies higher leverage increases probability of default.",
+        "Operating margin coefficient implies higher operating profitability reduces default probability.",
+        "CDI collateral acts as a linear credit mitigant to lower default probability score."
+    ]
+    
+    pd_limitations = [
+        "Not calibrated to historical default data.",
+        "Not a formal credit decision."
+    ]
+    
+    pd_data_quality = {
+        "dscr_available": dscr is not None,
+        "debt_ratio_available": debt_ratio is not None,
+        "margin_available": margin is not None,
+        "cdi_collateral_used": cdi_collateral_hkd > 0
+    }
+    
+    confidence_band = "medium" if (dscr is not None and debt_ratio is not None and margin is not None) else "low"
+    
     return PdEstimateResponse(
         company_id=company_id,
         z_score=z_score,
@@ -83,5 +117,13 @@ def calculate_pd(
         tier=tier,
         score=score_100,
         factor_contributions=factors,
-        disclaimer=disclaimer
+        disclaimer=disclaimer,
+        model_version="1.0.0",
+        model_type="indicative_pd_proxy",
+        calibration_status="uncalibrated_proxy",
+        assumptions=pd_assumptions,
+        limitations=pd_limitations,
+        data_quality=pd_data_quality,
+        confidence_band=confidence_band
     )
+

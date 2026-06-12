@@ -12,6 +12,7 @@ from app.models.advisory import (
     AdvisoryChatRequest,
     AdvisoryChatResponse,
     AdvisoryChatSource,
+    StressTestRequest,
 )
 from app.models.financials import FinancialAnalysisResponse, CompanyFinancialSnapshot
 from app.routes.financials import get_demo_analysis
@@ -161,6 +162,37 @@ def get_demo_stress_tests(
     precheck = build_hard_gate_precheck(analysis)
     risk_score = build_unified_risk_score(analysis, precheck)
     return build_demo_stress_tests(analysis, risk_score, shock_bps=shock_bps)
+
+
+@router.post("/stress-tests", response_model=StressTestingResponse)
+def post_stress_tests(
+    request: StressTestRequest,
+    x_workspace_id: Optional[str] = Header(None, alias="x-workspace-id"),
+):
+    """
+    Consumes financial analysis and risk score to run parameterized stress testing.
+    Validates bounds:
+    - HIBOR shock: 0 to 1000 bps
+    - DSO shock: 0 to 180 days
+    - Input cost shock: -50% to +100%
+    - FX shock: -50% to +50%
+    """
+    ws_id = request.company_id or x_workspace_id
+    analysis = _get_active_or_demo_analysis(x_workspace_id=x_workspace_id, workspace_id=ws_id)
+    if isinstance(analysis, dict) and analysis.get("status") == "insufficient_data":
+        return analysis
+        
+    precheck = build_hard_gate_precheck(analysis)
+    risk_score = build_unified_risk_score(analysis, precheck)
+    
+    return build_demo_stress_tests(
+        analysis,
+        risk_score,
+        shock_bps=request.hibor_shock_bps,
+        dso_days_shock=request.dso_days_shock,
+        input_cost_shock_pct=request.input_cost_shock_pct,
+        fx_shock_pct=request.fx_shock_pct
+    )
 
 
 @router.get("/demo-facility-structures")
@@ -354,7 +386,7 @@ def generate_funding_blueprint(
     
     disclaimers = [
         "This Funding Blueprint is a deterministic advisory response for BOCHK Challenge context.",
-        "Not a real underwriting approval.",
+        "Relationship manager review required; not formal bank underwriting.",
         "Company records are required for production usage."
     ]
     

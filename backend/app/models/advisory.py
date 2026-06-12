@@ -6,7 +6,8 @@ class AdvisoryBaseModel(BaseModel):
     model_config = ConfigDict(
         alias_generator=to_camel,
         populate_by_name=True,
-        from_attributes=True
+        from_attributes=True,
+        protected_namespaces=()
     )
 
 HardGateStatus = Literal["pass", "watch", "fail", "unavailable"]
@@ -99,6 +100,13 @@ class CreditScoringResult(AdvisoryBaseModel):
     methodology_label: str
     disclaimer: str
     warnings: List[str] = Field(default_factory=list)
+    model_version: str = "1.0.0"
+    model_type: str = "deterministic_scorecard"
+    calibration_status: str = "rules_based"
+    assumptions: List[str] = Field(default_factory=list)
+    limitations: List[str] = Field(default_factory=list)
+    data_quality: dict = Field(default_factory=dict)
+    confidence_band: str = "medium"
 
 class StressScenarioAssumption(AdvisoryBaseModel):
     scenario_key: str
@@ -131,6 +139,8 @@ class StressScenarioResult(AdvisoryBaseModel):
     warnings: List[str] = Field(default_factory=list)
     disclaimer: str
 
+
+
 class StressTestingResponse(AdvisoryBaseModel):
     company_id: str
     company_name: str
@@ -139,6 +149,14 @@ class StressTestingResponse(AdvisoryBaseModel):
     scenarios: List[StressScenarioResult]
     disclaimer: str
     warnings: List[str] = Field(default_factory=list)
+    model_version: str = "1.0.0"
+    model_type: str = "scenario_stress_test"
+    calibration_status: str = "rules_based"
+    assumptions: List[str] = Field(default_factory=list)
+    limitations: List[str] = Field(default_factory=list)
+    data_quality: dict = Field(default_factory=dict)
+    confidence_band: str = "medium"
+
 
 
 # Phase 3.4 Facility Structuring Models
@@ -189,6 +207,19 @@ class FacilityStructuringResponse(AdvisoryBaseModel):
     next_data_needed: List[str] = Field(default_factory=list)
     disclaimer: str
     warnings: List[str] = Field(default_factory=list)
+    dscr_floor: float = 1.10
+    ltv_cap: Optional[float] = None
+    max_facility_size: Optional[float] = None
+    indicative_pricing_assumption: Optional[str] = None
+    provenance: str = "Deterministic workspace rules engine"
+    model_version: str = "1.0.0"
+    model_type: str = "candidate_facility_structuring"
+    calibration_status: str = "rules_based"
+    assumptions: List[str] = Field(default_factory=list)
+    limitations: List[str] = Field(default_factory=list)
+    data_quality: dict = Field(default_factory=dict)
+    confidence_band: str = "medium"
+
 
 
 # Phase 3.5 Advisory Blueprint Models
@@ -282,6 +313,14 @@ class PdEstimateResponse(AdvisoryBaseModel):
     score: int
     factor_contributions: List[PdFactorContribution]
     disclaimer: str
+    model_version: str = "1.0.0"
+    model_type: str = "indicative_pd_proxy"
+    calibration_status: str = "uncalibrated_proxy"
+    assumptions: List[str] = Field(default_factory=list)
+    limitations: List[str] = Field(default_factory=list)
+    data_quality: dict = Field(default_factory=dict)
+    confidence_band: str = "medium"
+
 
 # Phase 3 BoCHK Stress Testing Models
 
@@ -297,6 +336,14 @@ class BochkStressTestResponse(AdvisoryBaseModel):
     status: str
     recommendations: List[BochkStressRecommendation]
     disclaimer: str
+    model_version: str = "1.0.0"
+    model_type: str = "scenario_stress_test"
+    calibration_status: str = "rules_based"
+    assumptions: List[str] = Field(default_factory=list)
+    limitations: List[str] = Field(default_factory=list)
+    data_quality: dict = Field(default_factory=dict)
+    confidence_band: str = "medium"
+
 
 # Phase 3 Loan Structuring Models
 
@@ -317,8 +364,23 @@ class LoanStructuringResponse(AdvisoryBaseModel):
     constraints_failed: List[str]
     recommendation_summary: str
     disclaimer: str
+    model_version: str = "1.0.0"
+    model_type: str = "candidate_facility_structuring"
+    calibration_status: str = "rules_based"
+    assumptions: List[str] = Field(default_factory=list)
+    limitations: List[str] = Field(default_factory=list)
+    data_quality: dict = Field(default_factory=dict)
+    confidence_band: str = "medium"
+
 
 # Phase 3 Funding Blueprint Models
+class StressTestRequest(AdvisoryBaseModel):
+    company_id: Optional[str] = None
+    hibor_shock_bps: int = Field(150, ge=0, le=1000)
+    dso_days_shock: int = Field(15, ge=0, le=180)
+    input_cost_shock_pct: float = Field(3.0, ge=-50.0, le=100.0)
+    fx_shock_pct: float = Field(2.0, ge=-50.0, le=50.0)
+
 
 class FundingBlueprintRequest(AdvisoryBaseModel):
     company_id: Optional[str] = None

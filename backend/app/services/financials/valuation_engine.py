@@ -243,6 +243,24 @@ def calculate_dcf(
     cash = snapshot.balance_sheet.cash
     net_debt = total_debt - cash
 
+    num_years = len(projections.projected_years) if (projections and projections.projected_years) else 0
+    valuation_assumptions = [
+        f"Forecast period is {num_years} years.",
+        f"WACC of {wacc:.2%} used as the discount rate.",
+        f"Terminal growth rate of {terminal_growth:.2%} represents long-term perpetual growth."
+    ]
+    valuation_limitations = [
+        "Valuation is highly sensitive to changes in WACC and terminal growth rates.",
+        "Relies on deterministic driver projections which may deviate from actual results.",
+        "Book value of debt is used as a proxy for market value of debt."
+    ]
+    valuation_data_quality = {
+        "projection_years_available": num_years > 0,
+        "balance_sheet_cash_available": cash >= 0,
+        "debt_schedule_available": total_debt >= 0
+    }
+    confidence_band = "medium" if num_years > 0 else "low"
+
     # Guard: empty projections
     if not projections or not projections.projected_years:
         warnings.append("No projected FCFF years available. Valuation cannot be computed. Company records required for production.")
@@ -262,7 +280,14 @@ def calculate_dcf(
             terminalValueShareOfEnterpriseValue=None,
             exitMultipleTerminalValue=None,
             impliedExitMultiple=None,
-            warnings=warnings
+            warnings=warnings,
+            model_version="1.0.0",
+            model_type="deterministic_valuation",
+            calibration_status="workspace_derived",
+            assumptions=valuation_assumptions,
+            limitations=valuation_limitations,
+            data_quality=valuation_data_quality,
+            confidence_band=confidence_band
         )
 
     # Check for negative FCFF years
@@ -293,8 +318,8 @@ def calculate_dcf(
         pv_explicit_fcff += pv
         valuation_years.append(DcfValuationYear(year=yr.year, fcff=yr.fcff_primary, discountFactor=df, pvFcff=pv))
 
-    # Terminal value guard
-    if wacc <= terminal_growth:
+    # Terminal growth >= WACC guard
+    if terminal_growth >= wacc:
         warnings.append(
             f"WACC ({wacc:.2%}) ≤ terminal growth rate ({terminal_growth:.2%}). "
             "Infinite growth formula is mathematically invalid. Valuation fields suppressed. "
@@ -316,7 +341,14 @@ def calculate_dcf(
             terminalValueShareOfEnterpriseValue=None,
             exitMultipleTerminalValue=None,
             impliedExitMultiple=None,
-            warnings=warnings
+            warnings=warnings,
+            model_version="1.0.0",
+            model_type="deterministic_valuation",
+            calibration_status="workspace_derived",
+            assumptions=valuation_assumptions,
+            limitations=valuation_limitations,
+            data_quality=valuation_data_quality,
+            confidence_band=confidence_band
         )
 
     # Gordon Growth Terminal Value
@@ -330,6 +362,9 @@ def calculate_dcf(
 
     # TV share
     tv_share = pv_tv / enterprise_value if enterprise_value > 0.0 else None
+    if tv_share is not None and tv_share > 0.85:
+        warnings.append("Terminal value represents more than 85% of enterprise value, indicating terminal value dominates enterprise value.")
+        valuation_limitations.append("Terminal value dominates enterprise value, increasing valuation model risk.")
 
     # Implied EV/EBITDA
     latest_ebitda = snapshot.income_statement.ebitda
@@ -380,7 +415,14 @@ def calculate_dcf(
         terminalValueShareOfEnterpriseValue=tv_share,
         exitMultipleTerminalValue=exit_multiple_tv,
         impliedExitMultiple=implied_exit_multiple,
-        warnings=warnings
+        warnings=warnings,
+        model_version="1.0.0",
+        model_type="deterministic_valuation",
+        calibration_status="workspace_derived",
+        assumptions=valuation_assumptions,
+        limitations=valuation_limitations,
+        data_quality=valuation_data_quality,
+        confidence_band=confidence_band
     )
 
 # ---------------------------------------------------------------------------
