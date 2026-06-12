@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export type BlueprintReadinessStatus =
   | 'ready_context'
   | 'watch_context'
@@ -43,6 +44,7 @@ export interface AdvisoryBlueprintResponse {
   sourceOutputs: string[]
   disclaimer: string
   warnings: string[]
+  run_metadata?: any
 }
 
 export type HardGateStatus = 'pass' | 'watch' | 'fail' | 'unavailable'
@@ -100,6 +102,47 @@ export interface UnifiedRiskScoreResult {
   constraints: string[]
   watchItems: string[]
   hardGateStatus: string
+  disclaimer: string
+  warnings: string[]
+}
+
+export type PdRiskTier = 'low' | 'moderate' | 'elevated' | 'high' | 'unavailable'
+export type FundingReadinessBand =
+  | 'ready_context'
+  | 'bank_review_ready'
+  | 'needs_review'
+  | 'not_ready'
+  | 'unavailable'
+
+export interface CreditScoreFactor {
+  key: string
+  label: string
+  rawScore: number
+  weightedScore: number
+  weight: number
+  band: string
+  message: string
+  evidence: string
+  source: string
+  positiveDriver?: string | null
+  riskDriver?: string | null
+  warnings: string[]
+}
+
+export interface CreditScoringResult {
+  companyId: string
+  companyName: string
+  compositeScore: number
+  scoreScale: string
+  riskTier: PdRiskTier
+  pdProxyBand: string
+  fundingReadiness: FundingReadinessBand
+  factors: CreditScoreFactor[]
+  positiveDrivers: string[]
+  riskDrivers: string[]
+  hardConstraints: string[]
+  nextDataNeeded: string[]
+  methodologyLabel: string
   disclaimer: string
   warnings: string[]
 }

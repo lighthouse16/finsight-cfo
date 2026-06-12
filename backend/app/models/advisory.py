@@ -64,6 +64,42 @@ class UnifiedRiskScoreResult(AdvisoryBaseModel):
     disclaimer: str
     warnings: List[str] = Field(default_factory=list)
 
+
+# Finance-first PD / Credit Scoring Models
+PdRiskTier = Literal["low", "moderate", "elevated", "high", "unavailable"]
+FundingReadinessBand = Literal["ready_context", "bank_review_ready", "needs_review", "not_ready", "unavailable"]
+
+class CreditScoreFactor(AdvisoryBaseModel):
+    key: str
+    label: str
+    raw_score: int
+    weighted_score: float
+    weight: float
+    band: str
+    message: str
+    evidence: str
+    source: str
+    positive_driver: Optional[str] = None
+    risk_driver: Optional[str] = None
+    warnings: List[str] = Field(default_factory=list)
+
+class CreditScoringResult(AdvisoryBaseModel):
+    company_id: str
+    company_name: str
+    composite_score: int
+    score_scale: str = "0 to 100"
+    risk_tier: PdRiskTier
+    pd_proxy_band: str
+    funding_readiness: FundingReadinessBand
+    factors: List[CreditScoreFactor]
+    positive_drivers: List[str] = Field(default_factory=list)
+    risk_drivers: List[str] = Field(default_factory=list)
+    hard_constraints: List[str] = Field(default_factory=list)
+    next_data_needed: List[str] = Field(default_factory=list)
+    methodology_label: str
+    disclaimer: str
+    warnings: List[str] = Field(default_factory=list)
+
 class StressScenarioAssumption(AdvisoryBaseModel):
     scenario_key: str
     label: str

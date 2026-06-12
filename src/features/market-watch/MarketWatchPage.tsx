@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion'
 import clsx from 'clsx'
 import { useSearchParams, Link } from 'react-router-dom'
 import PageHeader from '../../components/platform/PageHeader'
-import DemoFlowRail from '../../components/platform/DemoFlowRail'
 import InfoTooltip from '../../components/ui/InfoTooltip'
 import {
   getCommodities,
@@ -632,19 +631,16 @@ export default function MarketWatchPage() {
         }
       />
 
-      {/* Demo Flow Rail */}
-      <DemoFlowRail />
-
       {workspaceAnalysisContext && (
         <div className="mb-6 rounded-[22px] border border-softform-aqua-300/25 bg-softform-mist-100/45 px-5 py-4 shadow-soft-inner">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm font-bold text-softform-navy-950">Using local Data Room preview context</p>
-              <p className="mt-1 text-xs leading-relaxed text-softform-text-secondary">
+              <p className="text-sm font-semibold text-softform-navy-950">Using local Data Room preview context</p>
+              <p className="text-xs leading-relaxed text-softform-text-secondary">
                 Preview provenance is active for {workspaceAnalysisContext.companyName} ({workspaceAnalysisContext.reportingPeriod}). Demo/provider data remains active; backend workspace persistence pending.
               </p>
             </div>
-            <span className="rounded-full border border-white/70 bg-white/60 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-softform-teal-deep">
+            <span className="rounded-full border border-white/70 bg-white/60 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-softform-teal-deep">
               Local preview context
             </span>
           </div>
@@ -655,10 +651,10 @@ export default function MarketWatchPage() {
         <section className="mb-6 rounded-[26px] border border-softform-teal-500/15 bg-white/72 p-5 shadow-floating-panel">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="max-w-2xl">
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-softform-teal-deep">
+              <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-softform-teal-deep">
                 Preview financial context
               </p>
-              <h2 className="mt-1 text-lg font-black tracking-tight text-softform-navy-950">
+              <h2 className="mt-1 text-lg font-semibold tracking-tight text-softform-navy-950">
                 {financialPreviewAnalysis.snapshot.companyName} · {financialPreviewAnalysis.snapshot.reportingPeriod}
               </h2>
               <p className="mt-1 text-xs leading-relaxed text-softform-text-secondary">
@@ -674,8 +670,8 @@ export default function MarketWatchPage() {
                 ['Band', formatPreviewBand(financialPreviewAnalysis.summary?.overallBand)],
               ].map(([label, value]) => (
                 <div key={label} className="rounded-2xl border border-softform-navy-950/5 bg-softform-mist-50/70 px-3 py-2">
-                  <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">{label}</p>
-                  <p className="mt-1 text-sm font-black text-softform-navy-950">
+                  <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-softform-text-muted">{label}</p>
+                  <p className="mt-1 text-sm font-bold text-softform-navy-950">
                     {typeof value === 'number' ? formatPreviewRatio(value) : value}
                   </p>
                 </div>

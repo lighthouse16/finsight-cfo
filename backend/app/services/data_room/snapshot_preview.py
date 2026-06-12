@@ -144,8 +144,31 @@ def build_snapshot_preview(
     The result is derived from request payload records only. It does not persist
     data and does not update the demo analysis pipeline.
     """
-    company_id = preview_input.companyId or "demo-company"
-    company_name = preview_input.companyName or "Harbour & Finch Trading Ltd."
+    from fastapi import HTTPException
+    from app.storage.workspace_store import WorkspaceStore
+
+    company_id = preview_input.companyId
+    company_name = preview_input.companyName
+
+    if not company_id or not company_name:
+        workspace = None
+        if company_id:
+            workspace = WorkspaceStore.get_workspace(company_id)
+        if workspace:
+            if not company_id:
+                company_id = workspace.id
+            if not company_name:
+                company_name = workspace.company_name
+
+    if not company_id or not company_name:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "MISSING_COMPANY_IDENTITY",
+                "message": "Company identity (companyId and companyName) is required and could not be resolved from workspace.",
+            }
+        )
+
     currency = preview_input.currency or "HKD"
     reporting_period = preview_input.reportingPeriod or "FY2025"
     warnings: list[str] = [

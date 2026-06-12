@@ -1,0 +1,5 @@
+metric,value
+0-30 Days,400000
+31-60 Days,150000
+61-90 Days,70000
+90+ Days,30000

@@ -19,7 +19,11 @@ logger = logging.getLogger(__name__)
 CACHE_KEY_FX = "fx_gba"
 
 async def get_fx_gba() -> FxGbaResponse:
+    is_production = settings.APP_MODE == "production" or not settings.ALLOW_DEMO_FALLBACK
     if settings.MARKET_WATCH_USE_FIXTURES:
+        if is_production:
+            from app.models.errors import raise_upstream_unavailable_error
+            raise_upstream_unavailable_error()
         return get_fx_gba_fixture()
 
     cached_data = cache.get(CACHE_KEY_FX)
@@ -221,6 +225,9 @@ async def get_fx_gba() -> FxGbaResponse:
             return stale_data
             
         # Fallback to fixture
+        if is_production:
+            from app.models.errors import raise_upstream_unavailable_error
+            raise_upstream_unavailable_error("FX provider is unavailable")
         res = get_fx_gba_fixture()
         res.metadata.warnings = [
             "FX provider is not configured or unavailable. Showing workspace seed data."

@@ -23,12 +23,27 @@ const PlatformPlaceholderPage = lazy(
   () => import('../pages/PlatformPlaceholderPage'),
 )
 const NotFoundPage = lazy(() => import('../pages/NotFoundPage'))
+const OverviewPage = lazy(() => import('../features/overview/OverviewPage'))
 const MarketWatchPage = lazy(
   () => import('../features/market-watch/MarketWatchPage'),
 )
 const AdvisoryBlueprintPage = lazy(
-  () => import('../features/advisory-blueprint/AdvisoryBlueprintPage'),
+  () => import('../features/advisory-blueprint/AdvisoryBlueprintWithCreditPage'),
 )
+const FinancialHealthPage = lazy(
+  () => import('../features/financial-health/FinancialHealthPage'),
+)
+const CreditReadinessPage = lazy(
+  () => import('../features/credit-readiness/CreditReadinessPage'),
+)
+const FundingStrategyPage = lazy(
+  () => import('../features/funding-strategy/FundingStrategyPage'),
+)
+const ValuationPage = lazy(
+  () => import('../features/valuation/ValuationPage'),
+)
+const ReportsPage = lazy(() => import('../features/reports/ReportsPage'))
+const AiCfoPage = lazy(() => import('../features/ai-cfo/AiCfoPage'))
 const DataRoomPage = lazy(() => import('../features/data-room/DataRoomPage'))
 
 type PlatformRoute = {
@@ -47,7 +62,7 @@ const platformRoutes: PlatformRoute[] = [
       'Your CFO command center for financial health, market pressure, credit readiness, and next actions.',
     icon: LayoutDashboard,
     modulePurpose:
-      'The Overview module will consolidate key indicators from across your workspace into a single decision-ready view.',
+      'The Overview module consolidates key indicators from across your workspace into a single decision-ready view.',
   },
   {
     path: 'market-watch',
@@ -74,7 +89,7 @@ const platformRoutes: PlatformRoute[] = [
       'Understand liquidity, leverage, coverage, receivables, and cashflow quality.',
     icon: HeartPulse,
     modulePurpose:
-      'Financial Health will present liquidity, leverage, coverage, and cashflow quality indicators derived from your uploaded records.',
+      'Financial Health presents liquidity, leverage, coverage, receivables, projection, and valuation diagnostics from the active financial snapshot.',
   },
   {
     path: 'credit-readiness',
@@ -83,7 +98,7 @@ const platformRoutes: PlatformRoute[] = [
       'See how your financial profile may appear before lender conversations.',
     icon: ShieldCheck,
     modulePurpose:
-      'Credit Readiness will help you understand how your financial profile may be perceived in lender conversations, based on available records.',
+      'Credit Readiness helps you understand how your financial profile may be perceived in lender conversations, using the explainable PD proxy scorecard.',
   },
   {
     path: 'funding-strategy',
@@ -92,7 +107,7 @@ const platformRoutes: PlatformRoute[] = [
       'Compare timing, channels, approval fit, loan structure, and stress scenarios.',
     icon: Landmark,
     modulePurpose:
-      'Funding Strategy will help compare timing, channels, structure options, and stress scenarios to support funding decisions.',
+      'Funding Strategy compares channel ranking, candidate facility structures, readiness context, and cross-border funding signals.',
   },
   {
     path: 'advisory-blueprint',
@@ -110,7 +125,7 @@ const platformRoutes: PlatformRoute[] = [
       'Build an indicative valuation view from financial forecasts, market inputs, and conservative assumptions.',
     icon: BarChart3,
     modulePurpose:
-      'The Valuation module will support indicative valuation views built from financial forecasts, market inputs, and conservative assumptions.',
+      'Valuation presents WACC, DCF bridge, FCFF present values, sensitivity points, and sanity checks from the active financial snapshot.',
   },
   {
     path: 'ai-cfo',
@@ -119,7 +134,7 @@ const platformRoutes: PlatformRoute[] = [
       'Ask questions across your financial records, market context, and funding strategy.',
     icon: BotMessageSquare,
     modulePurpose:
-      'AI CFO will provide a conversational interface to explore questions across your financial records, market context, and funding strategy.',
+      'AI CFO provides a context-aware conversational interface across financial records, valuation, market context, and funding strategy.',
   },
   {
     path: 'reports',
@@ -128,7 +143,7 @@ const platformRoutes: PlatformRoute[] = [
       'Generate CFO snapshots, funding-readiness summaries, and lender-facing reports.',
     icon: FileText,
     modulePurpose:
-      'Reports will generate CFO snapshots, funding-readiness summaries, and lender-facing documents from your workspace data.',
+      'Reports generate CFO snapshots, funding-readiness summaries, and lender-facing documents from your workspace data.',
   },
   {
     path: 'settings',
@@ -166,11 +181,51 @@ function withPageFallback(element: JSX.Element, copy?: string) {
 }
 
 function renderPlatformRoute(route: PlatformRoute) {
+  if (route.path === 'overview') {
+    return withShellFallback(<OverviewPage />, 'Loading executive overview...')
+  }
+
   if (route.path === 'market-watch') {
     return withShellFallback(
       <MarketWatchPage />,
       'Loading market intelligence...',
     )
+  }
+
+  if (route.path === 'financial-health') {
+    return withShellFallback(
+      <FinancialHealthPage />,
+      'Loading financial health...',
+    )
+  }
+
+  if (route.path === 'credit-readiness') {
+    return withShellFallback(
+      <CreditReadinessPage />,
+      'Loading credit readiness...',
+    )
+  }
+
+  if (route.path === 'funding-strategy') {
+    return withShellFallback(
+      <FundingStrategyPage />,
+      'Loading funding strategy...',
+    )
+  }
+
+  if (route.path === 'valuation') {
+    return withShellFallback(
+      <ValuationPage />,
+      'Loading valuation model...',
+    )
+  }
+
+  if (route.path === 'reports') {
+    return withShellFallback(<ReportsPage />, 'Preparing CFO report...')
+  }
+
+  if (route.path === 'ai-cfo') {
+    return withShellFallback(<AiCfoPage />, 'Loading AI CFO context...')
   }
 
   if (route.path === 'advisory-blueprint') {
@@ -218,7 +273,7 @@ export default function AppRouter() {
 
         {/* Platform shell with nested routes */}
         <Route path="/platform" element={<PlatformShell />}>
-          <Route index element={<Navigate to="market-watch" replace />} />
+          <Route index element={<Navigate to="overview" replace />} />
           {platformRoutes.map((route) => (
             <Route
               key={route.path}

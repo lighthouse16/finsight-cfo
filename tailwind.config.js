@@ -32,6 +32,7 @@ export default {
             300: '#85d9ce',
           },
           teal: {
+            300: '#85d9ce',
             500: '#20a99a',
             deep: '#0e615b',
           },
@@ -60,10 +61,14 @@ export default {
         sans: ['Inter', 'system-ui', 'sans-serif'],
         display: ['Inter', 'system-ui', 'sans-serif'],
       },
+      boxShadow: {
+        'soft-inner': 'inset 0 2px 8px rgba(8, 17, 31, 0.06), inset 0 1px 2px rgba(8, 17, 31, 0.04)',
+      },
       animation: {
         'float': 'float 6s ease-in-out infinite',
         'glow': 'glow 2s ease-in-out infinite',
         'slide-up': 'slideUp 0.6s ease-out',
+        'shimmer': 'shimmer 1.8s infinite linear',
       },
       keyframes: {
         float: {
@@ -77,6 +82,10 @@ export default {
         slideUp: {
           '0%': { transform: 'translateY(20px)', opacity: '0' },
           '100%': { transform: 'translateY(0)', opacity: '1' },
+        },
+        shimmer: {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(100%)' },
         },
       },
     },

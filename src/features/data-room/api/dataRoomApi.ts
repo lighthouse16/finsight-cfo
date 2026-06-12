@@ -1,156 +1,191 @@
-import { dataRoomRecords, dependencyFeeds } from '../data/dataRoomSeed'
-import type {
-  DataRoomParseResponse,
-  DataRoomResponse,
-  DataRoomSnapshotPreviewInput,
-  DataRoomSnapshotPreviewResponse,
-  DataRoomUploadResponse,
-  DataRoomWorkspacePreviewContextInput,
-  DataRoomWorkspacePreviewContextResponse,
-  DataRoomWorkspacePreviewContextStatus,
-} from '../types'
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { API_BASE_URL, getWorkspaceHeaders } from '../../../lib/apiBase'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000'
-
-const getSeedFallback = (): DataRoomResponse => {
-  const totalRequired = dataRoomRecords.filter((record) => record.status !== 'optional').length
-  const connectedRequired = dataRoomRecords.filter(
-    (record) => record.status === 'demo_available' || record.status === 'connected'
-  ).length
-  const missingRequired = dataRoomRecords.filter((record) => record.status === 'missing').length
-  const readinessPercentage = totalRequired
-    ? Math.round((connectedRequired / totalRequired) * 100)
-    : 0
-
-  return {
-    records: dataRoomRecords,
-    dependencies: dependencyFeeds,
-    summary: {
-      totalRequired,
-      connectedRequired,
-      missingRequired,
-      readinessPercentage,
-      dataMode: 'seed_only',
-    },
-  }
+export interface UploadedFileRecord {
+  id: string
+  workspaceId: string
+  recordKey: string
+  fileName: string
+  fileType: string
+  fileSizeBytes: number
+  status: string
+  uploadedAt: string
+  filePath: string
 }
 
-export async function fetchDataRoomReadiness(): Promise<DataRoomResponse> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/data-room/demo-readiness`)
-
-    if (!response.ok) {
-      throw new Error(`Data Room readiness request failed: ${response.status}`)
-    }
-
-    return (await response.json()) as DataRoomResponse
-  } catch (error) {
-    console.warn('Using local Data Room readiness fallback.', error)
-    return getSeedFallback()
-  }
+export interface WorkspaceSnapshotResponse {
+  status: 'success' | 'insufficient_data'
+  snapshot?: any
+  missingRequirements?: string[]
+  nextActions?: string[]
+  warnings?: string[]
 }
 
-export async function uploadDataRoomMetadata(
+export interface CompanyWorkspace {
+  id: string
+  companyName: string
+  createdAt: string
+  metadata?: any
+}
+
+export async function fetchWorkspaceFiles(workspaceId: string): Promise<UploadedFileRecord[]> {
+  const res = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/files`, {
+    headers: getWorkspaceHeaders(),
+  })
+  if (!res.ok) {
+    throw new Error(`Failed to fetch workspace files: ${res.statusText}`)
+  }
+  return res.json()
+}
+
+export async function uploadWorkspaceFile(
+  workspaceId: string,
   recordKey: string,
-  file: File,
-): Promise<DataRoomUploadResponse> {
+  file: File
+): Promise<UploadedFileRecord> {
   const formData = new FormData()
   formData.append('recordKey', recordKey)
   formData.append('file', file)
 
-  const response = await fetch(`${API_BASE_URL}/api/data-room/demo-upload-metadata`, {
+  const res = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/files`, {
     method: 'POST',
+    headers: getWorkspaceHeaders(),
     body: formData,
   })
-
-  if (!response.ok) {
-    const detail = await response.json().then((d) => d.detail ?? response.statusText).catch(() => response.statusText)
+  if (!res.ok) {
+    const detail = await res.json().then((d) => d.detail ?? res.statusText).catch(() => res.statusText)
     throw new Error(detail)
   }
-
-  return (await response.json()) as DataRoomUploadResponse
+  return res.json()
 }
 
-export async function parseDataRoomPreview(
-  recordKey: string,
-  file: File,
-): Promise<DataRoomParseResponse> {
+export async function buildWorkspaceSnapshot(
+  workspaceId: string,
+  currency?: string,
+  reportingPeriod?: string
+): Promise<WorkspaceSnapshotResponse> {
+  const params = new URLSearchParams()
+  if (currency) params.append('currency', currency)
+  if (reportingPeriod) params.append('reportingPeriod', reportingPeriod)
+
+  const queryString = params.toString() ? `?${params.toString()}` : ''
+  const res = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/snapshot/build${queryString}`, {
+    method: 'POST',
+    headers: getWorkspaceHeaders(),
+  })
+  if (!res.ok) {
+    const detail = await res.json().then((d) => d.detail ?? res.statusText).catch(() => res.statusText)
+    throw new Error(detail)
+  }
+  return res.json()
+}
+
+export async function fetchActiveWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnapshotResponse> {
+  const res = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/snapshot/active`, {
+    headers: getWorkspaceHeaders(),
+  })
+  if (!res.ok) {
+    throw new Error(`Failed to fetch active snapshot: ${res.statusText}`)
+  }
+  return res.json()
+}
+
+export async function createWorkspace(
+  companyName: string,
+  currency?: string,
+  reportingPeriod?: string
+): Promise<CompanyWorkspace> {
   const formData = new FormData()
-  formData.append('recordKey', recordKey)
-  formData.append('file', file)
+  formData.append('companyName', companyName)
+  if (currency) formData.append('currency', currency)
+  if (reportingPeriod) formData.append('reportingPeriod', reportingPeriod)
 
-  const response = await fetch(`${API_BASE_URL}/api/data-room/demo-parse-preview`, {
+  const res = await fetch(`${API_BASE_URL}/api/workspaces`, {
     method: 'POST',
+    headers: getWorkspaceHeaders(),
     body: formData,
   })
-
-  if (!response.ok) {
-    const detail = await response.json().then((d) => d.detail ?? response.statusText).catch(() => response.statusText)
+  if (!res.ok) {
+    const detail = await res.json().then((d) => d.detail ?? res.statusText).catch(() => res.statusText)
     throw new Error(detail)
   }
-
-  return (await response.json()) as DataRoomParseResponse
+  return res.json()
 }
 
-export async function buildDataRoomSnapshotPreview(
-  input: DataRoomSnapshotPreviewInput,
-): Promise<DataRoomSnapshotPreviewResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/data-room/demo-snapshot-preview`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(input),
+export async function listWorkspaces(): Promise<CompanyWorkspace[]> {
+  const res = await fetch(`${API_BASE_URL}/api/workspaces`, {
+    headers: getWorkspaceHeaders(),
   })
-
-  if (!response.ok) {
-    const detail = await response.json().then((d) => d.detail ?? response.statusText).catch(() => response.statusText)
-    throw new Error(detail)
+  if (!res.ok) {
+    throw new Error(`Failed to list workspaces: ${res.statusText}`)
   }
-
-  return (await response.json()) as DataRoomSnapshotPreviewResponse
+  return res.json()
 }
 
-
-export async function activateDataRoomWorkspacePreviewContext(
-  input: DataRoomWorkspacePreviewContextInput,
-): Promise<DataRoomWorkspacePreviewContextResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/data-room/demo-workspace-preview-context`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(input),
+export async function getWorkspace(workspaceId: string): Promise<CompanyWorkspace> {
+  const res = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}`, {
+    headers: getWorkspaceHeaders(),
   })
-
-  if (!response.ok) {
-    const detail = await response.json().then((d) => d.detail ?? response.statusText).catch(() => response.statusText)
-    throw new Error(detail)
+  if (!res.ok) {
+    throw new Error(`Failed to get workspace: ${res.statusText}`)
   }
-
-  return (await response.json()) as DataRoomWorkspacePreviewContextResponse
+  return res.json()
 }
 
-export async function fetchDataRoomWorkspacePreviewContext(): Promise<DataRoomWorkspacePreviewContextStatus> {
-  const response = await fetch(`${API_BASE_URL}/api/data-room/demo-workspace-preview-context`)
-
-  if (!response.ok) {
-    const detail = await response.json().then((d) => d.detail ?? response.statusText).catch(() => response.statusText)
-    throw new Error(detail)
-  }
-
-  return (await response.json()) as DataRoomWorkspacePreviewContextStatus
-}
-
-export async function clearDataRoomWorkspacePreviewContext(): Promise<DataRoomWorkspacePreviewContextStatus> {
-  const response = await fetch(`${API_BASE_URL}/api/data-room/demo-workspace-preview-context`, {
+export async function deleteWorkspace(workspaceId: string): Promise<{ status: string; message: string }> {
+  const res = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}`, {
     method: 'DELETE',
+    headers: getWorkspaceHeaders(),
   })
-
-  if (!response.ok) {
-    const detail = await response.json().then((d) => d.detail ?? response.statusText).catch(() => response.statusText)
+  if (!res.ok) {
+    const detail = await res.json().then((d) => d.detail ?? res.statusText).catch(() => res.statusText)
     throw new Error(detail)
   }
+  return res.json()
+}
 
-  return (await response.json()) as DataRoomWorkspacePreviewContextStatus
+export async function deleteWorkspaceFile(
+  workspaceId: string,
+  fileId: string
+): Promise<{ status: string; message: string }> {
+  const res = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/files/${fileId}`, {
+    method: 'DELETE',
+    headers: getWorkspaceHeaders(),
+  })
+  if (!res.ok) {
+    const detail = await res.json().then((d) => d.detail ?? res.statusText).catch(() => res.statusText)
+    throw new Error(detail)
+  }
+  return res.json()
+}
+
+export async function fetchWorkspaceRuns(workspaceId: string, type?: string): Promise<any[]> {
+  const query = type ? `?type=${type}` : ''
+  const res = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/runs${query}`, {
+    headers: getWorkspaceHeaders(),
+  })
+  if (!res.ok) {
+    throw new Error(`Failed to fetch workspace runs: ${res.statusText}`)
+  }
+  return res.json()
+}
+
+export async function fetchLatestRun(workspaceId: string, type: string): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/runs/latest?type=${type}`, {
+    headers: getWorkspaceHeaders(),
+  })
+  if (!res.ok) {
+    throw new Error(`Failed to fetch latest run: ${res.statusText}`)
+  }
+  return res.json()
+}
+
+export async function fetchRun(workspaceId: string, runId: string): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/runs/${runId}`, {
+    headers: getWorkspaceHeaders(),
+  })
+  if (!res.ok) {
+    throw new Error(`Failed to fetch run: ${res.statusText}`)
+  }
+  return res.json()
 }

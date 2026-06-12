@@ -36,8 +36,8 @@ import {
   RedFlagsMacroSummaryResponse,
 } from '../types'
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000'
+import { API_BASE_URL, getWorkspaceHeaders, handleApiResponse } from '../../../lib/apiBase'
+
 
 // Simulate network delay for seed-only paths
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -476,8 +476,12 @@ export async function getFundingChannelRanking(): Promise<FundingChannelRankingR
   try {
     const res = await fetch(
       `${API_BASE_URL}/api/market-watch/funding-channel-ranking`,
-      { signal: AbortSignal.timeout(5000) },
+      { signal: AbortSignal.timeout(5000), headers: getWorkspaceHeaders() },
     )
+
+    if (res.status === 404 || res.status === 422 || res.status === 503) {
+      return handleApiResponse(res)
+    }
 
     if (!res.ok) {
       throw new Error(`Backend returned ${res.status}`)
@@ -532,8 +536,12 @@ export async function getCrossBorderFundingContext(): Promise<CrossBorderFunding
   try {
     const res = await fetch(
       `${API_BASE_URL}/api/market-watch/cross-border-funding-context`,
-      { signal: AbortSignal.timeout(5000) },
+      { signal: AbortSignal.timeout(5000), headers: getWorkspaceHeaders() },
     )
+
+    if (res.status === 404 || res.status === 422 || res.status === 503) {
+      return handleApiResponse(res)
+    }
 
     if (!res.ok) {
       throw new Error(`Backend returned ${res.status}`)
@@ -905,7 +913,10 @@ export async function getSectorBenchmarks(
     const queryString = params.toString() ? `?${params.toString()}` : ''
     const res = await fetch(
       `${API_BASE_URL}/api/market-watch/sector-benchmarks${queryString}`,
-      { signal: AbortSignal.timeout(5000) },
+      {
+        headers: getWorkspaceHeaders(),
+        signal: AbortSignal.timeout(5000),
+      },
     )
 
     if (!res.ok) {
@@ -1049,7 +1060,10 @@ export async function getCommodities(
     const queryString = params.toString() ? `?${params.toString()}` : ''
     const res = await fetch(
       `${API_BASE_URL}/api/market-watch/commodities${queryString}`,
-      { signal: AbortSignal.timeout(5000) },
+      {
+        headers: getWorkspaceHeaders(),
+        signal: AbortSignal.timeout(5000),
+      },
     )
 
     if (!res.ok) {
@@ -1203,7 +1217,10 @@ export async function getStressSignals(
     const queryString = params.toString() ? `?${params.toString()}` : ''
     const res = await fetch(
       `${API_BASE_URL}/api/market-watch/stress-signals${queryString}`,
-      { signal: AbortSignal.timeout(5000) },
+      {
+        headers: getWorkspaceHeaders(),
+        signal: AbortSignal.timeout(5000),
+      },
     )
 
     if (!res.ok) {
@@ -1245,6 +1262,7 @@ export async function getMarketSourceStatus(): Promise<{
 export async function getSourceStatus(): Promise<ConsolidatedSourceStatusItem[]> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/market-watch/source-status`, {
+      headers: getWorkspaceHeaders(),
       signal: AbortSignal.timeout(5000),
     })
     if (!res.ok) {
@@ -1270,9 +1288,9 @@ export async function refreshData(scope: string = 'all'): Promise<RefreshRespons
   try {
     const res = await fetch(`${API_BASE_URL}/api/market-watch/refresh`, {
       method: 'POST',
-      headers: {
+      headers: getWorkspaceHeaders({
         'Content-Type': 'application/json',
-      },
+      }),
       body: JSON.stringify({ scope }),
       signal: AbortSignal.timeout(10000),
     })
@@ -1300,8 +1318,15 @@ export async function getCompanyContext(): Promise<{
   try {
     const res = await fetch(
       `${API_BASE_URL}/api/market-watch/company-context`,
-      { signal: AbortSignal.timeout(5000) }
+      {
+        headers: getWorkspaceHeaders(),
+        signal: AbortSignal.timeout(5000),
+      }
     )
+    
+    if (res.status === 404 || res.status === 422 || res.status === 503) {
+      return handleApiResponse(res)
+    }
     
     if (!res.ok) {
       throw new Error(`Backend returned ${res.status}`)
@@ -1450,7 +1475,10 @@ export async function getFinancialDemoAnalysis(): Promise<FinancialAnalysisRespo
   try {
     const res = await fetch(
       `${API_BASE_URL}/api/financials/demo-analysis`,
-      { signal: AbortSignal.timeout(5000) }
+      {
+        headers: getWorkspaceHeaders(),
+        signal: AbortSignal.timeout(5000),
+      }
     )
     if (!res.ok) {
       throw new Error(`Backend returned ${res.status}`)
@@ -1466,7 +1494,10 @@ export async function getFinancialPreviewAnalysis(): Promise<FinancialAnalysisRe
   try {
     const res = await fetch(
       `${API_BASE_URL}/api/financials/preview-analysis`,
-      { signal: AbortSignal.timeout(5000) }
+      {
+        headers: getWorkspaceHeaders(),
+        signal: AbortSignal.timeout(5000),
+      }
     )
     if (res.status === 404) {
       return null

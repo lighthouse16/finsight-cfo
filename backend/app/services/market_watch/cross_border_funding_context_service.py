@@ -38,13 +38,21 @@ _WARNING_BASE = (
 )
 
 
-async def get_cross_border_funding_context() -> CrossBorderFundingContextResponse:
+from typing import Optional
+
+async def get_cross_border_funding_context(workspace_id: Optional[str] = None) -> CrossBorderFundingContextResponse:
     """Build context-only cross-border funding comparison."""
     if settings.MARKET_WATCH_USE_FIXTURES:
+        is_production = settings.APP_MODE == "production" or not settings.ALLOW_DEMO_FALLBACK
+        if is_production:
+            from app.models.errors import raise_upstream_unavailable_error
+            raise_upstream_unavailable_error()
         return get_cross_border_funding_context_fixture()
 
     # Gather live data
-    profile = get_demo_company_profile()
+    from app.services.market_watch.company_context import get_company_context
+    context_res = get_company_context(workspace_id)
+    profile = context_res.profile
     # exposures available for context expansion
     rates_liquidity = await get_rates_liquidity()
 

@@ -219,6 +219,57 @@
   .platform-sidebar-scroll::-webkit-scrollbar-thumb:hover {
     background: rgba(13, 23, 38, 0.32);
   }
+
+  /* Redesigned card and section utilities */
+  .softform-metric-card {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.78), rgba(234, 247, 244, 0.70));
+    border: 1px solid rgba(255, 255, 255, 0.82);
+    box-shadow: var(--shadow-floating-panel);
+    backdrop-filter: blur(20px);
+  }
+
+  .softform-action-card {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.80), rgba(231, 240, 244, 0.70));
+    border: 1px solid rgba(255, 255, 255, 0.78);
+    border-left: 4px solid var(--navy-700);
+    box-shadow: var(--shadow-base-card);
+    backdrop-filter: blur(18px);
+    transition: all var(--duration-medium) var(--easing-out);
+  }
+
+  .softform-action-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-floating-panel);
+    border-left-color: var(--teal-500);
+  }
+
+  .softform-section-header {
+    position: relative;
+    padding-left: 0.875rem;
+  }
+
+  .softform-section-header::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.25rem;
+    bottom: 0.25rem;
+    width: 3px;
+    border-radius: 999px;
+    background-color: var(--teal-500);
+  }
+
+  .softform-score-ring {
+    transform: rotate(-90deg);
+    transform-origin: center;
+    transition: stroke-dashoffset 0.8s ease-in-out;
+  }
+
+  .softform-skeleton {
+    @apply animate-pulse;
+    background-color: rgba(13, 23, 38, 0.05);
+    border-radius: 12px;
+  }
 }
 
 
@@ -268,11 +319,136 @@
   }
 
   .hover-lift:hover {
-    transform: translateY(-4px);
+    transform: translateY(-3px);
     box-shadow: var(--shadow-floating-panel);
   }
 
   .tabular-finance {
     font-variant-numeric: tabular-nums;
   }
+
+  .shimmer-element {
+    position: relative;
+    overflow: hidden;
+    background-color: rgba(13, 23, 38, 0.05);
+  }
+
+  .shimmer-element::after {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    transform: translateX(-100%);
+    background-image: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.45) 20%,
+      rgba(255, 255, 255, 0.75) 60%,
+      rgba(255, 255, 255, 0) 100%
+    );
+    animation: shimmer 1.6s infinite linear;
+    content: '';
+  }
 }
+
+/* Print CSS Styles for Professional Reports Export */
+@media print {
+  /* Hide sidebar navigation, command bars, navigation buttons, and workflow footers */
+  aside,
+  nav,
+  header,
+  footer,
+  #SidebarNav,
+  #TopCommandBar,
+  .no-print,
+  .workflow-footer,
+  button,
+  a[href^="/platform/"]::after,
+  a[href^="/"]::after {
+    display: none !important;
+  }
+
+  /* Reset layout constraints so page expands to fill full paper width without scrolling */
+  body,
+  html,
+  main,
+  .softform-page,
+  .mx-auto,
+  .min-w-0,
+  .flex-1 {
+    background: white !important;
+    color: black !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+    height: auto !important;
+    position: static !important;
+  }
+
+  /* Add padding for printing */
+  .softform-page {
+    padding: 1.5cm !important;
+  }
+
+  /* Standardize card and panel containers for print grids */
+  .softform-card,
+  .softform-panel,
+  .softform-metric-card,
+  .softform-navy-card {
+    background: white !important;
+    color: black !important;
+    border: 1px solid #c8d2dc !important;
+    box-shadow: none !important;
+    page-break-inside: avoid;
+    backdrop-filter: none !important;
+    border-radius: 16px !important;
+  }
+
+  /* Ensure text colors are high-contrast on white background */
+  .text-white,
+  .text-white\/80,
+  .text-white\/70,
+  .text-white\/50,
+  .text-softform-navy-950,
+  .text-slate-800 {
+    color: #0b1523 !important;
+  }
+
+  .text-softform-text-secondary,
+  .text-slate-500,
+  .text-slate-400 {
+    color: #4b5563 !important;
+  }
+
+  /* Re-style background overlays to be clean light gray slots */
+  .bg-slate-900,
+  .bg-white\/5,
+  .bg-white\/45,
+  .bg-white\/50,
+  .bg-white\/30,
+  .bg-emerald-50\/20,
+  .bg-rose-50\/20,
+  .bg-slate-50\/40,
+  .dark\:bg-slate-900 {
+    background: #f8fafc !important;
+  }
+
+  /* Avoid page breaks inside sections and charts */
+  section,
+  svg,
+  canvas,
+  .grid {
+    page-break-inside: avoid;
+  }
+
+  /* Remove link decoration */
+  a {
+    text-decoration: none !important;
+    color: inherit !important;
+  }
+}
+

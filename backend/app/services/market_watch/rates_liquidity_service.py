@@ -20,7 +20,11 @@ logger = logging.getLogger(__name__)
 CACHE_KEY = "rates_liquidity"
 
 async def get_rates_liquidity() -> RatesLiquidityResponse:
+    is_production = settings.APP_MODE == "production" or not settings.ALLOW_DEMO_FALLBACK
     if settings.MARKET_WATCH_USE_FIXTURES:
+        if is_production:
+            from app.models.errors import raise_upstream_unavailable_error
+            raise_upstream_unavailable_error()
         return get_rates_liquidity_fixture()
 
     # Try cache first
@@ -57,17 +61,8 @@ async def get_rates_liquidity() -> RatesLiquidityResponse:
 
     # If absolutely all upstream sources failed, trigger fallback flow
     if not hkab_data and not hibor_records and not honia_records and not liquidity_records:
-        raise HTTPException(
-            status_code=503,
-            detail={
-                "code": "UPSTREAM_UNAVAILABLE",
-                "message": "All HKMA/HKAB upstream sources are unavailable",
-                "statusCode": 503,
-                "source": "HKMA/HKAB",
-                "retryable": True,
-                "fallbackUsed": False
-            }
-        )
+        from app.models.errors import raise_upstream_unavailable_error
+        raise_upstream_unavailable_error("All HKMA/HKAB upstream sources are unavailable")
 
     try:
         response = _normalize_data(hibor_records, honia_records, liquidity_records, hkab_data)
@@ -89,20 +84,11 @@ async def get_rates_liquidity() -> RatesLiquidityResponse:
             return stale_data
             
         # No cache, upstream failed
-        if settings.MARKET_WATCH_USE_FIXTURES:
+        if settings.MARKET_WATCH_USE_FIXTURES and not is_production:
             return get_rates_liquidity_fixture()
             
-        raise HTTPException(
-            status_code=503,
-            detail={
-                "code": "UPSTREAM_UNAVAILABLE",
-                "message": "HKMA API is unavailable",
-                "statusCode": 503,
-                "source": "HKMA",
-                "retryable": True,
-                "fallbackUsed": False
-            }
-        )
+        from app.models.errors import raise_upstream_unavailable_error
+        raise_upstream_unavailable_error("HKMA API is unavailable")
 
 def _normalize_data(hibor_records, honia_records, liquidity_records, hkab_data=None) -> RatesLiquidityResponse:
     now = datetime.utcnow().isoformat() + "Z"
