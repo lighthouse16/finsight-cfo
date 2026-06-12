@@ -84,11 +84,8 @@ This document outlines the high-level roadmap for transitioning FinSight CFO fro
     - Add focused backend end-to-end product smoke tests for the real FinSight CFO product flow.
 34. **Final Product Readiness Validation (Phase 16)** [COMPLETED]
     - Run full backend test suites, frontend lint & build, Docker Compose validation, and compile final readiness report.
-
-
-
-
-
+35. **Product Finance Correctness & Traceability Audit** [COMPLETED]
+    - Conduct a granular correctness audit of all 24 core financial formulas and indicators, publish the traceability matrices, and align coverage with the BOCHK Challenge 2026 guidelines.
 
 ---
 
