@@ -1,3 +1,5 @@
+from functools import lru_cache
+
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
@@ -39,6 +41,17 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./storage_db/finsight_dev.db"
     DATABASE_ECHO: bool = False
 
+    # AI / LLM Provider Configuration
+    LLM_PROVIDER: str = ""  # "openai", "azure_openai", or empty for deterministic fallback
+    OPENAI_API_KEY: str = ""
+    OPENAI_MODEL: str = "gpt-4o-mini"
+    AZURE_OPENAI_API_KEY: str = ""
+    AZURE_OPENAI_ENDPOINT: str = ""
+    AZURE_OPENAI_DEPLOYMENT: str = ""
+
+    # Queue / Scheduler Backend
+    QUEUE_BACKEND: str = "in_process"  # "in_process", "redis" (future), "celery" (future)
+
     # Report Worker Harness Configuration
     REPORT_WORKER_ENABLED: bool = False
     REPORT_WORKER_MAX_JOBS_PER_TICK: int = 1
@@ -53,6 +66,28 @@ class Settings(BaseSettings):
         return self.normalized_persistence_backend == "database"
 
     @property
+    def normalized_ai_mode(self) -> str:
+        """Detect AI provider mode from env configuration."""
+        if self.LLM_PROVIDER.strip().lower() == "openai" and self.OPENAI_API_KEY.strip():
+            return "openai"
+        if self.LLM_PROVIDER.strip().lower() == "azure_openai" and self.AZURE_OPENAI_API_KEY.strip():
+            return "azure_openai"
+        if self.OPENAI_API_KEY.strip():
+            return "openai"
+        if self.AZURE_OPENAI_API_KEY.strip():
+            return "azure_openai"
+        return "deterministic_fallback"
+
+    @property
+    def is_llm_configured(self) -> bool:
+        """Returns True if at least one LLM provider is fully configured."""
+        return self.normalized_ai_mode in ("openai", "azure_openai")
+
+    @property
+    def normalized_queue_backend(self) -> str:
+        return (self.QUEUE_BACKEND or "in_process").strip().lower()
+
+    @property
     def normalized_auth_mode(self) -> str:
         return (self.AUTH_MODE or "local").strip().lower()
 
@@ -65,4 +100,11 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
 
+
 settings = Settings()
+
+
+@lru_cache
+def get_settings() -> Settings:
+    """Return a cached Settings instance (cleared in tests via cache_clear())."""
+    return Settings()

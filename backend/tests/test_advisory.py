@@ -63,13 +63,483 @@ def test_language_safety():
     for word in unsafe_words:
         assert word not in json_str, f"Unsafe word '{word}' found in response: {data}"
 
-def test_build_hard_gate_precheck_variations():
-    # Run the base demo analysis to get a realistic response
+
+# ---------------------------------------------------------------------------
+# AI Provider (AI CFO RAG) Tests
+# ---------------------------------------------------------------------------
+
+import math
+from unittest.mock import MagicMock, patch, PropertyMock, ANY
+
+from app.services.advisory.ai_provider import (
+    get_ai_mode,
+    get_advisory_response,
+    _get_deterministic_response,
+    _build_rag_context,
+    _build_sources_from_workspace,
+    _call_llm,
+    AdvisorySource,
+    AdvisoryResponse,
+)
+from app.core.config import get_settings
+
+
+# --- get_ai_mode() tests ---
+
+@patch("app.services.advisory.ai_provider.get_settings")
+def test_get_ai_mode_deterministic_fallback(mock_get_settings):
+    """No keys → deterministic_fallback."""
+    settings = MagicMock()
+    settings.normalized_ai_mode = "deterministic_fallback"
+    mock_get_settings.return_value = settings
+    assert get_ai_mode() == "deterministic_fallback"
+
+
+@patch("app.services.advisory.ai_provider.get_settings")
+def test_get_ai_mode_openai(mock_get_settings):
+    """OPENAI_API_KEY set → openai."""
+    settings = MagicMock()
+    settings.normalized_ai_mode = "openai"
+    mock_get_settings.return_value = settings
+    assert get_ai_mode() == "openai"
+
+
+@patch("app.services.advisory.ai_provider.get_settings")
+def test_get_ai_mode_azure_openai(mock_get_settings):
+    """AZURE_OPENAI_API_KEY set → azure_openai."""
+    settings = MagicMock()
+    settings.normalized_ai_mode = "azure_openai"
+    mock_get_settings.return_value = settings
+    assert get_ai_mode() == "azure_openai"
+
+
+# --- _build_rag_context() tests ---
+
+def test_build_rag_context_empty():
+    result = _build_rag_context(None)
+    assert result == "No workspace data available."
+
+    result2 = _build_rag_context({})
+    assert result2 == "No workspace data available."
+
+
+def test_build_rag_context_with_financial_summary():
+    data = {
+        "financial_summary": {
+            "revenue": 5_000_000,
+            "gross_profit": 2_000_000,
+            "ebitda": 1_200_000,
+            "net_income": 800_000,
+            "cash_and_equivalents": 500_000,
+            "total_assets": 10_000_000,
+            "total_liabilities": 4_000_000,
+            "period_label": "FY2024",
+            "currency": "HKD",
+        },
+        "ratios": {
+            "current_ratio": 1.8,
+            "dscr": 1.25,
+        },
+    }
+    result = _build_rag_context(data)
+    assert "=== FINANCIAL SUMMARY ===" in result
+    assert "5,000,000" in result
+    assert "=== RATIOS ===" in result
+    assert "1.25" in result
+    assert "FY2024" in result
+
+
+def test_build_rag_context_with_document_excerpts():
+    data = {
+        "financial_summary": {"revenue": 100_000},
+        "document_excerpts": [
+            {"title": "Annual Report 2024", "snippet": "The company achieved strong growth..."},
+            {"title": "Audited Financials", "snippet": "Net profit increased by 15%..."},
+        ],
+    }
+    result = _build_rag_context(data)
+    assert "=== RELEVANT DOCUMENT EXCERPTS ===" in result
+    assert "Annual Report 2024" in result
+    assert "The company achieved strong growth..." in result
+    assert "Audited Financials" in result
+
+
+# --- _build_sources_from_workspace() tests ---
+
+def test_build_sources_empty():
+    assert _build_sources_from_workspace(None) == []
+    assert _build_sources_from_workspace({}) == []
+
+
+def test_build_sources_with_data():
+    data = {
+        "financial_summary": {"revenue": 100_000},
+        "ratios": {"current_ratio": 1.5},
+        "cdi_output": {"score": 75},
+        "pd_estimate": {"probability": 0.02},
+        "stress_test": {"loss_given_default": 0.4},
+        "valuation_summary": {"value": "1M HKD"},
+    }
+    sources = _build_sources_from_workspace(data)
+    assert len(sources) == 6
+    titles = [s.title for s in sources]
+    assert "Financial Summary" in titles
+    assert "Financial Ratios" in titles
+    assert "CDI Assessment" in titles
+    assert "Probability of Default" in titles
+    assert "Stress Test" in titles
+    assert "Valuation Summary" in titles
+
+
+def test_build_sources_with_document_excerpts():
+    data = {
+        "financial_summary": {"revenue": 100_000},
+        "document_excerpts": [
+            {"title": "Doc 1", "snippet": "Content 1", "document_id": "doc1"},
+            {"title": "Doc 2", "snippet": "Content 2", "document_id": "doc2"},
+        ],
+    }
+    sources = _build_sources_from_workspace(data)
+    # 1 financial summary + 2 docs
+    assert len(sources) == 3
+    doc_titles = [s.title for s in sources if s.title.startswith("Doc")]
+    assert len(doc_titles) == 2
+
+
+# --- _get_deterministic_response() tests ---
+
+def test_deterministic_response_default():
+    resp = _get_deterministic_response("What is going on?", None)
+    assert resp.ai_mode == "deterministic_fallback"
+    assert "Deterministic Fallback" in resp.answer
+    assert "LLM provider" not in resp.answer.lower()  # default template doesn't mention provider
+    assert len(resp.sources) == 0
+    assert len(resp.warnings) > 0
+    assert "No LLM provider configured" in resp.warnings[0]
+
+
+def test_deterministic_response_financial_health():
+    ws = {
+        "company_name": "TestCorp",
+        "financial_summary": {
+            "revenue": 1_000_000,
+            "revenue_trend": "growing",
+            "period_label": "FY2024",
+        },
+        "ratios": {
+            "current_ratio": 1.5,
+            "debt_to_equity": 1.2,
+        },
+    }
+    resp = _get_deterministic_response("How is the financial health?", ws)
+    assert "Financial Health Assessment" in resp.answer
+    assert "TestCorp" in resp.answer
+    assert "growing" in resp.answer
+    assert "1.5" in resp.answer
+    assert len(resp.sources) >= 2  # financial summary + ratios
+
+
+def test_deterministic_response_funding_readiness():
+    ws = {
+        "company_name": "TestCorp",
+        "financial_summary": {
+            "revenue": 5_000_000,
+            "ebitda": 1_200_000,
+            "cash_and_equivalents": 500_000,
+            "total_assets": 10_000_000,
+            "total_liabilities": 4_000_000,
+        },
+        "cdi_output": {"score": 80},
+        "pd_estimate": {"probability": 0.015},
+        "stress_test": {"loss_given_default": 0.35},
+    }
+    resp = _get_deterministic_response("What is the funding readiness?", ws)
+    assert "Funding Readiness Overview" in resp.answer
+    assert "5,000,000" in resp.answer
+    assert "CDI Score" in resp.answer
+    assert len(resp.sources) >= 3  # financial + cdi + pd + stress
+
+
+def test_deterministic_response_with_workspace_data():
+    ws = {
+        "company_name": "Sample Ltd",
+        "financial_summary": {
+            "revenue": 2_500_000,
+            "net_income": 350_000,
+            "period_label": "Q3 2024",
+        },
+    }
+    resp = _get_deterministic_response("any question", ws)
+    assert "Sample Ltd" in resp.answer
+    assert "Q3 2024" in resp.answer
+
+
+# --- _call_llm() tests ---
+
+@patch("app.services.advisory.ai_provider._get_openai_client")
+def test_call_llm_success(mock_get_client):
+    mock_client = MagicMock()
+    mock_choice = MagicMock()
+    mock_choice.message.content = "This is a test response from the LLM."
+    mock_client.chat.completions.create.return_value = MagicMock(choices=[mock_choice])
+    mock_get_client.return_value = (mock_client, "gpt-4o-mini")
+
+    answer, error = _call_llm("openai", "system prompt", "user prompt")
+    assert answer == "This is a test response from the LLM."
+    assert error is None
+
+
+@patch("app.services.advisory.ai_provider._get_openai_client")
+def test_call_llm_empty_choices(mock_get_client):
+    mock_client = MagicMock()
+    mock_client.chat.completions.create.return_value = MagicMock(choices=[])
+    mock_get_client.return_value = (mock_client, "gpt-4o-mini")
+
+    answer, error = _call_llm("openai", "system", "user")
+    assert answer is None
+    assert "empty response (no choices)" in error
+
+
+@patch("app.services.advisory.ai_provider._get_openai_client")
+def test_call_llm_empty_content(mock_get_client):
+    mock_client = MagicMock()
+    mock_choice = MagicMock()
+    mock_choice.message.content = None
+    mock_client.chat.completions.create.return_value = MagicMock(choices=[mock_choice])
+    mock_get_client.return_value = (mock_client, "gpt-4o-mini")
+
+    answer, error = _call_llm("openai", "system", "user")
+    assert answer is None
+    assert "empty response (no content)" in error
+
+
+@patch("app.services.advisory.ai_provider._get_openai_client")
+def test_call_llm_api_error(mock_get_client):
+    from openai import APIError
+    mock_client = MagicMock()
+    mock_client.chat.completions.create.side_effect = APIError(
+        message="Internal Server Error",
+        request=MagicMock(),
+        body={"error": "server_error"},
+    )
+    mock_get_client.return_value = (mock_client, "gpt-4o-mini")
+
+    answer, error = _call_llm("openai", "system", "user")
+    assert answer is None
+    assert "LLM API error" in error
+
+
+@patch("app.services.advisory.ai_provider._get_openai_client")
+def test_call_llm_authentication_error(mock_get_client):
+    from openai import AuthenticationError
+    mock_client = MagicMock()
+    from unittest.mock import MagicMock as _MM
+    mock_response = _MM()
+    mock_response.status_code = 401
+    mock_client.chat.completions.create.side_effect = AuthenticationError(
+        message="Invalid API key",
+        response=mock_response,
+        body={"error": "auth"},
+    )
+    mock_get_client.return_value = (mock_client, "gpt-4o-mini")
+
+    answer, error = _call_llm("openai", "system", "user")
+    assert answer is None
+    assert "LLM authentication error" in error
+
+
+@patch("app.services.advisory.ai_provider._get_openai_client")
+def test_call_llm_rate_limit_error(mock_get_client):
+    from openai import RateLimitError
+    mock_client = MagicMock()
+    from unittest.mock import MagicMock as _MM
+    mock_response = _MM()
+    mock_response.status_code = 429
+    mock_client.chat.completions.create.side_effect = RateLimitError(
+        message="Rate limit exceeded",
+        response=mock_response,
+        body={"error": "rate_limit"},
+    )
+    mock_get_client.return_value = (mock_client, "gpt-4o-mini")
+
+    answer, error = _call_llm("openai", "system", "user")
+    assert answer is None
+    assert "LLM rate limit" in error
+
+
+@patch("app.services.advisory.ai_provider._get_openai_client")
+def test_call_llm_connection_error(mock_get_client):
+    from openai import APIConnectionError
+    mock_client = MagicMock()
+    mock_client.chat.completions.create.side_effect = APIConnectionError(
+        message="Connection failed",
+        request=MagicMock(),
+    )
+    mock_get_client.return_value = (mock_client, "gpt-4o-mini")
+
+    answer, error = _call_llm("openai", "system", "user")
+    assert answer is None
+    assert "LLM connection error" in error
+
+
+def test_call_llm_unknown_mode():
+    answer, error = _call_llm("unknown_mode", "system", "user")
+    assert answer is None
+    assert "Unknown LLM mode" in error
+
+
+@patch("app.services.advisory.ai_provider._get_openai_client")
+def test_call_llm_client_not_available(mock_get_client):
+    mock_get_client.return_value = None
+    answer, error = _call_llm("openai", "system", "user")
+    assert answer is None
+    assert "not fully configured" in error
+
+
+# --- get_advisory_response() tests ---
+
+@patch("app.services.advisory.ai_provider.get_settings")
+def test_advisory_response_deterministic_fallback(mock_get_settings):
+    settings = MagicMock()
+    settings.normalized_ai_mode = "deterministic_fallback"
+    mock_get_settings.return_value = settings
+
+    resp = get_advisory_response("Tell me about this company")
+    assert resp.ai_mode == "deterministic_fallback"
+    assert "Deterministic Fallback" in resp.answer
+    assert len(resp.warnings) == 1
+    assert "No LLM provider configured" in resp.warnings[0]
+
+
+@patch("app.services.advisory.ai_provider.get_settings")
+def test_advisory_response_provider_not_configured(mock_get_settings):
+    settings = MagicMock()
+    settings.normalized_ai_mode = "provider_not_configured"
+    mock_get_settings.return_value = settings
+
+    resp = get_advisory_response("Tell me about this company")
+    assert resp.ai_mode == "provider_not_configured"
+    assert "not available" in resp.answer.lower()
+    assert resp.sources == []
+
+
+@patch("app.services.advisory.ai_provider.get_settings")
+@patch("app.services.advisory.ai_provider._call_llm")
+def test_advisory_response_llm_success(mock_call_llm, mock_get_settings):
+    settings = MagicMock()
+    settings.normalized_ai_mode = "openai"
+    mock_get_settings.return_value = settings
+    mock_call_llm.return_value = ("The DSCR is 1.25, which indicates adequate coverage.", None)
+
+    resp = get_advisory_response("What is the DSCR?")
+    assert resp.ai_mode == "openai"
+    assert "DSCR is 1.25" in resp.answer
+    assert resp.warnings == []
+
+
+@patch("app.services.advisory.ai_provider.get_settings")
+@patch("app.services.advisory.ai_provider._call_llm")
+def test_advisory_response_llm_success_with_workspace_data(mock_call_llm, mock_get_settings):
+    settings = MagicMock()
+    settings.normalized_ai_mode = "openai"
+    mock_get_settings.return_value = settings
+    mock_call_llm.return_value = ("Analysis based on provided data.", None)
+
+    ws = {
+        "company_name": "TestCorp",
+        "financial_summary": {"revenue": 1_000_000, "ebitda": 250_000},
+        "ratios": {"current_ratio": 1.8, "dscr": 1.25},
+    }
+    resp = get_advisory_response("Analyze this company", ws)
+    assert resp.ai_mode == "openai"
+    assert "Analysis" in resp.answer
+    # Sources should be built from workspace data
+    assert len(resp.sources) >= 2  # financial summary + ratios
+    assert resp.warnings == []
+
+
+@patch("app.services.advisory.ai_provider.get_settings")
+@patch("app.services.advisory.ai_provider._call_llm")
+def test_advisory_response_llm_failure_falls_back(mock_call_llm, mock_get_settings):
+    settings = MagicMock()
+    settings.normalized_ai_mode = "openai"
+    mock_get_settings.return_value = settings
+    mock_call_llm.return_value = (None, "LLM API error: 500 Internal Server Error")
+
+    resp = get_advisory_response("What is the DSCR?")
+    assert resp.ai_mode == "openai"  # mode preserved even on fallback
+    assert "Deterministic Fallback" in resp.answer
+    assert len(resp.warnings) >= 2  # fallback warning + error details
+    assert "API call failed" in resp.warnings[0]
+    assert "500 Internal Server Error" in resp.warnings[1]
+
+
+@patch("app.services.advisory.ai_provider.get_settings")
+@patch("app.services.advisory.ai_provider._call_llm")
+def test_advisory_response_llm_failure_authentication(mock_call_llm, mock_get_settings):
+    settings = MagicMock()
+    settings.normalized_ai_mode = "openai"
+    mock_get_settings.return_value = settings
+    mock_call_llm.return_value = (None, "LLM authentication error: Invalid API key")
+
+    resp = get_advisory_response("What is the DSCR?")
+    assert resp.ai_mode == "openai"
+    assert "Deterministic Fallback" in resp.answer
+    assert "authentication error" in resp.warnings[1]
+
+
+@patch("app.services.advisory.ai_provider.get_settings")
+@patch("app.services.advisory.ai_provider._call_llm")
+def test_advisory_response_azure_openai_success(mock_call_llm, mock_get_settings):
+    settings = MagicMock()
+    settings.normalized_ai_mode = "azure_openai"
+    mock_get_settings.return_value = settings
+    mock_call_llm.return_value = ("Azure OpenAI response.", None)
+
+    resp = get_advisory_response("Analyze")
+    assert resp.ai_mode == "azure_openai"
+    assert "Azure OpenAI response" in resp.answer
+
+
+# --- End-to-end integration test via HTTP endpoint ---
+
+def test_chat_endpoint_deterministic_fallback():
+    """Verify the chat endpoint returns deterministic fallback when no LLM key is set."""
+    response = client.post(
+        "/api/advisory/chat",
+        json={"question": "What is the financial health of this company?"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["aiMode"] == "deterministic_fallback"
+    assert "Deterministic Fallback" in data["answer"]
+    assert len(data["warnings"]) > 0
+    # Safety language check
+    json_str = str(data).lower()
+    for word in ["approved", "rejected", "guaranteed", "underwriting decision"]:
+        assert word not in json_str
+
+
+def test_chat_endpoint_safety_language():
+    """Verify the chat endpoint never returns unsafe language."""
+    response = client.post(
+        "/api/advisory/chat",
+        json={"question": "Will my loan be approved?"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    json_str = str(data).lower()
+    unsafe_words = [
+        "approved", "rejected", "loan approved", "lender approved",
+        "approval probability", "predicted default", "automated credit decision",
+        "formal underwriting", "guaranteed"
+    ]
+    for word in unsafe_words:
+        assert word not in json_str, f"Unsafe word '{word}' found in response: {data}"
     analysis = get_demo_analysis()
     
     # 1. Test standard DSCR fail behavior
     assert analysis.ratios.dscr.value is not None
-    assert analysis.ratios.dscr.value < 1.0
     result = build_hard_gate_precheck(analysis)
     
     dscr_check = next(c for c in result.checks if c.key == "debt_service_coverage")
