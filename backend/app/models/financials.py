@@ -6,7 +6,8 @@ class FinancialsBaseModel(BaseModel):
     model_config = ConfigDict(
         alias_generator=to_camel,
         populate_by_name=True,
-        from_attributes=True
+        from_attributes=True,
+        protected_namespaces=()
     )
 
 class IncomeStatementPeriod(FinancialsBaseModel):
@@ -212,6 +213,14 @@ class DcfValuationResult(FinancialsBaseModel):
     exit_multiple_terminal_value: Optional[float] = Field(None, alias="exitMultipleTerminalValue")
     implied_exit_multiple: Optional[float] = Field(None, alias="impliedExitMultiple")
     warnings: List[str] = Field(default_factory=list)
+    model_version: str = "1.0.0"
+    model_type: str = "deterministic_valuation"
+    calibration_status: str = "workspace_derived"
+    assumptions: List[str] = Field(default_factory=list)
+    limitations: List[str] = Field(default_factory=list)
+    data_quality: dict = Field(default_factory=dict)
+    confidence_band: str = "medium"
+
 
 class ValuationSensitivityPoint(FinancialsBaseModel):
     wacc: float
@@ -234,6 +243,12 @@ class ValuationAnalysis(FinancialsBaseModel):
     sensitivity: List[ValuationSensitivityPoint] = Field(default_factory=list)
     sanity_checks: List[ValuationSanityCheck] = Field(default_factory=list, alias="sanityChecks")
     warnings: List[str] = Field(default_factory=list)
+
+    def export_sensitivity_json(self) -> str:
+        """Helper method to export sensitivity grid as JSON string."""
+        import json
+        return json.dumps([p.model_dump(by_alias=True) for p in self.sensitivity])
+
 
 class FinancialSignal(FinancialsBaseModel):
     key: str

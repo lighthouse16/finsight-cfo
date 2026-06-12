@@ -391,6 +391,28 @@ def build_facility_structuring(
         return [x for x in l if not (x in seen or seen.add(x))]
     global_warnings = _dedup(global_warnings)
 
+    limitations = [
+        "Lender review required.",
+        "Terms are indicative and depend on bank policy, documentation, collateral, and borrower profile.",
+        "Estimated limits and rates are not a formal credit offer or loan commitment."
+    ]
+    
+    assumptions = [
+        "Working capital lines assume typical HKD operating cash cycle patterns.",
+        "Receivables financing assumes receivables ledger dilution and collection lag stay within acceptable bounds.",
+        "Trade finance assumes direct linkage to cost of goods sold (COGS).",
+        "Pricing uses a baseline HIBOR rate of 4.5% (450 bps) plus a risk spread based on the workspace-derived planning tier."
+    ]
+
+    data_quality = {
+        "financial_analysis_available": snapshot is not None and ratios is not None,
+        "precheck_status": precheck.overall_status if precheck else "unavailable",
+        "risk_score_available": risk_score is not None
+    }
+
+    # Sum of non-advisory limits
+    total_max_size = sum(c.estimated_limit for c in candidates if c.estimated_limit is not None)
+
     return FacilityStructuringResponse(
         company_id=snapshot.company_id,
         company_name=snapshot.company_name,
@@ -402,5 +424,17 @@ def build_facility_structuring(
         constraints=global_constraints,
         next_data_needed=precheck.next_data_needed,
         disclaimer=disclaimer,
-        warnings=global_warnings
+        warnings=global_warnings,
+        dscr_floor=1.10,
+        ltv_cap=0.70,
+        max_facility_size=total_max_size,
+        indicative_pricing_assumption=f"HIBOR (4.5%) + spread of {risk_spread} bps based on planning tier",
+        provenance="Deterministic workspace rules engine",
+        model_version="1.0.0",
+        model_type="candidate_facility_structuring",
+        calibration_status="rules_based",
+        assumptions=assumptions,
+        limitations=limitations,
+        data_quality=data_quality,
+        confidence_band="medium"
     )
