@@ -1,16 +1,19 @@
 import uuid
 from datetime import datetime, timedelta
 from app.models.advisory import CdiMockResponse, CdiInvoiceRecord
+from app.core.config import get_settings
+from app.services.providers.cdi_connector import CDIConnector
+from app.services.providers.base import ProviderNotConfiguredError
 
 def get_cdi_mock_data(consent_granted: bool) -> CdiMockResponse:
     """
-    Returns deterministic mocked alternative data from logistics/trade platforms
-    via a mocked CDI gateway integration, simulating the consent-based flow.
+    Returns alternative data from logistics/trade platforms.
+    Routes to live CDI connector if configured, otherwise falls back to deterministic mock data.
     """
     if not consent_granted:
         return CdiMockResponse(
             consent_token=None,
-            provider_name="CDI Commercial Gateway (Mock)",
+            provider_name="CDI Commercial Gateway",
             invoices=[],
             delivered_invoice_total=0.0,
             in_transit_invoice_total=0.0,
@@ -18,7 +21,30 @@ def get_cdi_mock_data(consent_granted: bool) -> CdiMockResponse:
             disclaimer="Consent denied. CDI alternative data cannot be accessed.",
             warnings=["No consent provided for alternative data flow."]
         )
-        
+
+    settings = get_settings()
+    
+    # Try Live Provider first
+    if settings.provider_configured("cdi") or not settings.ALLOW_DEMO_FALLBACK:
+        try:
+            connector = CDIConnector()
+            live_data = connector.fetch_alternative_data(consent_id=f"consent_{uuid.uuid4().hex[:8]}")
+            
+            return CdiMockResponse(
+                consent_token=live_data["data"].get("consent_id", ""),
+                provider_name=live_data["source_name"],
+                invoices=[],
+                delivered_invoice_total=1000000.0,  # Stub mapped from live data
+                in_transit_invoice_total=500000.0,  # Stub mapped from live data
+                alternative_collateral_hkd=800000.0, # Stub mapped from live data
+                disclaimer=live_data["caveat"],
+                warnings=["Live CDI data parsed metrics are using stub aggregations until specs are defined."]
+            )
+        except ProviderNotConfiguredError:
+            if not settings.ALLOW_DEMO_FALLBACK:
+                raise
+                
+    # Fallback to Mock Data
     token = f"cdi_tok_{uuid.uuid4().hex[:12]}"
     now = datetime.now()
     
