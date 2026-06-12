@@ -107,8 +107,13 @@ def test_disabled_flag_does_not_scan_or_process():
 
     res = run_report_worker_tick(settings=settings, job_repository=job_repo, report_repository=report_repo)
     assert res["enabled"] is False
+    assert res["scanned"] == 0
     assert res["processed"] == 0
-    assert "skipped_reason" in res
+    assert res["succeeded"] == 0
+    assert res["failed"] == 0
+    assert res["jobIds"] == []
+    assert res["errors"] == []
+    assert res["skippedReason"] == "REPORT_WORKER_ENABLED flag is False"
     assert not report_repo.save_called
     assert job_repo.jobs["job_1"]["status"] == "pending"
 
@@ -265,4 +270,30 @@ def test_does_not_mutate_jobs_when_disabled():
     run_report_worker_tick(settings=settings, job_repository=job_repo, report_repository=report_repo)
     assert job_repo.jobs["job_1"]["status"] == "pending"
     assert len(job_repo.actions) == 0  # No actions (mutations) performed
+
+
+def test_workspace_scoped_tick_only_processes_matching_workspace():
+    settings = DummySettings(enabled=True, max_jobs=5)
+    job_repo = MockJobRepository()
+    report_repo = MockReportRepository()
+
+    payload = {"report_type": "financial_health"}
+    job_repo.create_job_with_status("job_ws_1", "report.generation", "pending", workspace_id="ws_1", payload=payload)
+    job_repo.create_job_with_status("job_ws_2", "report.generation", "pending", workspace_id="ws_2", payload=payload)
+
+    res = run_report_worker_tick(
+        settings=settings,
+        job_repository=job_repo,
+        report_repository=report_repo,
+        workspace_id="ws_1",
+    )
+
+    assert res["enabled"] is True
+    assert res["scanned"] == 1
+    assert res["processed"] == 1
+    assert res["succeeded"] == 1
+    assert res["failed"] == 0
+    assert res["jobIds"] == ["job_ws_1"]
+    assert job_repo.jobs["job_ws_1"]["status"] == "completed"
+    assert job_repo.jobs["job_ws_2"]["status"] == "pending"
 

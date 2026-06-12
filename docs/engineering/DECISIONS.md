@@ -224,5 +224,11 @@ This document records key architectural and design decisions for FinSight CFO.
 - Decision: Implement a deterministic `run_report_worker_tick` function in a new service `report_worker_harness.py`. Add settings `REPORT_WORKER_ENABLED` (default `False`) and `REPORT_WORKER_MAX_JOBS_PER_TICK` (default `1`). The harness executes in-process only when explicitly enabled, scans pending jobs, filters report generation types, and processes them up to the batch limit without loop/sleep/threads.
 - Consequences: Moves the backend closer to asynchronous capabilities in a controlled, feature-flagged manner while ensuring zero runtime changes or DB dependencies under default configurations.
 
+## ADR-036: Add manual route to trigger a single report worker tick
+- Status: Approved
+- Context: Pending `report.generation` jobs can now be created and inspected, but there is no safe backend entrypoint to execute the existing feature-flagged worker harness manually in environments without Redis, Celery, or a long-running daemon.
+- Decision: Add `POST /api/workspaces/{workspace_id}/jobs/report-worker/tick` in `backend/app/routes/jobs.py` and keep it synchronous, workspace-scoped, and fully gated by `REPORT_WORKER_ENABLED`. The route delegates to `run_report_worker_tick`, preserves local-mode no-DB-init behavior, and returns a stable summary payload instead of auto-running on startup.
+- Consequences: Operators can process pending report jobs on demand and observe `pending -> running -> completed/failed` transitions without introducing schedulers, polling loops, or queue infrastructure.
+
 
 

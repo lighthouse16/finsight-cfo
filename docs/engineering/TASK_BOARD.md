@@ -43,6 +43,7 @@ This board tracks active, planned, and completed tasks for current engineering s
 | **T-129** | `commercial/job-retry-progress-semantics` | **Done** | Backend Architect | Low |
 | **T-130** | `commercial/report-job-trigger-route-contract` | **Done** | Backend Architect | Low |
 | **T-131** | `commercial/feature-flagged-report-worker-harness` | **Done** | Backend Architect | Low |
+| **T-132** | `commercial/worker-runtime-manual-trigger` | **Done** | Backend Engineer | Low |
 
 
 

@@ -2,17 +2,23 @@ from typing import List, Optional, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app.persistence.interfaces import WorkspaceRepository, JobRepository
+from app.persistence.interfaces import WorkspaceRepository, JobRepository, ReportRepository
 from app.routes.workspaces import (
     get_db_session_optional,
     get_workspace_repository_dependency,
+    get_report_repository_dependency,
 )
 from app.services.job_service import (
     get_job as service_get_job,
     list_jobs as service_list_jobs,
     create_job as service_create_job,
 )
-from app.models.job import JobResponse, ReportGenerationJobCreateRequest
+from app.services.report_worker_harness import run_report_worker_tick
+from app.models.job import (
+    JobResponse,
+    ReportGenerationJobCreateRequest,
+    ReportWorkerTickResponse,
+)
 
 router = APIRouter()
 
@@ -22,6 +28,12 @@ def get_job_repository_dependency(
     from app.core.config import settings
     from app.persistence.factory import get_job_repository
     return get_job_repository(settings, db_session=db_session)
+
+
+def get_report_repository_for_jobs_dependency(
+    report_repo: ReportRepository = Depends(get_report_repository_dependency),
+) -> ReportRepository:
+    return report_repo
 
 def sanitize_payload(data: Any) -> Any:
     if isinstance(data, (bytes, bytearray)):
@@ -149,4 +161,29 @@ async def create_report_generation_job(
             status_code=501,
             detail="Background jobs are not supported under local persistence mode."
         )
+
+
+@router.post("/{workspace_id}/jobs/report-worker/tick", response_model=ReportWorkerTickResponse)
+async def trigger_report_worker_tick(
+    workspace_id: str,
+    workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
+    job_repo: JobRepository = Depends(get_job_repository_dependency),
+    report_repo: ReportRepository = Depends(get_report_repository_for_jobs_dependency),
+):
+    """
+    Runs exactly one controlled report worker tick for the workspace.
+    """
+    workspace = workspace_repo.get_workspace(workspace_id)
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+
+    from app.core.config import settings
+
+    summary = run_report_worker_tick(
+        settings=settings,
+        job_repository=job_repo,
+        report_repository=report_repo,
+        workspace_id=workspace_id,
+    )
+    return ReportWorkerTickResponse(**summary)
 
