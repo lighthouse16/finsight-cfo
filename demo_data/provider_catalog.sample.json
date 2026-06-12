@@ -14,7 +14,7 @@
           "description": "Indicative working capital financing for HK SMEs.",
           "guarantees": "Subject to BOCHK credit assessment and optional HKMC SFGS guarantee.",
           "isIndicative": true,
-          "disclaimer": "This is an indicative placeholder entry only. The actual APR is subject to formal underwriting and is not guaranteed."
+          "disclaimer": "This is an indicative placeholder entry only. The actual APR is subject to relationship manager review required and is not guaranteed."
         },
         {
           "productId": "bochk_trade_finance",

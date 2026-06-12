@@ -53,11 +53,11 @@ class Settings(BaseSettings):
 
     # Object Storage Configs
     OBJECT_STORAGE_BACKEND: str = "local_file"
-    S3_ENDPOINT_URL: str = ""
-    S3_BUCKET: str = ""             # Canonical S3 bucket name
-    S3_BUCKET_NAME: str = ""        # Deprecated fallback
-    S3_ACCESS_KEY_ID: str = ""
-    S3_SECRET_ACCESS_KEY: str = ""
+    S3_ENDPOINT_URL: Optional[str] = ""
+    S3_BUCKET: Optional[str] = ""             # Canonical S3 bucket name
+    S3_BUCKET_NAME: Optional[str] = ""        # Deprecated fallback
+    S3_ACCESS_KEY_ID: Optional[str] = ""
+    S3_SECRET_ACCESS_KEY: Optional[str] = ""
     S3_REGION: str = "us-east-1"    # Canonical S3 Region
     S3_REGION_NAME: str = "us-east-1" # Deprecated S3 Region fallback
     S3_FORCE_PATH_STYLE: bool = True

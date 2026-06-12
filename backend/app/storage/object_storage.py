@@ -13,7 +13,7 @@ class ObjectStorageAdapter:
     def __init__(self, app_settings=settings):
         self.settings = app_settings
         self.use_s3 = bool(
-            getattr(self.settings, "S3_BUCKET_NAME", None) and 
+            getattr(self.settings, "S3_BUCKET", None) and 
             getattr(self.settings, "S3_ACCESS_KEY_ID", None) and 
             getattr(self.settings, "S3_SECRET_ACCESS_KEY", None)
         )
@@ -28,7 +28,7 @@ class ObjectStorageAdapter:
             from botocore.client import Config
             
             endpoint_url = getattr(self.settings, "S3_ENDPOINT_URL", None)
-            region_name = getattr(self.settings, "S3_REGION_NAME", "us-east-1")
+            region_name = getattr(self.settings, "S3_REGION", "us-east-1")
             
             client_kwargs = {
                 "aws_access_key_id": getattr(self.settings, "S3_ACCESS_KEY_ID", None),
@@ -50,7 +50,7 @@ class ObjectStorageAdapter:
         """
         if self.use_s3:
             try:
-                bucket = self.settings.S3_BUCKET_NAME
+                bucket = self.settings.S3_BUCKET
                 self.s3_client.put_object(
                     Bucket=bucket,
                     Key=key,

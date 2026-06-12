@@ -77,7 +77,7 @@ def readiness_check():
 
     # Normalize queue backend comparison
     q_backend = getattr(settings, "QUEUE_BACKEND", "").strip().lower()
-    if q_backend in ("redis", "local"):
+    if q_backend == "redis":
         try:
             import redis
             r = redis.Redis.from_url(settings.QUEUE_REDIS_URL, socket_connect_timeout=2.0)

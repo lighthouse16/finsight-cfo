@@ -18,7 +18,7 @@ def build_demo_stress_tests(
     Builds a context-only financial stress testing engine that applies deterministic
     scenario shocks to the demo financial analysis and reports impact deltas.
     
-    This does not constitute a formal underwriting or credit decision engine.
+    This does not constitute a formal credit decision engine.
     """
     scenarios: List[StressScenarioResult] = []
     

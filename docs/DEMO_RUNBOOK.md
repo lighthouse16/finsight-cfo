@@ -103,6 +103,6 @@ If technical issues arise during the presentation, remain calm and use the follo
 To protect the integrity of the product and manage stakeholder expectations, **DO NOT CLAIM** any of the following during the presentation:
 
 * **No loan approval:** Do not state that the system "approves" loans. Use terms like "assesses readiness" or "provides context for review".
-* **No formal underwriting:** Do not imply the system replaces a bank's underwriting process. The system offers "advisory support" and "diagnostic preparation".
+* **Not a formal credit decision:** Do not imply the system replaces a bank's underwriting process. The system offers "advisory support" and "diagnostic preparation".
 * **No calibrated PD model:** Do not claim the credit scores map to a calibrated Probability of Default (PD) model. It is an indicative scoring framework.
 * **No production bank integration yet:** Do not imply that the system is currently pulling live data from or submitting live applications to BOCHK or any other specific banking core systems in production.
