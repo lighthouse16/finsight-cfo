@@ -33,6 +33,7 @@ EXPECTED_KEYS = {
     "fx_gba_v1",
     "commodities_v1",
     "sector_benchmarks_v1",
+    "stress_signals_v1",
 }
 
 

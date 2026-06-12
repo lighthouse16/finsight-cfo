@@ -1314,7 +1314,7 @@ export default function ReportsPage() {
 
         <div className="border-t border-softform-navy-950/5 pt-4 bg-softform-cream/10 p-4 rounded-2xl border border-softform-amber-300/10">
           <p className="text-[11px] leading-relaxed text-softform-text-secondary">
-            <strong className="text-softform-navy-950 uppercase tracking-wide">Important Disclaimer:</strong> This workspace report is prepared automatically for analysis and diagnostic preparation support only. It does not constitute credit approval, a binding lending commitment, investment advice, or a formal underwriting recommendation. Financing outcomes are not guaranteed and all indicators remain subject to commercial bank review and credit policy check.
+            <strong className="text-softform-navy-950 uppercase tracking-wide">Important Disclaimer:</strong> This workspace report is prepared automatically for analysis and diagnostic preparation support only. It does not constitute credit approval, a binding lending commitment, investment advice, or planning support. Financing outcomes are not guaranteed and all indicators remain subject to commercial bank review and credit policy check.
           </p>
         </div>
       </section>

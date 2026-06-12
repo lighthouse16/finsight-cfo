@@ -402,9 +402,14 @@ def _normalize_data(hibor_records, honia_records, liquidity_records, hkab_data=N
         )
     ]
 
+    from app.services.market_watch.source_registry import build_provenance
+    from app.models.market_watch import SourceProvenance
+    prov = SourceProvenance(**build_provenance("rates_liquidity_v1", as_of=primary_hibor_date))
+
     return RatesLiquidityResponse(
         metadata=metadata,
         rates=rates,
         liquidityEvents=liquidity_events,
-        sourceStatus=source_status
+        sourceStatus=source_status,
+        provenance=prov
     )

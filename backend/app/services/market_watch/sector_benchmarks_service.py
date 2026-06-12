@@ -1,40 +1,17 @@
 from typing import Optional
-from app.core.config import settings
-from app.models.market_watch import SectorBenchmarksResponse
+from app.models.market_watch import SectorBenchmarksResponse, SourceProvenance
 from app.services.market_watch.fixtures import get_sector_benchmarks_fixture
+from app.services.market_watch.source_registry import build_provenance
 
 async def get_sector_benchmarks(
     sector: Optional[str] = None, 
     geography: Optional[str] = None
 ) -> SectorBenchmarksResponse:
     """
-    Returns Sector Benchmarks with source provenance.
+    Returns fixture data for Sector Benchmarks.
+    Optionally accepts sector and geography query params.
+    Production sector provider will be integrated in Phase 3.
     """
     res = get_sector_benchmarks_fixture(sector=sector, geography=geography)
-    
-    if settings.MARKET_WATCH_USE_FIXTURES:
-        mode = "fixture"
-        provider = "FinSight Local"
-        caveat = "Using local seed data fixture"
-        confidence = "low"
-    elif not settings.IHS_MARKIT_API_KEY:
-        mode = "provider_not_configured"
-        provider = "IHS Markit (not configured)"
-        caveat = "IHS Markit provider is not configured. Showing fallback workspace benchmarks."
-        confidence = "low"
-    else:
-        mode = "provider_configured"
-        provider = "IHS Markit"
-        caveat = None
-        confidence = "high"
-
-    for b in res.benchmarks:
-        b.sourceName = provider
-        b.sourceMode = mode
-        b.asOf = b.sourceTimestamp or "2026-06"
-        b.freshness = "Monthly"
-        b.caveat = caveat
-        b.confidence = confidence
-
+    res.provenance = SourceProvenance(**build_provenance("sector_benchmarks_v1"))
     return res
-

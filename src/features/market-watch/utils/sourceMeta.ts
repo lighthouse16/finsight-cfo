@@ -6,31 +6,28 @@
  * without hard-coding strings in each card.
  *
  * Modes recognised:
- * - live                    → green "Live public feed"
- * - provider_configured     → green "Provider configured"
- * - provider_not_configured → red "Provider not configured"
- * - workspace_derived       → muted "Workspace-derived estimate"
- * - fixture                 → amber "Fixture fallback"
- * - unavailable             → red "Unavailable"
+ * - provider-backed   → green "Provider" badge
+ * - workspace-derived → muted "Workspace-derived" badge
+ * - fixture-backed    → amber "Context-only" badge
+ * - fallback          → amber "Source pending" badge
+ * - unavailable       → red "Unavailable" badge
  */
-
-export type SourceMode =
-  | 'live'
-  | 'provider_configured'
-  | 'provider_not_configured'
-  | 'workspace_derived'
-  | 'fixture'
-  | 'unavailable'
-  | 'provider-backed'
-  | 'workspace-derived'
-  | 'fixture-backed'
-  | 'local-fallback'
 
 /** Matches the backend SourceRegistryEntry shape. */
 export interface SourceMeta {
   sourceKey: string
   label: string
-  mode: SourceMode
+  mode:
+    | 'live'
+    | 'provider_configured'
+    | 'provider_not_configured'
+    | 'workspace_derived'
+    | 'fixture'
+    | 'unavailable'
+    | 'provider-backed'
+    | 'workspace-derived'
+    | 'fixture-backed'
+    | 'local-fallback'
   freshness: string
   caveat?: string | null
   provider?: string | null
@@ -52,7 +49,7 @@ export function getSourceMeta(sourceKey: string): SourceMeta | undefined {
 /** Resolve the user-facing mode label for tooltip rendering. */
 export function resolveSourceModeLabel(sourceKey: string): SourceMeta['mode'] {
   const entry = _REGISTRY[sourceKey]
-  if (!entry) return 'workspace_derived'
+  if (!entry) return 'workspace-derived'
   return entry.mode
 }
 
@@ -75,7 +72,7 @@ _register({
   label: 'Industry Health Context v1',
   mode: 'fixture',
   freshness: 'Monthly',
-  caveat: 'Industry health uses fixture/workspace-derived sector benchmarks. ChinaData.live/IHS integration pending.',
+  caveat: 'Industry health uses fixture/workspace-derived sector benchmarks. ChinaData/IHS integration pending.',
   provider: 'FinSight CFO Market Watch',
 })
 
@@ -102,7 +99,7 @@ _register({
   label: 'Red Flags & Macro Risk Summary v1',
   mode: 'workspace_derived',
   freshness: 'Workspace',
-  caveat: 'Red Flags summary consolidates workspace-derived Phase 2 signals. CME FedWatch and ChinaData.live/IHS provider integrations pending.',
+  caveat: 'Red Flags summary consolidates workspace-derived Phase 2 signals. CME FedWatch and ChinaData/IHS provider integrations pending.',
   provider: 'FinSight CFO Market Watch',
 })
 
@@ -145,11 +142,11 @@ _register({
  * Build a SourceItem[] (for SourceInfoTooltip) from a provenance object
  * returned by any Market Watch API endpoint.
  *
- * The provenance object should have shape:
- *   { source, provider, asOf?, freshness? }
+ * The provenance object can be legacy or conform to the new SourceProvenance schema.
  */
 export function buildSourceItems(
-  provenance: { source?: string; provider?: string; asOf?: string | null; freshness?: string },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  provenance: any,
   additionalLabel?: string,
 ): Array<{ label: string; mode: SourceMeta['mode']; asOf?: string | null; freshness?: string; warnings?: string[] }> {
   const items: Array<{
@@ -165,9 +162,55 @@ export function buildSourceItems(
     return items
   }
 
+  // Detect new SourceProvenance format
+  if (provenance.source_mode !== undefined) {
+    const mode = provenance.source_mode as SourceMeta['mode']
+    const label = provenance.source_name ?? 'Market Source'
+    const adapter = provenance.provider_adapter ?? 'FinSight CFO'
+    
+    // Main source info
+    items.push({
+      label: `${label} (${adapter})`,
+      mode,
+      freshness: provenance.freshness ?? (mode === 'live' || mode === 'provider_configured' ? 'Daily' : 'Workspace'),
+    })
+
+    // Last updated/As of line
+    if (provenance.last_updated) {
+      items.push({
+        label: `Last updated: ${provenance.last_updated}`,
+        mode,
+      })
+    } else {
+      items.push({
+        label: 'As-of date unavailable',
+        mode: 'workspace_derived',
+      })
+    }
+
+    // Warnings / configuration hints
+    const warnings: string[] = []
+    if (provenance.warning) {
+      warnings.push(provenance.warning)
+    }
+    if (mode === 'provider_not_configured') {
+      warnings.push('Warning: Provider not configured. Configure environment credentials to enable live data.')
+    }
+    if (warnings.length > 0) {
+      items.push({
+        label: additionalLabel ?? label,
+        mode,
+        warnings,
+      })
+    }
+
+    return items
+  }
+
+  // Fallback to old schema processing
   const sourceKey = provenance.source ?? ''
   const meta = getSourceMeta(sourceKey)
-  const mode = meta?.mode ?? 'workspace_derived'
+  const mode = (provenance.source_mode || meta?.mode || 'workspace_derived') as SourceMeta['mode']
 
   // Provider line
   items.push({

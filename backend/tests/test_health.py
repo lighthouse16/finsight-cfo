@@ -22,7 +22,20 @@ def test_readiness():
 
 
 def test_runtime_status_safe_defaults():
-    response = client.get("/api/runtime/status")
+    from app.core.config import Settings
+
+    safe_settings = Settings(
+        APP_MODE="development",
+        PERSISTENCE_BACKEND="local",
+        AUTH_MODE="local",
+        STORAGE_BACKEND="local",
+        REPORT_WORKER_ENABLED=False,
+        OPENAI_API_KEY="",
+        AZURE_OPENAI_API_KEY="",
+    )
+
+    with patch("app.main.get_settings", return_value=safe_settings):
+        response = client.get("/api/runtime/status")
     assert response.status_code == 200
     data = response.json()
 

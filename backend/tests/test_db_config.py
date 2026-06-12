@@ -1,9 +1,10 @@
 from app.core.config import Settings
 
-def test_default_persistence_backend():
+def test_default_persistence_backend(monkeypatch):
     """
     Verifies that the default persistence backend is local.
     """
+    monkeypatch.delenv("PERSISTENCE_BACKEND", raising=False)
     settings = Settings()
     assert settings.PERSISTENCE_BACKEND == "local"
     assert not settings.is_database_persistence_enabled

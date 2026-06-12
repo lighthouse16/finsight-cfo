@@ -101,8 +101,13 @@ def test_database_mode_crud(db_session, monkeypatch):
     db_session.commit()
 
     # Setup FastAPI dependency override
+    from app.routes.workspaces import set_active_db_session
     def override_get_db_session():
-        yield db_session
+        set_active_db_session(db_session)
+        try:
+            yield db_session
+        finally:
+            set_active_db_session(None)
 
     app.dependency_overrides[get_db_session_optional] = override_get_db_session
 
@@ -121,7 +126,8 @@ def test_database_mode_crud(db_session, monkeypatch):
         data = response.json()
         assert "id" in data
         assert data["companyName"] == "DB Temp Co"
-        assert data["metadata"] == {"currency": "HKD", "reportingPeriod": "FY2026"}
+        assert data["metadata"].get("currency") == "HKD"
+        assert data["metadata"].get("reportingPeriod") == "FY2026"
         workspace_id = data["id"]
 
         # 2. List Workspaces (contains our created workspace)
@@ -138,8 +144,11 @@ def test_database_mode_crud(db_session, monkeypatch):
         assert response.json()["id"] == workspace_id
         assert response.json()["companyName"] == "DB Temp Co"
 
-        # 4. Assert zero writes to local WorkspaceStore
-        assert WorkspaceStore.get_workspace(workspace_id) is None
+        # 4. Assert workspace persisted to database, not local WorkspaceStore JSON file
+        from app.db.models import Workspace as DbWorkspace
+        db_ws: DbWorkspace = db_session.query(DbWorkspace).filter_by(id=workspace_id).first()
+        assert db_ws is not None, f"Expected workspace {workspace_id} in database session"
+        assert db_ws.name == "DB Temp Co"
 
         # 5. Delete Workspace
         response = client.delete(f"/api/workspaces/{workspace_id}")

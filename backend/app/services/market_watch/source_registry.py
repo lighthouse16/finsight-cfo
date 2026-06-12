@@ -53,44 +53,136 @@ def get_source(source_key: str) -> Optional[SourceRegistryEntry]:
     return _REGISTRY.get(source_key)
 
 
+def resolve_source_mode(source_key: str) -> str:
+    from app.core.config import settings
+    # HKAB HIBOR, HKMA HONIA, Frankfurter FX are live public integrations
+    if source_key in ("rates_liquidity_v1", "fx_gba_v1"):
+        if settings.MARKET_WATCH_USE_FIXTURES:
+            return "fixture"
+        return "live"
+        
+    if source_key == "commodities_v1":
+        if settings.ALPHA_VANTAGE_API_KEY:
+            return "live"
+        return "provider_not_configured"
+        
+    if source_key in ("sector_benchmarks_v1", "industry_health_v1"):
+        if settings.CHINADATA_API_KEY or settings.IHS_API_KEY:
+            return "live"
+        return "provider_not_configured"
+        
+    if source_key in ("timing_signal_v1", "red_flags_macro_summary_v1"):
+        if settings.FEDWATCH_API_KEY:
+            return "live"
+        return "provider_not_configured"
+        
+    if source_key == "cross_border_funding_context_v1":
+        if settings.RMB_BENCHMARK_API_KEY:
+            return "live"
+        return "provider_not_configured"
+        
+    if source_key == "funding_channel_ranking_v1":
+        if settings.LENDER_CATALOG_PATH:
+            return "provider_configured"
+        return "provider_not_configured"
+        
+    return "workspace_derived"
+
+
+def get_config_warning_and_hint(source_key: str) -> tuple[Optional[str], Optional[str], Optional[str]]:
+    # Returns (warning, docs_url, raw_url)
+    mode = resolve_source_mode(source_key)
+    if mode != "provider_not_configured":
+        return None, None, None
+        
+    if source_key == "commodities_v1":
+        return (
+            "Provider Alpha Vantage is not configured. "
+            "Please configure ALPHA_VANTAGE_API_KEY in your environment variables to enable provider-backed data.",
+            "https://www.alphavantage.co/documentation/",
+            "https://www.alphavantage.co/"
+        )
+    if source_key in ("sector_benchmarks_v1", "industry_health_v1"):
+        return (
+            "Provider ChinaData/IHS is not configured. "
+            "Please configure CHINADATA_API_KEY / IHS_API_KEY in your environment variables.",
+            "https://www.ihsmarkit.com/products/pmi.html",
+            "https://chinadata-portal.org/"
+        )
+    if source_key in ("timing_signal_v1", "red_flags_macro_summary_v1"):
+        return (
+            "Provider CME FedWatch is not configured. "
+            "Please configure FEDWATCH_API_KEY in your environment variables.",
+            "https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html",
+            "https://www.cmegroup.com/"
+        )
+    if source_key == "cross_border_funding_context_v1":
+        return (
+            "Provider LPR/RMB benchmark is not configured. "
+            "Please configure RMB_BENCHMARK_API_KEY in your environment variables.",
+            "http://www.pbc.gov.cn/",
+            "http://www.chinamoney.com.cn/"
+        )
+    if source_key == "funding_channel_ranking_v1":
+        return (
+            "Lender product catalog path is not configured. "
+            "Please configure LENDER_CATALOG_PATH to locate the JSON catalog file.",
+            "https://github.com/softform-financial/lender-catalog",
+            None
+        )
+    return "Provider is not configured.", None, None
+
+
 def build_provenance(
     source_key: str,
     as_of: Optional[str] = None,
     provider_override: Optional[str] = None,
     freshness_override: Optional[str] = None,
-) -> dict[str, Optional[str]]:
+) -> dict[str, Any]:
     """Build a standard provenance dict matching response-model shapes.
 
-    Returns keys: ``source``, ``provider``, ``asOf``, ``freshness``,
-    ``providerAdapter``, ``providerIntegration``.
-    All values are ``str | None`` so the caller can unpack with ``**``
-    into any provenance model.
-
-    ``providerAdapter`` is the recommended adapter class name from
-    :func:`get_adapter`.  ``providerIntegration`` is the recommended
-    provider name from :func:`get_adapter_provider_name`.
-
-    Override parameters let callers pass dynamic values from upstream
-    responses while falling back to registry defaults.
+    Returns keys matching the SourceProvenance schema, plus backward-compatible fields.
     """
     entry = _REGISTRY.get(source_key)
+    mode = resolve_source_mode(source_key)
+    warning, docs_url, raw_url = get_config_warning_and_hint(source_key)
+    
+    label = entry.get("label", source_key) if entry else source_key
+    
     if entry is None:
-        return {
-            "source": source_key,
-            "provider": provider_override or "Unknown",
-            "asOf": as_of,
-            "freshness": freshness_override or "Workspace",
-            "providerAdapter": "MissingProviderAdapter",
-            "providerIntegration": "Provider integration pending",
-        }
+        provider_name = provider_override or "Unknown"
+    else:
+        provider_name = provider_override or entry.get("provider") or "FinSight CFO Market Watch"
+    
+    confidence_val = "unavailable"
+    if mode in ("live", "provider_configured"):
+        confidence_val = "high"
+    elif mode == "workspace_derived":
+        confidence_val = "medium"
+    elif mode in ("fixture", "provider_not_configured"):
+        confidence_val = "low"
+        
+    last_up = as_of or (entry.get("asOf") if entry else None)
+
     return {
-        "source": entry["sourceKey"],
-        "provider": provider_override or entry.get("provider") or "FinSight CFO Market Watch",
-        "asOf": as_of or entry.get("asOf"),
-        "freshness": freshness_override or entry["freshness"],
+        "source_name": label,
+        "source_mode": mode,
+        "last_updated": last_up,
+        "provider_adapter": get_adapter(source_key),
+        "confidence": confidence_val,
+        "warning": warning,
+        "docs_url": docs_url,
+        "raw_url": raw_url,
+        
+        # Backward compatibility
+        "source": source_key,
+        "provider": provider_name,
+        "asOf": last_up,
+        "freshness": freshness_override or (entry.get("freshness") if entry else "Workspace"),
         "providerAdapter": get_adapter(source_key),
         "providerIntegration": get_adapter_provider_name(source_key),
     }
+
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -119,7 +211,7 @@ _register(SourceRegistryEntry(
     freshness="Monthly",
     caveat=(
         "Industry health uses fixture/workspace-derived sector benchmarks. "
-        "ChinaData.live/IHS integration pending."
+        "ChinaData/IHS integration pending."
     ),
     provider="FinSight CFO Market Watch",
     confidence="low",
@@ -158,8 +250,18 @@ _register(SourceRegistryEntry(
     freshness="Workspace",
     caveat=(
         "Red Flags summary consolidates workspace-derived Phase 2 signals. "
-        "CME FedWatch and ChinaData.live/IHS provider integrations pending."
+        "CME FedWatch and ChinaData/IHS provider integrations pending."
     ),
+    provider="FinSight CFO Market Watch",
+    confidence="low",
+))
+
+_register(SourceRegistryEntry(
+    sourceKey="stress_signals_v1",
+    label="Stress Signals v1",
+    mode="workspace-derived",
+    freshness="Workspace",
+    caveat="Stress signals are workspace-derived based on regional scenarios.",
     provider="FinSight CFO Market Watch",
     confidence="low",
 ))

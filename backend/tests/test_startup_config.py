@@ -1,4 +1,5 @@
 import pytest
+import os
 from app.core.config import Settings
 from app.core.startup_checks import validate_startup_config
 
@@ -23,7 +24,22 @@ def test_valid_production_config_passes():
         APP_MODE="production",
         ALLOW_DEMO_FALLBACK=False,
         MARKET_WATCH_USE_FIXTURES=False,
-        CORS_ALLOW_ORIGINS="http://localhost:5173"
+        CORS_ALLOW_ORIGINS="http://localhost:5173,https://my-production-app.com",
+        JWT_SECRET_KEY="super-secret-key-32-chars-long"
+    )
+    # Should not raise any exception
+    validate_startup_config(settings)
+
+def test_valid_production_config_passes_with_deprecated_fallback():
+    """
+    Verifies that a valid production configuration passes startup checks when using AUTH_SECRET instead of JWT_SECRET_KEY.
+    """
+    settings = Settings(
+        APP_MODE="production",
+        ALLOW_DEMO_FALLBACK=False,
+        MARKET_WATCH_USE_FIXTURES=False,
+        CORS_ALLOW_ORIGINS="http://localhost:5173,https://my-production-app.com",
+        AUTH_SECRET="super-secret-key-32-chars-long"
     )
     # Should not raise any exception
     validate_startup_config(settings)
@@ -36,7 +52,8 @@ def test_production_with_demo_fallback_fails():
         APP_MODE="production",
         ALLOW_DEMO_FALLBACK=True,
         MARKET_WATCH_USE_FIXTURES=False,
-        CORS_ALLOW_ORIGINS="http://localhost:5173"
+        CORS_ALLOW_ORIGINS="http://localhost:5173,https://my-production-app.com",
+        JWT_SECRET_KEY="super-secret-key-32-chars-long"
     )
     with pytest.raises(RuntimeError) as exc_info:
         validate_startup_config(settings)
@@ -50,7 +67,8 @@ def test_production_with_market_fixtures_fails():
         APP_MODE="production",
         ALLOW_DEMO_FALLBACK=False,
         MARKET_WATCH_USE_FIXTURES=True,
-        CORS_ALLOW_ORIGINS="http://localhost:5173"
+        CORS_ALLOW_ORIGINS="http://localhost:5173,https://my-production-app.com",
+        JWT_SECRET_KEY="super-secret-key-32-chars-long"
     )
     with pytest.raises(RuntimeError) as exc_info:
         validate_startup_config(settings)
@@ -76,20 +94,21 @@ def test_cors_origins_parsing_behavior():
         CORS_ALLOW_ORIGINS=" http://localhost:5173 , , http://127.0.0.1:5173  , "
     )
     assert settings.parsed_cors_origins == ["http://localhost:5173", "http://127.0.0.1:5173"]
-    # Should pass startup validation
+    # Should pass startup validation in development mode
     validate_startup_config(settings)
-
 
 def test_env_example_keys_exist_in_settings():
     """
     Verifies that all non-frontend config keys defined in backend/.env.example
     exist as attributes in the Settings class.
     """
-    import os
-    
     # Path to backend/.env.example relative to this test file
     env_example_path = os.path.join(os.path.dirname(__file__), "..", ".env.example")
-    assert os.path.exists(env_example_path), f"backend/.env.example not found at {env_example_path}"
+    # If not found there, let's also look for it in root
+    if not os.path.exists(env_example_path):
+        env_example_path = os.path.join(os.path.dirname(__file__), "..", "..", ".env.example")
+        
+    assert os.path.exists(env_example_path), f".env.example not found at {env_example_path}"
     
     # Read the file and extract key names
     keys = []
@@ -109,4 +128,46 @@ def test_env_example_keys_exist_in_settings():
         # Check if attribute exists on Settings (direct or lowercase fallback due to Pydantic mapping)
         assert hasattr(settings_instance, key) or hasattr(settings_instance, key.lower()), f"Settings is missing key: {key} defined in .env.example"
 
+def test_production_cors_only_localhost_fails():
+    """
+    Verifies that production mode fails if CORS only contains localhost.
+    """
+    settings = Settings(
+        APP_MODE="production",
+        ALLOW_DEMO_FALLBACK=False,
+        MARKET_WATCH_USE_FIXTURES=False,
+        CORS_ALLOW_ORIGINS="http://localhost:5173,http://127.0.0.1:8080",
+        JWT_SECRET_KEY="super-secret-key-32-chars-long"
+    )
+    with pytest.raises(RuntimeError) as exc_info:
+        validate_startup_config(settings)
+    assert "CORS_ALLOW_ORIGINS cannot only contain localhost origins" in str(exc_info.value)
 
+def test_production_without_any_secret_fails():
+    """
+    Verifies that production mode fails if both JWT_SECRET_KEY and AUTH_SECRET are empty.
+    """
+    settings = Settings(
+        APP_MODE="production",
+        ALLOW_DEMO_FALLBACK=False,
+        MARKET_WATCH_USE_FIXTURES=False,
+        CORS_ALLOW_ORIGINS="https://my-production-app.com",
+        JWT_SECRET_KEY="",
+        AUTH_SECRET=""
+    )
+    with pytest.raises(RuntimeError) as exc_info:
+        validate_startup_config(settings)
+    assert "JWT_SECRET_KEY (or AUTH_SECRET) must be configured" in str(exc_info.value)
+
+def test_database_persistence_without_url_fails():
+    """
+    Verifies that if PERSISTENCE_BACKEND is database, DATABASE_URL cannot be empty.
+    """
+    settings = Settings(
+        APP_MODE="development",
+        PERSISTENCE_BACKEND="database",
+        DATABASE_URL=""
+    )
+    with pytest.raises(RuntimeError) as exc_info:
+        validate_startup_config(settings)
+    assert "DATABASE_URL must be configured when PERSISTENCE_BACKEND is set to database" in str(exc_info.value)
