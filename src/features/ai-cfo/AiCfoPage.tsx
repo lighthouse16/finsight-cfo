@@ -593,7 +593,7 @@ export default function AiCfoPage() {
               <div className="flex flex-wrap items-center gap-2">
                 {latestAiMode && (
                   <span className={`rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] ${
-                    latestAiMode === 'provider_configured'
+                    latestAiMode === 'provider_configured' || latestAiMode === 'openai' || latestAiMode === 'azure_openai' || latestAiMode === 'google_ai'
                       ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-300'
                       : latestAiMode === 'deterministic_fallback'
                       ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/20 dark:text-amber-300'
@@ -601,7 +601,13 @@ export default function AiCfoPage() {
                       ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
                       : 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-300'
                   }`}>
-                    {latestAiMode === 'provider_configured' ? 'AI Powered' : latestAiMode === 'deterministic_fallback' ? 'Deterministic' : latestAiMode === 'provider_not_configured' ? 'No AI Provider' : latestAiMode}
+                    {latestAiMode === 'provider_configured' || latestAiMode === 'openai' || latestAiMode === 'azure_openai' || latestAiMode === 'google_ai'
+                      ? `AI Powered (${latestAiMode === 'google_ai' ? 'Gemini' : latestAiMode.replace('_', ' ')})`
+                      : latestAiMode === 'deterministic_fallback'
+                      ? 'Deterministic'
+                      : latestAiMode === 'provider_not_configured'
+                      ? 'No AI Provider'
+                      : latestAiMode}
                   </span>
                 )}
                 {isReady && renderContextBadge()}
