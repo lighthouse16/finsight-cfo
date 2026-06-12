@@ -1,5 +1,5 @@
 from functools import lru_cache
-
+from typing import Optional
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
@@ -14,6 +14,9 @@ class Settings(BaseSettings):
 
     # Auth / Tenant Context Foundation
     AUTH_MODE: str = "local"
+    AUTH_SECRET: str = ""          # Deprecated fallback
+    JWT_SECRET_KEY: str = ""       # Canonical JWT signing key
+    JWT_ALGORITHM: str = "HS256"
     AUTH_DEFAULT_ORGANIZATION_ID: str = "demo-org"
     AUTH_DEFAULT_USER_ID: str = "demo-user"
     AUTH_DEFAULT_ROLE: str = "admin"
@@ -27,12 +30,12 @@ class Settings(BaseSettings):
     FX_PROVIDER: str = "frankfurter"
     FX_PROVIDER_BASE_URL: str = "https://api.frankfurter.dev/v2"
     ALPHA_VANTAGE_API_KEY: str = ""
-    COMMODITY_PROVIDER: str = "fixture"
-    MARKET_WATCH_AUTO_REFRESH_SECONDS: int = 300
     CHINADATA_API_KEY: str = ""
     IHS_MARKIT_API_KEY: str = ""
     FEDWATCH_API_KEY: str = ""
     BOCHK_CATALOG_CONFIGURED: bool = False
+    COMMODITY_PROVIDER: str = "fixture"
+    MARKET_WATCH_AUTO_REFRESH_SECONDS: int = 300
 
     CORS_ALLOW_ORIGINS: str = (
         "http://localhost:5173,http://127.0.0.1:5173,"
@@ -48,7 +51,8 @@ class Settings(BaseSettings):
     # Object Storage Configs
     OBJECT_STORAGE_BACKEND: str = "local_file"
     S3_ENDPOINT_URL: str = ""
-    S3_BUCKET: str = ""
+    S3_BUCKET: str = ""             # Canonical S3 bucket name
+    S3_BUCKET_NAME: str = ""        # Deprecated fallback
     S3_ACCESS_KEY_ID: str = ""
     S3_SECRET_ACCESS_KEY: str = ""
     S3_REGION: str = "us-east-1"
@@ -65,21 +69,10 @@ class Settings(BaseSettings):
     GOOGLE_AI_MODEL: str = "gemini-1.5-flash"
     GOOGLE_AI_BASE_URL: str = ""
 
-    # Queue / Scheduler Backend
-    QUEUE_BACKEND: str = "in_process"  # "in_process", "redis" (future), "celery" (future)
-
-    # Report Worker Harness Configuration
-    REPORT_WORKER_ENABLED: bool = False
-    REPORT_WORKER_MAX_JOBS_PER_TICK: int = 1
-    SCHEDULER_MODE: str = "manual"
-
-    @property
-    def normalized_object_storage_backend(self) -> str:
-        return (self.OBJECT_STORAGE_BACKEND or "local_file").strip().lower()
-
     # Queue Configuration
-    QUEUE_BACKEND: str = "in_process"
-    QUEUE_REDIS_URL: str = "redis://localhost:6379/0"
+    QUEUE_BACKEND: str = "in_process"  # "in_process", "redis" or "local" (as fallback)
+    QUEUE_REDIS_URL: str = "redis://localhost:6379/0" # Canonical Redis URL
+    REDIS_URL: str = "redis://localhost:6379/0"       # Deprecated fallback
     QUEUE_IN_PROCESS_MAXSIZE: int = 0
 
     # Rate Limiting Configuration
@@ -87,6 +80,36 @@ class Settings(BaseSettings):
     RATE_LIMIT_IP_BURST: float = 20.0
     RATE_LIMIT_WS_RATE: float = 50.0
     RATE_LIMIT_WS_BURST: float = 100.0
+
+    # Report Worker Harness Configuration
+    REPORT_WORKER_ENABLED: bool = False
+    REPORT_WORKER_MAX_JOBS_PER_TICK: int = 1
+    SCHEDULER_MODE: str = "manual"
+
+    def __init__(self, **values):
+        super().__init__(**values)
+        
+        # Standardize JWT secret
+        auth_secret_val = self.JWT_SECRET_KEY or self.AUTH_SECRET
+        if auth_secret_val:
+            self.JWT_SECRET_KEY = auth_secret_val
+            self.AUTH_SECRET = auth_secret_val
+            
+        # Standardize Redis URL
+        redis_url_val = self.QUEUE_REDIS_URL or self.REDIS_URL
+        if redis_url_val:
+            self.QUEUE_REDIS_URL = redis_url_val
+            self.REDIS_URL = redis_url_val
+            
+        # Standardize S3 Bucket
+        s3_bucket_val = self.S3_BUCKET or self.S3_BUCKET_NAME
+        if s3_bucket_val:
+            self.S3_BUCKET = s3_bucket_val
+            self.S3_BUCKET_NAME = s3_bucket_val
+
+    @property
+    def normalized_object_storage_backend(self) -> str:
+        return (self.OBJECT_STORAGE_BACKEND or "local_file").strip().lower()
 
     @property
     def normalized_persistence_backend(self) -> str:
@@ -136,9 +159,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
 
-
 settings = Settings()
-
 
 @lru_cache
 def get_settings() -> Settings:

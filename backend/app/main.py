@@ -50,9 +50,46 @@ def health_check():
 
 @app.get("/ready")
 def readiness_check():
-    # In a full deployment, this would verify DB and Redis connectivity.
-    # For now, if the app reaches this point, we assume it's ready to handle traffic.
-    return {"status": "ready"}
+    from fastapi import HTTPException
+    checks = {}
+    failed = False
+
+    if settings.normalized_persistence_backend == "database":
+        try:
+            from sqlalchemy import text
+            from app.db.session import get_engine
+            engine = get_engine()
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            checks["database"] = "ok"
+        except Exception:
+            checks["database"] = "failed"
+            failed = True
+    else:
+        checks["database"] = "not_applicable"
+
+    # Normalize queue backend comparison
+    q_backend = getattr(settings, "QUEUE_BACKEND", "").strip().lower()
+    if q_backend in ("redis", "local"):
+        try:
+            import redis
+            r = redis.Redis.from_url(settings.QUEUE_REDIS_URL, socket_connect_timeout=2.0)
+            r.ping()
+            checks["redis"] = "ok"
+        except Exception:
+            checks["redis"] = "failed"
+            # If queue backend is 'local', redis is optional; but if it is 'redis' we fail
+            if q_backend == "redis":
+                failed = True
+    else:
+        checks["redis"] = "not_applicable"
+
+    if failed:
+        raise HTTPException(
+            status_code=503,
+            detail={"status": "unready", "checks": checks}
+        )
+    return {"status": "ready", "checks": checks}
 
 @app.get("/api/runtime/status")
 def runtime_status():
