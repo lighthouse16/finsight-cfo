@@ -82,6 +82,10 @@ This document outlines the high-level roadmap for transitioning FinSight CFO fro
     - Add a controlled backend route to trigger one workspace-scoped report worker tick on demand, respecting `REPORT_WORKER_ENABLED` and `REPORT_WORKER_MAX_JOBS_PER_TICK` without auto-start behavior.
 33. **Product Smoke Flow Coverage (Phase 15)** [COMPLETED]
     - Add focused backend end-to-end product smoke tests for the real FinSight CFO product flow.
+34. **Final Product Readiness Validation (Phase 16)** [COMPLETED]
+    - Run full backend test suites, frontend lint & build, Docker Compose validation, and compile final readiness report.
+35. **Product Finance Correctness & Traceability Audit** [COMPLETED]
+    - Conduct a granular correctness audit of all 24 core financial formulas and indicators, publish the traceability matrices, and align coverage with the BOCHK Challenge 2026 guidelines.
 
 ---
 
@@ -103,6 +107,7 @@ This document outlines the high-level roadmap for transitioning FinSight CFO fro
 
 
 ## Phase 3: Authentication & Multi-Tenancy
+- [x] Add minimal backend RBAC route guardrails using local fallback context [COMPLETED]
 - Integrate production identity providers (OIDC/OAuth2/SAML).
 - Add Role-Based Access Control (RBAC) (e.g., CFO, Analyst, Auditor).
 - Implement secure token validation and request context middleware.
