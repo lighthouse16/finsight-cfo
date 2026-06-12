@@ -467,10 +467,8 @@ export default function FundingStrategyPage() {
                         <div className="h-full bg-softform-teal-500" style={{ width: `${channel.score}%` }} />
                       </div>
                     </div>
-                    </div>
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 text-xs border-t border-b border-softform-navy-950/5 py-3 my-2">
+  
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 text-xs border-t border-b border-softform-navy-950/5 py-3 my-2">
                     <div>
                       <span className="text-[10px] uppercase font-semibold text-softform-text-muted block tracking-wider mb-0.5">Estimated Cost</span>
                       <span className="text-softform-navy-950 font-medium">{channel.estimated_cost_band}</span>
@@ -483,7 +481,7 @@ export default function FundingStrategyPage() {
                       <span className="text-[10px] uppercase font-semibold text-softform-text-muted block tracking-wider mb-0.5">Eligibility</span>
                       <span className="text-softform-navy-950">{channel.eligibility_notes}</span>
                     </div>
-                  </div>
+                  </div>                  </div>
 
                   <div className="grid gap-4 md:grid-cols-2 text-xs">
                     <div className="space-y-1.5 bg-emerald-500/5 border border-emerald-500/10 rounded-xl p-3">
@@ -514,7 +512,7 @@ export default function FundingStrategyPage() {
                         Matched Lender Products
                       </p>
                       <div className="space-y-2.5">
-                        {channel.matchedProducts.map((prod) => (
+                        {channel.matchedProducts.map((prod: any) => (
                           <div key={prod.product_id} className="text-[11px] leading-relaxed bg-white/20 dark:bg-slate-900/20 rounded-xl p-2.5 border border-white/30 dark:border-slate-800/30">
                             <div className="flex justify-between items-start gap-1 font-medium text-softform-navy-950">
                               <span>{prod.product_name}</span>
