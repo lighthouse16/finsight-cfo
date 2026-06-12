@@ -35,9 +35,12 @@ export function getActiveWorkspaceId(): string | null {
   return localStorage.getItem('active_workspace_id')
 }
 
-export async function triggerAnalysisRun(workspaceId: string, runType: string): Promise<any> {
+export async function triggerAnalysisRun(workspaceId: string, runType: string, snapshotId?: string): Promise<any> {
   const slug = RUN_TYPE_SLUGS[runType] || runType
-  const res = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/analysis/${slug}/run`, {
+  const params = new URLSearchParams()
+  if (snapshotId) params.set('snapshot_id', snapshotId)
+  const queryString = params.toString() ? `?${params.toString()}` : ''
+  const res = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/analysis/${slug}/run${queryString}`, {
     method: 'POST',
     headers: getWorkspaceHeaders({
       'Content-Type': 'application/json',
