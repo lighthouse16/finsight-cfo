@@ -621,13 +621,13 @@ export default function AiCfoPage() {
                     <p className={`text-sm leading-relaxed ${message.role === 'user' ? 'text-white' : 'text-softform-navy-950 font-normal'}`}>{message.content}</p>
                     {message.sources && message.sources.length > 0 && (
                       <div className="mt-3 flex flex-wrap gap-1.5 border-t border-softform-navy-950/5 pt-2">
-                        {message.sources.map((source) => (
+                        {message.sources.map((source, idx) => (
                           <span
-                            key={source.title}
+                            key={`${source.title}-${idx}`}
                             title={source.snippet ?? undefined}
                             className="rounded-full bg-softform-mist-100 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-softform-teal-deep cursor-help"
                           >
-                            {source.title}
+                            {source.title}{source.chunkIndex !== undefined && source.chunkIndex !== null ? ` (Chunk ${source.chunkIndex})` : ""}
                           </span>
                         ))}
                       </div>
