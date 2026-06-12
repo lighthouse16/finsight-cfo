@@ -174,6 +174,7 @@ export default function AdvisoryBlueprintPage() {
       }
 
       const activeWorkspaceContext = loadWorkspaceAnalysisContext()
+      setWorkspaceAnalysisContext(activeWorkspaceContext)
       if (activeWorkspaceContext) {
         setFinancialPreviewAnalysis(await getFinancialPreviewAnalysis())
       } else {
@@ -371,6 +372,9 @@ export default function AdvisoryBlueprintPage() {
     )
   }
 
+  const snapshotMeta = financialPreviewAnalysis?.snapshot?.metadata
+  const isPersistent = Boolean(blueprint?.run_metadata || snapshotMeta?.persistent || snapshotMeta?.source === 'workspace_persistent_snapshot')
+  const isPreview = !isPersistent && Boolean(snapshotMeta?.preview_only || snapshotMeta?.previewOnly || snapshotMeta?.source === 'data_room_workspace_preview')
   const { keySections, recommendedActions, executiveBrief, blueprintStatus, companyName } = blueprint
 
   return (
@@ -388,10 +392,31 @@ export default function AdvisoryBlueprintPage() {
         }
         chip={
           <StatusChip variant={blueprintStatus === 'constrained_context' ? 'caution' : 'neutral'}>
-            {getStatusLabel(blueprintStatus)}
+            {isPersistent ? 'Workspace Analysis' : isPreview ? 'Preview analysis' : getStatusLabel(blueprintStatus)}
           </StatusChip>
         }
       />
+
+      {/* Fallback Badges / Banners */}
+      {!isPersistent && (
+        <div className="rounded-[24px] border border-white bg-white/70 p-5 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-softform-amber-500/10 text-softform-amber-500 border border-softform-amber-500/20">
+              <AlertTriangle size={14} />
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-softform-navy-950">
+                {isPreview ? "Preview Data Fallback" : "Demo Sample Data Fallback"}
+              </p>
+              <p className="text-xs text-softform-text-secondary leading-relaxed">
+                {isPreview 
+                  ? "Displaying advisory readiness from temporary in-memory parsed statements. Re-compiling or restarting the server will reset this state. Please calibrate a persistent workspace snapshot in the Data Room." 
+                  : "Displaying Harbour & Finch mock demo advisory blueprint because no persistent active snapshot exists. Go to the Data Room to upload company records and calibrate outcomes."}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-3">
         <RunMetadataBadge metadata={blueprint?.run_metadata} />

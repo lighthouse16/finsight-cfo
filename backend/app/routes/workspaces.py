@@ -1120,3 +1120,123 @@ async def delete_workspace_report(
         audit_repo=audit_repo,
         settings=settings,
     )
+
+
+# New Data Room persistent endpoints
+@router.post("/{workspace_id}/data-room/files", response_model=UploadedFileRecord)
+async def upload_workspace_data_room_file(
+    workspace_id: str,
+    recordKey: str = Form(...),
+    file: UploadFile = File(...),
+    workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
+    file_repo: FileMetadataRepository = Depends(get_file_metadata_repository_dependency),
+    audit_repo: AuditEventRepository = Depends(get_audit_event_repository_dependency),
+):
+    """Alias for POST /{workspace_id}/files, providing a clear production-like endpoint."""
+    if file is None or not (file.filename or ""):
+        raise HTTPException(status_code=422, detail="file is required")
+    file_bytes = await file.read()
+    content_type = file.content_type or "application/octet-stream"
+    
+    return await service_upload_workspace_file(
+        workspace_id=workspace_id,
+        record_key=recordKey,
+        filename=file.filename,
+        file_bytes=file_bytes,
+        content_type=content_type,
+        workspace_repo=workspace_repo,
+        file_repo=file_repo,
+        audit_repo=audit_repo,
+        settings=settings,
+    )
+
+
+@router.get("/{workspace_id}/data-room/files", response_model=List[UploadedFileRecord])
+async def list_workspace_data_room_files(
+    workspace_id: str,
+    workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
+    file_repo: FileMetadataRepository = Depends(get_file_metadata_repository_dependency),
+):
+    """Alias for GET /{workspace_id}/files."""
+    return await service_list_workspace_files(
+        workspace_id=workspace_id,
+        workspace_repo=workspace_repo,
+        file_repo=file_repo,
+        settings=settings,
+    )
+
+
+@router.post("/{workspace_id}/data-room/snapshot")
+async def post_workspace_data_room_snapshot(
+    workspace_id: str,
+    currency: Optional[str] = None,
+    reportingPeriod: Optional[str] = None,
+    workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
+    file_repo: FileMetadataRepository = Depends(get_file_metadata_repository_dependency),
+):
+    """Compile and save snapshot. Alias of POST /{workspace_id}/snapshot/build."""
+    return await build_workspace_snapshot(
+        workspace_id=workspace_id,
+        currency=currency,
+        reportingPeriod=reportingPeriod,
+        workspace_repo=workspace_repo,
+        file_repo=file_repo,
+    )
+
+
+@router.get("/{workspace_id}/financial-analysis")
+async def get_workspace_financial_analysis(
+    workspace_id: str,
+    workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
+):
+    """Run/retrieve financial analysis from active workspace snapshot instead of demo seed."""
+    workspace = workspace_repo.get_workspace(workspace_id)
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+        
+    snapshot = WorkspaceStore.get_active_snapshot(workspace_id)
+    if not snapshot:
+        raise HTTPException(
+            status_code=404, 
+            detail={
+                "code": "ACTIVE_SNAPSHOT_NOT_FOUND",
+                "message": "No active financial snapshot found for this workspace. Please compile a snapshot first.",
+                "source": "workspace_data"
+            }
+        )
+        
+    from app.services.analysis_run_service import execute_financial_health_run
+    
+    try:
+        run = execute_financial_health_run(workspace_id, snapshot.id)
+        res = dict(run.results)
+        
+        # Override metadata to show persistent active context
+        if "snapshot" in res:
+            meta = dict(res["snapshot"].get("metadata") or {})
+            meta.update({
+                "mode": "production",
+                "source": "workspace_persistent_snapshot",
+                "persistent": True,
+            })
+            res["snapshot"]["metadata"] = meta
+            
+        res["run_metadata"] = {
+            "id": run.id,
+            "runId": run.id,
+            "snapshotId": run.snapshot_id,
+            "status": run.status,
+            "runType": run.run_type,
+            "createdAt": run.created_at,
+            "logicVersion": run.logic_version,
+            "warningsCount": len(run.warnings)
+        }
+        return res
+    except Exception as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "ANALYSIS_FAILED",
+                "message": f"Failed to execute financial health analysis run: {str(exc)}",
+            }
+        )
