@@ -149,6 +149,8 @@ async def test_upload_workspace_file_local_mode(temp_storage, monkeypatch):
     # Mock WorkspaceStore.get_workspace to make sure FileStore can work
     from app.storage.workspace_store import WorkspaceStore
     monkeypatch.setattr(WorkspaceStore, "get_workspace", lambda cls, wid: ws_repo.get_workspace(wid))
+    from app.core.config import settings as global_settings
+    monkeypatch.setattr(global_settings, "PERSISTENCE_BACKEND", "local")
 
     record = await upload_workspace_file(
         workspace_id="ws_local",

@@ -5,6 +5,10 @@ from app.persistence.factory import get_persistence_backend_name, get_workspace_
 from app.persistence.local_adapters import LocalWorkspaceRepository, LocalFileMetadataRepository, LocalAnalysisRunRepository, LocalAuditEventRepository, LocalJobRepository, LocalReportRepository
 from app.persistence.errors import PersistenceConfigurationError, PersistenceAdapterNotImplementedError
 
+@pytest.fixture(autouse=True)
+def clean_env(monkeypatch):
+    monkeypatch.delenv("PERSISTENCE_BACKEND", raising=False)
+
 def test_default_backend_name():
     """
     Verifies that the normalized default backend is 'local'.

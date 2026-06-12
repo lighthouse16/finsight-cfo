@@ -2,6 +2,10 @@ import pytest
 from app.main import app
 from app.core.config import settings
 
+@pytest.mark.skipif(
+    settings.normalized_persistence_backend == "database",
+    reason="Workspace route contract guardrails for local mode default settings are skipped in database mode"
+)
 def test_workspace_route_contract_guardrails():
     """
     1. Assert local mode default setting remains 'local'.
@@ -62,6 +66,10 @@ def test_workspace_route_contract_guardrails():
     assert "PATCH" in routes_map["/api/workspaces/{workspace_id}/reports/{report_id}"]
     assert "DELETE" in routes_map["/api/workspaces/{workspace_id}/reports/{report_id}"]
 
+@pytest.mark.skipif(
+    settings.normalized_persistence_backend == "database",
+    reason="DB session check for local mode is skipped in database mode"
+)
 def test_no_db_session_initialization_on_import():
     """
     6. Assert no DB engine/session is initialized merely by importing routes/app.

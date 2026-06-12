@@ -33,24 +33,15 @@ async def upload_workspace_file(
         raise HTTPException(status_code=422, detail="file is required")
 
     if settings.normalized_persistence_backend == "database":
-        from app.storage.workspace_store import STORAGE_DIR
-        upload_root = os.path.join(STORAGE_DIR, "uploads")
-        workspace_dir = os.path.join(upload_root, workspace_id)
-        os.makedirs(workspace_dir, exist_ok=True)
+        from app.storage.object_storage import ObjectStorageAdapter
         ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "bin"
-        dest_filename = f"{record_key}.{ext}"
-        file_path = os.path.join(workspace_dir, dest_filename)
+        storage_key = f"workspaces/{workspace_id}/files/{record_key}.{ext}"
         
-        if os.path.exists(file_path):
-            try:
-                os.remove(file_path)
-            except Exception:
-                pass
         try:
-            with open(file_path, "wb") as f:
-                f.write(file_bytes)
+            adapter = ObjectStorageAdapter(settings)
+            storage_uri = adapter.put_object(key=storage_key, data=file_bytes, content_type=content_type)
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to write file to disk: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to store file content: {str(e)}")
             
         res_dict = file_repo.save_file_record(
             workspace_id=workspace_id,
@@ -58,7 +49,7 @@ async def upload_workspace_file(
             filename=filename,
             content_type=content_type,
             file_size_bytes=len(file_bytes),
-            storage_uri=file_path,
+            storage_uri=storage_uri,
         )
         await record_audit_event_best_effort(
             audit_repo=audit_repo,
@@ -120,11 +111,9 @@ async def delete_workspace_file(
             raise HTTPException(status_code=404, detail="File not found in this workspace")
             
         file_path = file_record.get("filePath")
-        if file_path and os.path.exists(file_path):
-            try:
-                os.remove(file_path)
-            except Exception:
-                pass
+        if file_path:
+            from app.storage.object_storage import ObjectStorageAdapter
+            ObjectStorageAdapter(settings).delete_object(file_path)
                 
         success = file_repo.delete_file_record(file_id)
         if not success:
@@ -161,12 +150,8 @@ def get_workspace_file_bytes(
         file_bytes = None
         if file_rec_dict and file_rec_dict.get("filePath"):
             file_path = file_rec_dict["filePath"]
-            if os.path.exists(file_path):
-                try:
-                    with open(file_path, "rb") as f:
-                        file_bytes = f.read()
-                except Exception:
-                    pass
+            from app.storage.object_storage import ObjectStorageAdapter
+            file_bytes = ObjectStorageAdapter(settings).get_object(file_path)
         return file_bytes
     else:
         return FileStore.get_file_content(file_id)
@@ -182,21 +167,13 @@ def cascade_delete_workspace_files(
     """
     if settings.normalized_persistence_backend == "database":
         db_records = file_repo.list_file_records(workspace_id)
+        from app.storage.object_storage import ObjectStorageAdapter
+        adapter = ObjectStorageAdapter(settings)
         for r in db_records:
             fid = r.get("id")
             fpath = r.get("filePath")
-            if fpath and os.path.exists(fpath):
-                try:
-                    os.remove(fpath)
-                except Exception:
-                    pass
+            if fpath:
+                adapter.delete_object(fpath)
             file_repo.delete_file_record(fid)
-            
-        ws_dir = os.path.join(FileStore._upload_root, workspace_id)
-        if os.path.exists(ws_dir):
-            try:
-                shutil.rmtree(ws_dir)
-            except Exception:
-                pass
     else:
         FileStore.delete_workspace_files(workspace_id)

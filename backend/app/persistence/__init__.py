@@ -19,6 +19,7 @@ from app.persistence.local_adapters import (
 from app.persistence.database_adapters import (
     DatabaseWorkspaceRepository,
     DatabaseFileMetadataRepository,
+    DatabaseFinancialSnapshotRepository,
     DatabaseAnalysisRunRepository,
     DatabaseAuditEventRepository,
     DatabaseJobRepository,
@@ -27,6 +28,7 @@ from app.persistence.database_adapters import (
 from app.persistence.factory import (
     get_workspace_repository,
     get_file_metadata_repository,
+    get_financial_snapshot_repository,
     get_analysis_run_repository,
     get_audit_event_repository,
     get_job_repository,
@@ -55,6 +57,7 @@ __all__ = [
     # Database adapters
     "DatabaseWorkspaceRepository",
     "DatabaseFileMetadataRepository",
+    "DatabaseFinancialSnapshotRepository",
     "DatabaseAnalysisRunRepository",
     "DatabaseAuditEventRepository",
     "DatabaseJobRepository",
@@ -62,6 +65,7 @@ __all__ = [
     # Factory & helpers
     "get_workspace_repository",
     "get_file_metadata_repository",
+    "get_financial_snapshot_repository",
     "get_analysis_run_repository",
     "get_audit_event_repository",
     "get_job_repository",
@@ -71,3 +75,4 @@ __all__ = [
     "PersistenceConfigurationError",
     "PersistenceAdapterNotImplementedError",
 ]
+

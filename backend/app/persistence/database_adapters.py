@@ -2,9 +2,9 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
-from app.db.models import Workspace, Organization, WorkspaceFile, WorkspaceFileVersion, AnalysisRun as DbAnalysisRun, AuditEvent as DbAuditEvent, Job as DbJob, Report as DbReport
-from app.models.workspace import CompanyWorkspace
-from app.persistence.interfaces import WorkspaceRepository, FileMetadataRepository, AnalysisRunRepository, AuditEventRepository, JobRepository, ReportRepository
+from app.db.models import Workspace, Organization, WorkspaceFile, WorkspaceFileVersion, AnalysisRun as DbAnalysisRun, AuditEvent as DbAuditEvent, Job as DbJob, Report as DbReport, FinancialSnapshot as DbFinancialSnapshot, FinancialSnapshotVersion as DbFinancialSnapshotVersion
+from app.models.workspace import CompanyWorkspace, FinancialSnapshot as PydanticFinancialSnapshot
+from app.persistence.interfaces import WorkspaceRepository, FileMetadataRepository, AnalysisRunRepository, AuditEventRepository, JobRepository, ReportRepository, FinancialSnapshotRepository
 from app.persistence.errors import PersistenceConfigurationError
 
 class DatabaseWorkspaceRepository(WorkspaceRepository):
@@ -73,20 +73,18 @@ class DatabaseWorkspaceRepository(WorkspaceRepository):
         """
         self._ensure_default_org()
         
-        existing = (
-            self.session.query(Workspace)
-            .filter_by(id=workspace_id)
-            .filter(Workspace.deleted_at.is_(None))
-            .filter(Workspace.status != "deleted")
-            .first()
-        )
+        existing = self.session.query(Workspace).filter_by(id=workspace_id).first()
         if existing:
-            return CompanyWorkspace(
-                id=existing.id,
-                companyName=existing.name,
-                createdAt=existing.created_at.isoformat(),
-                metadata=existing.workspace_metadata or {}
-            )
+            if existing.deleted_at is None and existing.status != "deleted":
+                return CompanyWorkspace(
+                    id=existing.id,
+                    companyName=existing.name,
+                    createdAt=existing.created_at.isoformat(),
+                    metadata=existing.workspace_metadata or {}
+                )
+            else:
+                self.session.delete(existing)
+                self.session.flush()
 
         new_workspace = Workspace(
             id=workspace_id,
@@ -439,6 +437,21 @@ class DatabaseAnalysisRunRepository(AnalysisRunRepository):
         if status in ("completed", "failed", "cancelled"):
             completed_at = datetime.now(timezone.utc)
             
+        existing_run = self.session.query(DbAnalysisRun).filter_by(id=run_id).first()
+        if existing_run:
+            existing_run.status = status
+            existing_run.snapshot_version_id = snapshot_id or None
+            existing_run.duration_ms = (metadata or {}).get("duration_ms")
+            existing_run.error_message = error_message
+            existing_run.input_payload = input_payload or {}
+            existing_run.output_payload = output_payload or {}
+            existing_run.summary = summary or {}
+            existing_run.run_metadata = metadata or {}
+            if completed_at:
+                existing_run.completed_at = completed_at
+            self.session.commit()
+            return self._to_dict(existing_run)
+            
         run = DbAnalysisRun(
             id=run_id,
             workspace_id=workspace_id,
@@ -463,7 +476,14 @@ class DatabaseAnalysisRunRepository(AnalysisRunRepository):
         """
         Get an analysis run by ID.
         """
-        run = self.session.query(DbAnalysisRun).filter_by(id=run_id).first()
+        run = (
+            self.session.query(DbAnalysisRun)
+            .join(Workspace, Workspace.id == DbAnalysisRun.workspace_id)
+            .filter(DbAnalysisRun.id == run_id)
+            .filter(Workspace.deleted_at.is_(None))
+            .filter(Workspace.status != "deleted")
+            .first()
+        )
         if not run:
             return None
         return self._to_dict(run)
@@ -474,7 +494,10 @@ class DatabaseAnalysisRunRepository(AnalysisRunRepository):
         """
         runs = (
             self.session.query(DbAnalysisRun)
-            .filter_by(workspace_id=workspace_id)
+            .join(Workspace, Workspace.id == DbAnalysisRun.workspace_id)
+            .filter(DbAnalysisRun.workspace_id == workspace_id)
+            .filter(Workspace.deleted_at.is_(None))
+            .filter(Workspace.status != "deleted")
             .order_by(DbAnalysisRun.created_at.desc())
             .all()
         )
@@ -486,7 +509,10 @@ class DatabaseAnalysisRunRepository(AnalysisRunRepository):
         """
         runs = (
             self.session.query(DbAnalysisRun)
-            .filter_by(workspace_id=workspace_id)
+            .join(Workspace, Workspace.id == DbAnalysisRun.workspace_id)
+            .filter(DbAnalysisRun.workspace_id == workspace_id)
+            .filter(Workspace.deleted_at.is_(None))
+            .filter(Workspace.status != "deleted")
             .order_by(DbAnalysisRun.created_at.desc())
             .limit(limit)
             .all()
@@ -612,7 +638,12 @@ class DatabaseAuditEventRepository(AuditEventRepository):
         """
         query = self.session.query(DbAuditEvent)
         if workspace_id is not None:
-            query = query.filter_by(workspace_id=workspace_id)
+            query = (
+                query.join(Workspace, Workspace.id == DbAuditEvent.workspace_id)
+                .filter(DbAuditEvent.workspace_id == workspace_id)
+                .filter(Workspace.deleted_at.is_(None))
+                .filter(Workspace.status != "deleted")
+            )
         
         events = query.order_by(DbAuditEvent.created_at.desc()).limit(limit).all()
         return [self._to_dict(e) for e in events]
@@ -909,5 +940,150 @@ class DatabaseReportRepository(ReportRepository):
         report.status = "deleted"
         self.session.commit()
         return True
+
+
+class DatabaseFinancialSnapshotRepository(FinancialSnapshotRepository):
+    """
+    SQLAlchemy-backed implementation of the FinancialSnapshotRepository.
+    Enforcement of tenant isolation and authorization is deferred to future auth/RBAC tasks.
+    """
+    def __init__(self, db_session: Session) -> None:
+        self.session = db_session
+
+    def get_active_snapshot(self, workspace_id: str) -> Optional[PydanticFinancialSnapshot]:
+        """Get the active financial snapshot for a workspace."""
+        ws = (
+            self.session.query(Workspace)
+            .filter_by(id=workspace_id)
+            .filter(Workspace.deleted_at.is_(None))
+            .filter(Workspace.status != "deleted")
+            .first()
+        )
+        if not ws:
+            return None
+
+        db_snap = (
+            self.session.query(DbFinancialSnapshot)
+            .filter_by(workspace_id=workspace_id)
+            .first()
+        )
+        if not db_snap:
+            return None
+        
+        # Find the active version
+        if db_snap.active_version_id:
+            version = (
+                self.session.query(DbFinancialSnapshotVersion)
+                .filter_by(id=db_snap.active_version_id)
+                .first()
+            )
+        else:
+            version = (
+                self.session.query(DbFinancialSnapshotVersion)
+                .filter_by(financial_snapshot_id=db_snap.id)
+                .order_by(DbFinancialSnapshotVersion.version_number.desc())
+                .first()
+            )
+            
+        if not version:
+            return None
+            
+        # Deserialize from statement_data
+        data = dict(version.statement_data)
+        # Ensure ID and workspace ID match correctly
+        data["id"] = version.id
+        data["workspaceId"] = workspace_id
+        return PydanticFinancialSnapshot.model_validate(data)
+
+    def save_snapshot(self, snapshot: PydanticFinancialSnapshot) -> PydanticFinancialSnapshot:
+        """Save a financial snapshot (and version it)."""
+        # Check if DbFinancialSnapshot exists for the workspace
+        db_snap = (
+            self.session.query(DbFinancialSnapshot)
+            .filter_by(workspace_id=snapshot.workspace_id)
+            .first()
+        )
+        if not db_snap:
+            # Query workspace to get organization_id
+            ws = self.session.query(Workspace).filter_by(id=snapshot.workspace_id).first()
+            org_id = ws.organization_id if ws else "org_default"
+            db_snap = DbFinancialSnapshot(
+                id=f"snap_ws_{snapshot.workspace_id}",
+                workspace_id=snapshot.workspace_id,
+                organization_id=org_id,
+            )
+            self.session.add(db_snap)
+            self.session.flush()
+        
+        # Calculate next version number
+        max_ver = (
+            self.session.query(DbFinancialSnapshotVersion.version_number)
+            .filter_by(financial_snapshot_id=db_snap.id)
+            .order_by(DbFinancialSnapshotVersion.version_number.desc())
+            .first()
+        )
+        next_ver = (max_ver[0] + 1) if max_ver else 1
+
+        # Check if version with this id already exists to avoid duplicate inserts
+        existing_version = (
+            self.session.query(DbFinancialSnapshotVersion)
+            .filter_by(id=snapshot.id)
+            .first()
+        )
+        if existing_version:
+            # Update statement_data
+            existing_version.statement_data = snapshot.model_dump(by_alias=True)
+            db_snap.active_version_id = snapshot.id
+            self.session.commit()
+            return snapshot
+
+        # Create DbFinancialSnapshotVersion
+        version = DbFinancialSnapshotVersion(
+            id=snapshot.id,
+            financial_snapshot_id=db_snap.id,
+            version_number=next_ver,
+            statement_data=snapshot.model_dump(by_alias=True),
+            projections_data={}
+        )
+        self.session.add(version)
+        db_snap.active_version_id = snapshot.id
+        self.session.commit()
+        return snapshot
+
+    def list_snapshots(self, workspace_id: str) -> List[PydanticFinancialSnapshot]:
+        """List all snapshots for a workspace."""
+        ws = (
+            self.session.query(Workspace)
+            .filter_by(id=workspace_id)
+            .filter(Workspace.deleted_at.is_(None))
+            .filter(Workspace.status != "deleted")
+            .first()
+        )
+        if not ws:
+            return []
+
+        db_snap = (
+            self.session.query(DbFinancialSnapshot)
+            .filter_by(workspace_id=workspace_id)
+            .first()
+        )
+        if not db_snap:
+            return []
+            
+        versions = (
+            self.session.query(DbFinancialSnapshotVersion)
+            .filter_by(financial_snapshot_id=db_snap.id)
+            .order_by(DbFinancialSnapshotVersion.version_number.desc())
+            .all()
+        )
+        
+        results = []
+        for version in versions:
+            data = dict(version.statement_data)
+            data["id"] = version.id
+            data["workspaceId"] = workspace_id
+            results.append(PydanticFinancialSnapshot.model_validate(data))
+        return results
+
 
 

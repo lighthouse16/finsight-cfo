@@ -14,6 +14,30 @@ def clean_storage_and_settings():
     orig_mode = settings.APP_MODE
     orig_fallback = settings.ALLOW_DEMO_FALLBACK
     
+    # Clear database if database mode is active
+    if settings.normalized_persistence_backend == "database":
+        from app.db.session import SessionLocal, get_engine
+        get_engine()
+        from app.db.session import SessionLocal
+        if SessionLocal is not None:
+            session = SessionLocal()
+            try:
+                from app.db.models import Workspace, WorkspaceFile, WorkspaceFileVersion, FinancialSnapshot, FinancialSnapshotVersion, AnalysisRun, AuditEvent, Job, Report
+                session.query(WorkspaceFileVersion).delete()
+                session.query(WorkspaceFile).delete()
+                session.query(FinancialSnapshotVersion).delete()
+                session.query(FinancialSnapshot).delete()
+                session.query(AnalysisRun).delete()
+                session.query(AuditEvent).delete()
+                session.query(Job).delete()
+                session.query(Report).delete()
+                session.query(Workspace).delete()
+                session.commit()
+            except Exception:
+                session.rollback()
+            finally:
+                session.close()
+                
     # Let tests run
     yield
     

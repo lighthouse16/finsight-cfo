@@ -123,10 +123,11 @@ def test_db_workspace_repo_metadata_round_trip(db_session):
     assert retrieved is not None
     assert retrieved.metadata == complex_meta
 
-def test_factory_local_by_default():
+def test_factory_local_by_default(monkeypatch):
     """
     6. factory returns LocalWorkspaceRepository by default.
     """
+    monkeypatch.delenv("PERSISTENCE_BACKEND", raising=False)
     settings = Settings()
     repo = get_workspace_repository(settings)
     assert repo.__class__.__name__ == "LocalWorkspaceRepository"

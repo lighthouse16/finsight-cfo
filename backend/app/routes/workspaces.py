@@ -58,18 +58,252 @@ from app.services.analysis_run_service import (
     execute_workflow_run,
 )
 
-# Monkeypatch WorkspaceStore.save_analysis_run dynamically to bypass runs.json in database mode
 _original_save_analysis_run = WorkspaceStore.save_analysis_run
+_original_get_run = WorkspaceStore.get_run
+_original_list_runs = WorkspaceStore.list_runs
+_original_get_latest_run_by_type = WorkspaceStore.get_latest_run_by_type
+_original_get_latest_analysis_run = WorkspaceStore.get_latest_analysis_run
+
+def _map_db_run_to_pydantic(db_run) -> AnalysisRun:
+    from app.models.workspace import AnalysisRun as PydanticAnalysisRun
+    return PydanticAnalysisRun(
+        id=db_run.id,
+        workspaceId=db_run.workspace_id,
+        snapshotId=db_run.snapshot_version_id or "",
+        runType=db_run.run_type,
+        status=db_run.status,
+        inputs=db_run.input_payload or {},
+        results=db_run.output_payload or {},
+        warnings=(db_run.summary or {}).get("warnings", []),
+        errors=(db_run.summary or {}).get("errors", []),
+        sourceTrace=(db_run.run_metadata or {}).get("source_trace", {}),
+        logicVersion=(db_run.run_metadata or {}).get("logic_version", "v1"),
+        createdAt=db_run.created_at.isoformat() if db_run.created_at else datetime.now(timezone.utc).isoformat(),
+        completedAt=db_run.completed_at.isoformat() if db_run.completed_at else None,
+        durationMs=db_run.duration_ms
+    )
+
+def _get_db_session_internal():
+    from app.db.session import SessionLocal, get_engine
+    get_engine()
+    from app.db.session import SessionLocal
+    return SessionLocal()
 
 def _db_safe_save_analysis_run(cls, run):
     from app.core.config import settings
     if settings.normalized_persistence_backend == "database":
-        # Do not write to runs.json, just return the run object
+        if not isinstance(run.workspace_id, str):
+            return run
+        session = _active_db_session
+        close_session = False
+        if session is None:
+            session = _get_db_session_internal()
+            close_session = True
+        
+        if session:
+            try:
+                from app.db.models import AnalysisRun as DbAnalysisRun, Workspace as DbWorkspace
+                ws = session.query(DbWorkspace).filter_by(id=run.workspace_id).first()
+                org_id = ws.organization_id if ws else "org_default"
+                
+                db_run = session.query(DbAnalysisRun).filter_by(id=run.id).first()
+                
+                created_at = None
+                if run.created_at:
+                    try:
+                        created_at = datetime.fromisoformat(run.created_at.replace("Z", "+00:00"))
+                    except Exception:
+                        pass
+                
+                completed_at = None
+                if run.completed_at:
+                    try:
+                        completed_at = datetime.fromisoformat(run.completed_at.replace("Z", "+00:00"))
+                    except Exception:
+                        pass
+                elif run.status in ("completed", "failed", "cancelled"):
+                    completed_at = datetime.now(timezone.utc)
+
+                if db_run:
+                    db_run.status = run.status
+                    db_run.duration_ms = run.duration_ms
+                    db_run.input_payload = run.inputs or {}
+                    db_run.output_payload = run.results or {}
+                    db_run.summary = {
+                        "warnings": run.warnings or [],
+                        "errors": run.errors or []
+                    }
+                    db_run.run_metadata = {
+                        "source_trace": run.source_trace or {},
+                        "logic_version": run.logic_version or "v1"
+                    }
+                    if completed_at:
+                        db_run.completed_at = completed_at
+                else:
+                    db_run = DbAnalysisRun(
+                        id=run.id,
+                        workspace_id=run.workspace_id,
+                        organization_id=org_id,
+                        run_type=run.run_type,
+                        status=run.status,
+                        snapshot_version_id=run.snapshot_id or None,
+                        duration_ms=run.duration_ms,
+                        input_payload=run.inputs or {},
+                        output_payload=run.results or {},
+                        summary={
+                            "warnings": run.warnings or [],
+                            "errors": run.errors or []
+                        },
+                        run_metadata={
+                            "source_trace": run.source_trace or {},
+                            "logic_version": run.logic_version or "v1"
+                        },
+                        started_at=created_at or datetime.now(timezone.utc),
+                        completed_at=completed_at
+                    )
+                    if created_at:
+                        db_run.created_at = created_at
+                    session.add(db_run)
+                session.commit()
+            finally:
+                if close_session:
+                    session.close()
         return run
     else:
         return _original_save_analysis_run(run)
 
+def _db_safe_get_run(cls, run_id: str):
+    from app.core.config import settings
+    if settings.normalized_persistence_backend == "database":
+        if not isinstance(run_id, str):
+            return None
+        session = _active_db_session
+        close_session = False
+        if session is None:
+            session = _get_db_session_internal()
+            close_session = True
+        
+        if session:
+            try:
+                from app.db.models import AnalysisRun as DbAnalysisRun, Workspace as DbWorkspace
+                db_run = (
+                    session.query(DbAnalysisRun)
+                    .join(DbWorkspace, DbWorkspace.id == DbAnalysisRun.workspace_id)
+                    .filter(DbAnalysisRun.id == run_id)
+                    .filter(DbWorkspace.deleted_at.is_(None))
+                    .filter(DbWorkspace.status != "deleted")
+                    .first()
+                )
+                if db_run:
+                    return _map_db_run_to_pydantic(db_run)
+            finally:
+                if close_session:
+                    session.close()
+        return None
+    else:
+        return _original_get_run(run_id)
+
+def _db_safe_list_runs(cls, workspace_id: str, run_type=None):
+    from app.core.config import settings
+    if settings.normalized_persistence_backend == "database":
+        if not isinstance(workspace_id, str):
+            return []
+        session = _active_db_session
+        close_session = False
+        if session is None:
+            session = _get_db_session_internal()
+            close_session = True
+        
+        if session:
+            try:
+                from app.db.models import AnalysisRun as DbAnalysisRun, Workspace as DbWorkspace
+                q = (
+                    session.query(DbAnalysisRun)
+                    .join(DbWorkspace, DbWorkspace.id == DbAnalysisRun.workspace_id)
+                    .filter(DbAnalysisRun.workspace_id == workspace_id)
+                    .filter(DbWorkspace.deleted_at.is_(None))
+                    .filter(DbWorkspace.status != "deleted")
+                )
+                if run_type:
+                    q = q.filter(DbAnalysisRun.run_type == run_type)
+                runs = q.order_by(DbAnalysisRun.created_at.desc()).all()
+                return [_map_db_run_to_pydantic(r) for r in runs]
+            finally:
+                if close_session:
+                    session.close()
+        return []
+    else:
+        return _original_list_runs(workspace_id, run_type)
+
+def _db_safe_get_latest_run_by_type(cls, workspace_id: str, run_type: str):
+    from app.core.config import settings
+    if settings.normalized_persistence_backend == "database":
+        if not isinstance(workspace_id, str):
+            return None
+        session = _active_db_session
+        close_session = False
+        if session is None:
+            session = _get_db_session_internal()
+            close_session = True
+        
+        if session:
+            try:
+                from app.db.models import AnalysisRun as DbAnalysisRun, Workspace as DbWorkspace
+                db_run = (
+                    session.query(DbAnalysisRun)
+                    .join(DbWorkspace, DbWorkspace.id == DbAnalysisRun.workspace_id)
+                    .filter(DbAnalysisRun.workspace_id == workspace_id, DbAnalysisRun.run_type == run_type)
+                    .filter(DbWorkspace.deleted_at.is_(None))
+                    .filter(DbWorkspace.status != "deleted")
+                    .order_by(DbAnalysisRun.created_at.desc())
+                    .first()
+                )
+                if db_run:
+                    return _map_db_run_to_pydantic(db_run)
+            finally:
+                if close_session:
+                    session.close()
+        return None
+    else:
+        return _original_get_latest_run_by_type(workspace_id, run_type)
+
+def _db_safe_get_latest_analysis_run(cls, workspace_id: str):
+    from app.core.config import settings
+    if settings.normalized_persistence_backend == "database":
+        if not isinstance(workspace_id, str):
+            return None
+        session = _active_db_session
+        close_session = False
+        if session is None:
+            session = _get_db_session_internal()
+            close_session = True
+        
+        if session:
+            try:
+                from app.db.models import AnalysisRun as DbAnalysisRun, Workspace as DbWorkspace
+                db_run = (
+                    session.query(DbAnalysisRun)
+                    .join(DbWorkspace, DbWorkspace.id == DbAnalysisRun.workspace_id)
+                    .filter(DbAnalysisRun.workspace_id == workspace_id)
+                    .filter(DbWorkspace.deleted_at.is_(None))
+                    .filter(DbWorkspace.status != "deleted")
+                    .order_by(DbAnalysisRun.created_at.desc())
+                    .first()
+                )
+                if db_run:
+                    return _map_db_run_to_pydantic(db_run)
+            finally:
+                if close_session:
+                    session.close()
+        return None
+    else:
+        return _original_get_latest_analysis_run(workspace_id)
+
 WorkspaceStore.save_analysis_run = classmethod(_db_safe_save_analysis_run)
+WorkspaceStore.get_run = classmethod(_db_safe_get_run)
+WorkspaceStore.list_runs = classmethod(_db_safe_list_runs)
+WorkspaceStore.get_latest_run_by_type = classmethod(_db_safe_get_latest_run_by_type)
+WorkspaceStore.get_latest_analysis_run = classmethod(_db_safe_get_latest_analysis_run)
 
 
 _active_db_session = None
@@ -79,33 +313,127 @@ def set_active_db_session(session):
     _active_db_session = session
 
 _original_get_workspace = WorkspaceStore.get_workspace
+_original_create_workspace = WorkspaceStore.create_workspace
+_original_delete_workspace = WorkspaceStore.delete_workspace
+_original_list_workspaces = WorkspaceStore.list_workspaces
+
+def _db_safe_create_workspace(cls, id: str, company_name: str, metadata: Optional[dict] = None) -> CompanyWorkspace:
+    from app.core.config import settings
+    if settings.normalized_persistence_backend == "database":
+        if not isinstance(id, str):
+            return CompanyWorkspace(
+                id=str(id),
+                companyName=company_name,
+                createdAt=datetime.now(timezone.utc).isoformat(),
+                metadata=metadata or {}
+            )
+        session = _active_db_session
+        close_session = False
+        if session is None:
+            session = _get_db_session_internal()
+            close_session = True
+        
+        if session:
+            try:
+                from app.persistence.database_adapters import DatabaseWorkspaceRepository
+                repo = DatabaseWorkspaceRepository(session)
+                res = repo.create_workspace(id, company_name, metadata)
+                cls.log_audit_event(id, "workspace_created", f"Created workspace for {company_name}")
+                return res
+            finally:
+                if close_session:
+                    session.close()
+        return CompanyWorkspace(
+            id=id,
+            companyName=company_name,
+            createdAt=datetime.now(timezone.utc).isoformat(),
+            metadata=metadata or {}
+        )
+    else:
+        return _original_create_workspace(id, company_name, metadata)
+
+def _db_safe_delete_workspace(cls, workspace_id: str) -> bool:
+    from app.core.config import settings
+    if settings.normalized_persistence_backend == "database":
+        if not isinstance(workspace_id, str):
+            return False
+        session = _active_db_session
+        close_session = False
+        if session is None:
+            session = _get_db_session_internal()
+            close_session = True
+        
+        if session:
+            try:
+                from app.persistence.database_adapters import DatabaseWorkspaceRepository
+                repo = DatabaseWorkspaceRepository(session)
+                return repo.delete_workspace(workspace_id)
+            finally:
+                if close_session:
+                    session.close()
+        return False
+    else:
+        return _original_delete_workspace(workspace_id)
+
+def _db_safe_list_workspaces(cls) -> List[CompanyWorkspace]:
+    from app.core.config import settings
+    if settings.normalized_persistence_backend == "database":
+        session = _active_db_session
+        close_session = False
+        if session is None:
+            session = _get_db_session_internal()
+            close_session = True
+        
+        if session:
+            try:
+                from app.persistence.database_adapters import DatabaseWorkspaceRepository
+                repo = DatabaseWorkspaceRepository(session)
+                return repo.list_workspaces()
+            finally:
+                if close_session:
+                    session.close()
+        return []
+    else:
+        return _original_list_workspaces()
 
 def _db_safe_get_workspace(cls, workspace_id: str):
     from app.core.config import settings
     if settings.normalized_persistence_backend == "database":
+        if not isinstance(workspace_id, str):
+            return None
         session = _active_db_session
         if session is None:
             # Fallback to creating a new SessionLocal if no active session is registered (e.g. in concurrent production requests)
-            from app.db.session import SessionLocal
-            if SessionLocal is not None:
-                session = SessionLocal()
-                try:
-                    from app.db.models import Workspace as DbWorkspace
-                    w = session.query(DbWorkspace).filter_by(id=workspace_id).first()
-                    if w:
-                        return CompanyWorkspace(
-                            id=w.id,
-                            company_name=w.name,
-                            created_at=w.created_at.isoformat(),
-                            metadata=w.workspace_metadata or {}
-                        )
-                finally:
-                    session.close()
-                return None
+            session = _get_db_session_internal()
+            try:
+                from app.db.models import Workspace as DbWorkspace
+                w = (
+                    session.query(DbWorkspace)
+                    .filter_by(id=workspace_id)
+                    .filter(DbWorkspace.deleted_at.is_(None))
+                    .filter(DbWorkspace.status != "deleted")
+                    .first()
+                )
+                if w:
+                    return CompanyWorkspace(
+                        id=w.id,
+                        company_name=w.name,
+                        created_at=w.created_at.isoformat(),
+                        metadata=w.workspace_metadata or {}
+                    )
+            finally:
+                session.close()
+            return None
         
         if session:
             from app.db.models import Workspace as DbWorkspace
-            w = session.query(DbWorkspace).filter_by(id=workspace_id).first()
+            w = (
+                session.query(DbWorkspace)
+                .filter_by(id=workspace_id)
+                .filter(DbWorkspace.deleted_at.is_(None))
+                .filter(DbWorkspace.status != "deleted")
+                .first()
+            )
             if w:
                 return CompanyWorkspace(
                     id=w.id,
@@ -118,6 +446,9 @@ def _db_safe_get_workspace(cls, workspace_id: str):
         return _original_get_workspace(workspace_id)
 
 WorkspaceStore.get_workspace = classmethod(_db_safe_get_workspace)
+WorkspaceStore.create_workspace = classmethod(_db_safe_create_workspace)
+WorkspaceStore.delete_workspace = classmethod(_db_safe_delete_workspace)
+WorkspaceStore.list_workspaces = classmethod(_db_safe_list_workspaces)
 
 _original_log_audit_event = WorkspaceStore.log_audit_event
 _original_get_audit_events = WorkspaceStore.get_audit_events
@@ -125,13 +456,13 @@ _original_get_audit_events = WorkspaceStore.get_audit_events
 def _db_safe_log_audit_event(cls, workspace_id: str, event_type: str, description: str):
     from app.core.config import settings
     if settings.normalized_persistence_backend == "database":
+        if not isinstance(workspace_id, str):
+            return None
         session = _active_db_session
         close_session = False
         if session is None:
-            from app.db.session import SessionLocal
-            if SessionLocal is not None:
-                session = SessionLocal()
-                close_session = True
+            session = _get_db_session_internal()
+            close_session = True
         
         if session:
             try:
@@ -160,13 +491,13 @@ def _db_safe_log_audit_event(cls, workspace_id: str, event_type: str, descriptio
 def _db_safe_get_audit_events(cls, workspace_id: str):
     from app.core.config import settings
     if settings.normalized_persistence_backend == "database":
+        if not isinstance(workspace_id, str):
+            return []
         session = _active_db_session
         close_session = False
         if session is None:
-            from app.db.session import SessionLocal
-            if SessionLocal is not None:
-                session = SessionLocal()
-                close_session = True
+            session = _get_db_session_internal()
+            close_session = True
         
         if session:
             try:
@@ -192,6 +523,96 @@ def _db_safe_get_audit_events(cls, workspace_id: str):
 
 WorkspaceStore.log_audit_event = classmethod(_db_safe_log_audit_event)
 WorkspaceStore.get_audit_events = classmethod(_db_safe_get_audit_events)
+
+_original_get_active_snapshot = WorkspaceStore.get_active_snapshot
+_original_get_snapshot = WorkspaceStore.get_snapshot
+_original_save_snapshot = WorkspaceStore.save_snapshot
+
+def _db_safe_get_active_snapshot(cls, workspace_id: str):
+    from app.core.config import settings
+    if settings.normalized_persistence_backend == "database":
+        if not isinstance(workspace_id, str):
+            return None
+        session = _active_db_session
+        close_session = False
+        if session is None:
+            session = _get_db_session_internal()
+            close_session = True
+        
+        if session:
+            try:
+                from app.persistence.database_adapters import DatabaseFinancialSnapshotRepository
+                repo = DatabaseFinancialSnapshotRepository(session)
+                return repo.get_active_snapshot(workspace_id)
+            finally:
+                if close_session:
+                    session.close()
+        return None
+    else:
+        return _original_get_active_snapshot(workspace_id)
+
+def _db_safe_get_snapshot(cls, snapshot_id: str):
+    from app.core.config import settings
+    if settings.normalized_persistence_backend == "database":
+        if not isinstance(snapshot_id, str):
+            return None
+        session = _active_db_session
+        close_session = False
+        if session is None:
+            session = _get_db_session_internal()
+            close_session = True
+        
+        if session:
+            try:
+                from app.db.models import FinancialSnapshotVersion as DbFinancialSnapshotVersion, FinancialSnapshot as DbFinancialSnapshot, Workspace as DbWorkspace
+                version = (
+                    session.query(DbFinancialSnapshotVersion)
+                    .join(DbFinancialSnapshot, DbFinancialSnapshot.id == DbFinancialSnapshotVersion.financial_snapshot_id)
+                    .join(DbWorkspace, DbWorkspace.id == DbFinancialSnapshot.workspace_id)
+                    .filter(DbFinancialSnapshotVersion.id == snapshot_id)
+                    .filter(DbWorkspace.deleted_at.is_(None))
+                    .filter(DbWorkspace.status != "deleted")
+                    .first()
+                )
+                if version:
+                    from app.models.workspace import FinancialSnapshot as PydanticFinancialSnapshot
+                    data = dict(version.statement_data)
+                    data["id"] = version.id
+                    return PydanticFinancialSnapshot.model_validate(data)
+            finally:
+                if close_session:
+                    session.close()
+        return None
+    else:
+        return _original_get_snapshot(snapshot_id)
+
+def _db_safe_save_snapshot(cls, snapshot):
+    from app.core.config import settings
+    if settings.normalized_persistence_backend == "database":
+        if not isinstance(snapshot.workspace_id, str):
+            return snapshot
+        session = _active_db_session
+        close_session = False
+        if session is None:
+            session = _get_db_session_internal()
+            close_session = True
+        
+        if session:
+            try:
+                from app.persistence.database_adapters import DatabaseFinancialSnapshotRepository
+                repo = DatabaseFinancialSnapshotRepository(session)
+                return repo.save_snapshot(snapshot)
+            finally:
+                if close_session:
+                    session.close()
+        return snapshot
+    else:
+        return _original_save_snapshot(snapshot)
+
+WorkspaceStore.get_active_snapshot = classmethod(_db_safe_get_active_snapshot)
+WorkspaceStore.get_snapshot = classmethod(_db_safe_get_snapshot)
+WorkspaceStore.save_snapshot = classmethod(_db_safe_save_snapshot)
+
 
 
 router = APIRouter()

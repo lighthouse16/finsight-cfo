@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
@@ -36,6 +37,15 @@ class Settings(BaseSettings):
     PERSISTENCE_BACKEND: str = "local"
     DATABASE_URL: str = "sqlite:///./storage_db/finsight_dev.db"
     DATABASE_ECHO: bool = False
+
+    # S3 Object Storage Configuration
+    S3_ENDPOINT_URL: Optional[str] = None
+    S3_ACCESS_KEY_ID: Optional[str] = None
+    S3_SECRET_ACCESS_KEY: Optional[str] = None
+    S3_BUCKET_NAME: Optional[str] = None
+    S3_REGION_NAME: str = "us-east-1"
+    S3_SECURE: bool = True
+
 
     # Report Worker Harness Configuration
     REPORT_WORKER_ENABLED: bool = False

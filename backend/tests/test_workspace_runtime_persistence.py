@@ -101,8 +101,13 @@ def test_database_mode_crud(db_session, monkeypatch):
     db_session.commit()
 
     # Setup FastAPI dependency override
+    from app.routes.workspaces import set_active_db_session
     def override_get_db_session():
-        yield db_session
+        set_active_db_session(db_session)
+        try:
+            yield db_session
+        finally:
+            set_active_db_session(None)
 
     app.dependency_overrides[get_db_session_optional] = override_get_db_session
 
