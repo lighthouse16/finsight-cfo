@@ -128,10 +128,12 @@ def get_demo_credit_score(
 def get_demo_stress_tests(
     x_workspace_id: Optional[str] = Header(None, alias="x-workspace-id"),
     workspace_id: Optional[str] = None,
+    shock_bps: int = 150,
 ):
     """
     Consumes the active financial analysis output and unified risk score to perform
     context-only deterministic scenario stress testing.
+    The optional shock_bps parameter controls the rate shock severity (default 150).
     """
     ws_id = workspace_id or x_workspace_id
     if ws_id:
@@ -155,7 +157,7 @@ def get_demo_stress_tests(
         return analysis
     precheck = build_hard_gate_precheck(analysis)
     risk_score = build_unified_risk_score(analysis, precheck)
-    return build_demo_stress_tests(analysis, risk_score)
+    return build_demo_stress_tests(analysis, risk_score, shock_bps=shock_bps)
 
 
 @router.get("/demo-facility-structures")
@@ -197,10 +199,12 @@ def get_demo_facility_structures(
 def get_demo_blueprint(
     x_workspace_id: Optional[str] = Header(None, alias="x-workspace-id"),
     workspace_id: Optional[str] = None,
+    shock_bps: int = 150,
 ):
     """
     Consolidates the financial analysis, precheck, risk score, stress tests, and
     facility structuring outputs into a deterministic advisor-ready briefing.
+    The optional shock_bps parameter controls the rate shock severity (default 150).
     """
     ws_id = workspace_id or x_workspace_id
     if ws_id:
@@ -224,7 +228,7 @@ def get_demo_blueprint(
         return analysis
     precheck = build_hard_gate_precheck(analysis)
     risk_score = build_unified_risk_score(analysis, precheck)
-    stress_tests = build_demo_stress_tests(analysis, risk_score)
+    stress_tests = build_demo_stress_tests(analysis, risk_score, shock_bps=shock_bps)
     facility_structuring = build_facility_structuring(analysis, precheck, risk_score, stress_tests)
     return build_advisory_blueprint(analysis, precheck, risk_score, stress_tests, facility_structuring)
 

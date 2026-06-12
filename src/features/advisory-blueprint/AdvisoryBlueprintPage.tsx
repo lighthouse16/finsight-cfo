@@ -11,6 +11,8 @@ import {
   Loader2,
   RefreshCw,
   Play,
+  DollarSign,
+  TrendingUp,
 } from 'lucide-react'
 import PageHeader from '../../components/platform/PageHeader'
 import StatusChip from '../../components/platform/StatusChip'
@@ -44,6 +46,16 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import FundingBlueprintHelper from './components/FundingBlueprintHelper'
 
+// CDI & Market integration imports
+import { createAndFetchMockCdiData } from '../cdi/cdiApi'
+import type { CdiConsentSession, CdiMockDataResponse } from '../cdi/cdiApi'
+import { getFundingChannelRanking, getCrossBorderFundingContext } from '../market-watch/api/marketWatchApi'
+import type {
+  FundingChannelRankingResponse,
+  CrossBorderFundingContextResponse,
+} from '../market-watch/types'
+import { formatHKD, formatPercent, formatBand } from '../../lib/formatters'
+
 export default function AdvisoryBlueprintPage() {
   const [blueprint, setBlueprint] = useState<AdvisoryBlueprintResponse | null>(null)
   const [riskScore, setRiskScore] = useState<UnifiedRiskScoreResult | null>(null)
@@ -57,6 +69,43 @@ export default function AdvisoryBlueprintPage() {
   const [error, setError] = useState<string | null>(null)
   const [workspaceAnalysisContext, setWorkspaceAnalysisContext] = useState<WorkspaceAnalysisContext | null>(null)
   const [financialPreviewAnalysis, setFinancialPreviewAnalysis] = useState<FinancialAnalysisResponse | null>(null)
+  const [shockBps, setShockBps] = useState<number>(150)
+
+  // CDI consent & data state
+  const [cdiConsent, setCdiConsent] = useState<CdiConsentSession | null>(null)
+  const [cdiData, setCdiData] = useState<CdiMockDataResponse | null>(null)
+  const [cdiLoading, setCdiLoading] = useState<boolean>(false)
+
+  // Market ranking state
+  const [marketRanking, setMarketRanking] = useState<FundingChannelRankingResponse | null>(null)
+  const [crossBorderContext, setCrossBorderContext] = useState<CrossBorderFundingContextResponse | null>(null)
+
+  // Funding request input state
+  const [fundingRequestAmount, setFundingRequestAmount] = useState<string>('')
+
+  const handleCdiToggle = async () => {
+    if (cdiData) {
+      // Toggle off — clear CDI state
+      setCdiConsent(null)
+      setCdiData(null)
+      return
+    }
+
+    setCdiLoading(true)
+    try {
+      const cdiContext = await createAndFetchMockCdiData({
+        companyId: 'demo-company-001',
+        companyName: workspaceAnalysisContext?.companyName ?? 'Demo Company Ltd',
+        requestedScopes: ['bank_transactions', 'trade_receivables', 'credit_bureau_summary'],
+      })
+      setCdiConsent(cdiContext?.consent ?? null)
+      setCdiData(cdiContext?.data ?? null)
+    } catch (e) {
+      console.error('CDI mock consent fetch failed', e)
+    } finally {
+      setCdiLoading(false)
+    }
+  }
 
   const loadAllData = async () => {
     setLoading(true)
@@ -97,11 +146,20 @@ export default function AdvisoryBlueprintPage() {
 
           setLoadingStep('Checking stress scenarios...')
           const [st, fs] = await Promise.all([
-            getAdvisoryStressTests().catch(() => null),
+            getAdvisoryStressTests(shockBps).catch(() => null),
             getAdvisoryFacilityStructures().catch(() => null),
           ])
           setStressTests(st)
           setFacilityStructures(fs)
+
+          // Fetch market intelligence in parallel
+          setLoadingStep('Loading market intelligence...')
+          const [marketRankingResult, crossBorderResult] = await Promise.all([
+            getFundingChannelRanking().catch(() => null),
+            getCrossBorderFundingContext().catch(() => null),
+          ])
+          setMarketRanking(marketRankingResult)
+          setCrossBorderContext(crossBorderResult)
         } else {
           // Snapshot exists, but no run yet
           setHasSnapshotButNoRun(true)
@@ -130,6 +188,22 @@ export default function AdvisoryBlueprintPage() {
     }
   }
 
+  const refreshStressData = async (bps: number) => {
+    try {
+      const [st] = await Promise.all([
+        getAdvisoryStressTests(bps).catch(() => null),
+      ])
+      setStressTests(st)
+    } catch (e) {
+      console.error('Failed to refresh stress data', e)
+    }
+  }
+
+  const handleStressShockChange = (bps: number) => {
+    setShockBps(bps)
+    refreshStressData(bps)
+  }
+
   const handleRunAnalysis = async () => {
     const workspaceId = localStorage.getItem('active_workspace_id')
     if (!workspaceId) return
@@ -147,6 +221,7 @@ export default function AdvisoryBlueprintPage() {
 
   useEffect(() => {
     loadAllData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -175,15 +250,6 @@ export default function AdvisoryBlueprintPage() {
       default:
         return 'Unavailable'
     }
-  }
-
-  // Formatting currency helper
-  const formatHKD = (val?: number | null) => {
-    if (val === undefined || val === null) return 'N/A'
-    if (val >= 1_000_000) {
-      return `HKD ${(val / 1_000_000).toFixed(2)}M`
-    }
-    return `HKD ${val.toLocaleString()}`
   }
 
   const formatPreviewRatio = (value?: number | null) => {
@@ -359,6 +425,209 @@ export default function AdvisoryBlueprintPage() {
             </span>
           </div>
         </div>
+      )}
+
+      {/* 2a. Funding Request Amount Input */}
+      <section className="softform-card rounded-[26px] p-6 sm:p-8 border border-white/60">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-softform-mist-100/60 text-softform-teal-deep border border-softform-aqua-300/20">
+                <DollarSign size={16} />
+              </div>
+              <h3 className="font-semibold text-softform-navy-950 text-sm">Funding Request</h3>
+            </div>
+            <p className="text-xs text-softform-text-secondary leading-relaxed">
+              Enter a target funding amount to contextualise the blueprint analysis.
+            </p>
+          </div>
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <span className="text-sm font-bold text-softform-navy-950">HKD</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={fundingRequestAmount}
+              onChange={(e) => {
+                const raw = e.target.value.replace(/[^0-9,]/g, '')
+                setFundingRequestAmount(raw)
+              }}
+              placeholder="e.g. 5,000,000"
+              className="w-full sm:w-48 rounded-xl border border-white/80 bg-white/60 px-4 py-2.5 text-sm font-semibold text-softform-navy-950 placeholder:text-softform-text-muted/60 focus:outline-none focus:ring-2 focus:ring-softform-aqua-300/40 focus:border-softform-aqua-300/60 transition-all tabular-finance"
+            />
+            {fundingRequestAmount && (
+              <button
+                onClick={() => setFundingRequestAmount('')}
+                className="text-xs text-softform-text-muted hover:text-softform-navy-950 transition-colors underline underline-offset-2"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* 2b. CDI Trust Bridge & Digital Collateral */}
+      <section className="softform-card rounded-[26px] p-6 sm:p-8 border border-white/60">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div className="space-y-3 flex-1">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-softform-mist-100/60 text-softform-teal-deep border border-softform-aqua-300/20">
+                <ShieldCheck size={16} />
+              </div>
+              <h3 className="font-semibold text-softform-navy-950 text-sm">CDI Trust Bridge & Digital Collateral</h3>
+              <StatusChip variant="signal" className="text-[9px] px-2 py-0.5">
+                {formatBand(cdiConsent?.status ?? 'unavailable')}
+              </StatusChip>
+            </div>
+            <p className="text-sm leading-relaxed text-softform-text-secondary">
+              Mock consent simulation for CDI (Commercial Data Intelligence) integration. Toggle to fetch simulated receivables, bureau, and cashflow signals.
+            </p>
+          </div>
+          <button
+            onClick={handleCdiToggle}
+            disabled={cdiLoading}
+            className={`shrink-0 inline-flex items-center gap-2 px-5 py-2.5 text-xs font-bold rounded-full border transition-all ${
+              cdiData
+                ? 'bg-softform-navy-900 text-white border-softform-navy-900 shadow-sm'
+                : 'bg-white/60 text-softform-navy-950 border-white/80 hover:bg-white hover:shadow-sm'
+            } disabled:opacity-50`}
+          >
+            {cdiLoading ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : cdiData ? (
+              <ShieldCheck size={14} />
+            ) : (
+              <Play size={14} fill="currentColor" />
+            )}
+            <span>{cdiData ? 'CDI Mock Active' : 'Enable Mock CDI'}</span>
+          </button>
+        </div>
+
+        {cdiData && (
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {/* Cashflow Signal */}
+            <div className="rounded-[18px] border border-white/60 bg-white/45 p-4 space-y-1.5">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-softform-text-muted/80">
+                Cashflow Trend
+              </p>
+              <p className="text-sm font-bold text-softform-navy-950">{formatBand(cdiData.cashflowSignal.netCashflowTrend)}</p>
+              <p className="text-[10px] text-softform-text-secondary">
+                Volatility: {formatBand(cdiData.cashflowSignal.volatilityBand)}
+              </p>
+              <p className="text-[10px] text-softform-text-secondary">
+                Bounced (6m): {cdiData.cashflowSignal.bouncedPaymentCount6m}
+              </p>
+            </div>
+            {/* Receivables Signal */}
+            <div className="rounded-[18px] border border-white/60 bg-white/45 p-4 space-y-1.5">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-softform-text-muted/80">
+                Digital Collateral
+              </p>
+              <p className="text-sm font-bold text-softform-navy-950 tabular-finance">{formatHKD(cdiData.receivablesSignal.eligibleInvoiceValue)}</p>
+              <p className="text-[10px] text-softform-text-secondary">
+                Verified: {formatHKD(cdiData.receivablesSignal.verifiedInvoiceValue)}
+              </p>
+              <p className="text-[10px] text-softform-text-secondary">
+                Top buyer: {formatPercent(cdiData.receivablesSignal.topBuyerConcentration)}
+              </p>
+            </div>
+            {/* Bureau Signal */}
+            <div className="rounded-[18px] border border-white/60 bg-white/45 p-4 space-y-1.5">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-softform-text-muted/80">
+                Credit Bureau
+              </p>
+              <p className="text-sm font-bold text-softform-navy-950">{formatBand(cdiData.creditBureauSignal.bureauBand)}</p>
+              <p className="text-[10px] text-softform-text-secondary">
+                Delinquencies (12m): {cdiData.creditBureauSignal.repaymentDelinquencyCount12m}
+              </p>
+              <p className="text-[10px] text-softform-text-secondary">
+                Trade refs: {cdiData.creditBureauSignal.tradeReferenceCount}
+              </p>
+            </div>
+            {/* Implications */}
+            <div className="rounded-[18px] border border-white/60 bg-white/45 p-4 space-y-1.5">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-softform-text-muted/80">
+                Funding Implications
+              </p>
+              {cdiData.fundingImplications.slice(0, 2).map((item, idx) => (
+                <p key={idx} className="text-[10px] text-softform-text-secondary leading-relaxed">
+                  • {item}
+                </p>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {cdiData && (
+          <p className="mt-4 text-[10px] text-softform-text-muted italic leading-relaxed border-t border-softform-navy-950/5 pt-3">
+            {cdiData.disclaimer}
+          </p>
+        )}
+      </section>
+
+      {/* 2c. Market Timing Signal Card */}
+      {marketRanking && (
+        <section className="softform-card rounded-[26px] p-6 sm:p-8 border border-white/60">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            <div className="space-y-3 flex-1">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-softform-mist-100/60 text-softform-teal-deep border border-softform-aqua-300/20">
+                  <TrendingUp size={16} />
+                </div>
+                <h3 className="font-semibold text-softform-navy-950 text-sm">Market & Funding Timing Signal</h3>
+                <StatusChip variant="signal" className="text-[9px] px-2 py-0.5">
+                  {marketRanking.rankingBand.replace(/_/g, ' ')}
+                </StatusChip>
+              </div>
+              <p className="text-sm leading-relaxed text-softform-text-secondary">
+                {marketRanking.explanation}
+              </p>
+              {marketRanking.channels && marketRanking.channels.length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {marketRanking.channels.slice(0, 4).map((ch) => (
+                    <span
+                      key={ch.key}
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-semibold border ${
+                        ch.fitBand === 'strong_fit'
+                          ? 'bg-emerald-500/10 text-emerald-700 border-emerald-200/50'
+                          : ch.fitBand === 'moderate_fit'
+                          ? 'bg-softform-mist-100 text-softform-teal-deep border-softform-aqua-300/20'
+                          : 'bg-softform-cream text-softform-amber-500 border-softform-amber-300/20'
+                      }`}
+                    >
+                      {ch.label}
+                      <span className="opacity-70">#{ch.rank}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+            {crossBorderContext && (
+              <div className="shrink-0 w-full sm:w-64 space-y-2 rounded-[18px] border border-white/60 bg-white/45 p-4">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-softform-text-muted/80">
+                  Cross-Border Context
+                </p>
+                <div className="space-y-1.5 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-softform-text-secondary">HKD ref.</span>
+                    <span className="font-bold text-softform-navy-950 tabular-finance">{crossBorderContext.hkdFundingReference.displayValue}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-softform-text-secondary">RMB ref.</span>
+                    <span className="font-bold text-softform-navy-950 tabular-finance">{crossBorderContext.rmbFundingReference.displayValue}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-softform-text-secondary">Spread</span>
+                    <span className="font-bold text-softform-navy-950 tabular-finance">{formatBand(crossBorderContext.spreadBand)}</span>
+                  </div>
+                </div>
+                <p className="text-[10px] text-softform-text-muted italic leading-relaxed pt-1 border-t border-softform-navy-950/5">
+                  {crossBorderContext.explanation}
+                </p>
+              </div>
+            )}
+          </div>
+        </section>
       )}
 
       {/* 2. Executive Brief Panel in Premium Navy Contrast Card */}
@@ -718,6 +987,28 @@ export default function AdvisoryBlueprintPage() {
           containerType="card"
           className="rounded-[32px] p-6 sm:p-8 space-y-6"
         >
+          {/* Stress Shock Level Selector */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-2">
+            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-softform-text-muted/80">
+              Rate Shock Simulation
+            </span>
+            <div className="flex gap-1.5">
+              {[0, 100, 150, 200].map((bps) => (
+                <button
+                  key={bps}
+                  onClick={() => handleStressShockChange(bps)}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-all ${
+                    shockBps === bps
+                      ? 'bg-softform-navy-900 text-white border-softform-navy-900 shadow-sm'
+                      : 'bg-white/60 text-softform-navy-950 border-white/80 hover:bg-white hover:shadow-sm'
+                  }`}
+                >
+                  +{bps} bps
+                </button>
+              ))}
+            </div>
+          </div>
+
           <p className="text-sm leading-relaxed text-softform-text-secondary mb-4">
             Simulated scenario shocks applied to baseline metrics. Displays impact on key performance signals.
           </p>
