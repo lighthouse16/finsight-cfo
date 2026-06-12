@@ -34,8 +34,9 @@ import {
   ANALYSIS_RUN_TYPES,
 } from '../../lib/workspaceRunHelpers'
 import { API_BASE_URL } from '../../lib/apiBase'
-
 import WorkspaceInsufficientDataState from '../../components/platform/WorkspaceInsufficientDataState'
+import WorkspaceDashboard from './WorkspaceDashboard'
+import { useWorkspace } from '../../context/workspaceContext'
 
 type OverviewState = {
   financial: any
@@ -52,6 +53,7 @@ type NextAction = {
 }
 
 export default function OverviewPage() {
+  const { activeWorkspace } = useWorkspace()
   const [state, setState] = useState<OverviewState>({ financial: null, credit: null, funding: null, macro: null, workflow: null })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -224,8 +226,16 @@ export default function OverviewPage() {
       <PageHeader
         title="Overview"
         subtitle="Executive command center across financial health, valuation, credit readiness, funding strategy, and macro watch signals."
-        chip={<StatusChip variant={bandVariant(state.macro?.summaryBand)}>{formatBand(state.macro?.summaryBand ?? 'workspace')}</StatusChip>}
+        chip={
+          activeWorkspace?.id === 'workspace_sample_novus' ? (
+            <StatusChip variant="caution">Demo Workspace</StatusChip>
+          ) : (
+            <StatusChip variant={bandVariant(state.macro?.summaryBand)}>{formatBand(state.macro?.summaryBand ?? 'workspace')}</StatusChip>
+          )
+        }
       />
+
+      <WorkspaceDashboard />
 
       {/* Cockpit Hero Section in Premium Navy Contrast Card */}
       <NavyHeroSection

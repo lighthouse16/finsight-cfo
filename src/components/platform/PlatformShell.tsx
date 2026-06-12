@@ -3,6 +3,9 @@ import { Outlet, useLocation } from 'react-router-dom'
 import SidebarNav from './SidebarNav'
 import TopCommandBar from './TopCommandBar'
 import { motion, AnimatePresence } from 'framer-motion'
+import { WorkspaceProvider, useWorkspace } from '../../context/workspaceContext'
+import CreateWorkspacePage from '../../pages/CreateWorkspacePage'
+import PageLoadingSkeleton from './PageLoadingSkeleton'
 
 const SIDEBAR_COLLAPSED_KEY = 'finsight-sidebar-collapsed'
 
@@ -23,8 +26,9 @@ function writeCollapsedToStorage(value: boolean): void {
   }
 }
 
-export default function PlatformShell() {
+function PlatformShellContent() {
   const location = useLocation()
+  const { workspaces, isLoading } = useWorkspace()
   // Mobile drawer state
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
@@ -49,6 +53,18 @@ export default function PlatformShell() {
   const handleCollapseToggle = useCallback(() => {
     setSidebarCollapsed((prev) => !prev)
   }, [])
+
+  if (isLoading) {
+    return (
+      <div className="min-h-dvh bg-[var(--softform-page-bg)] px-6 py-8 softform-page">
+        <PageLoadingSkeleton layout="overview" />
+      </div>
+    )
+  }
+
+  if (workspaces.length === 0) {
+    return <CreateWorkspacePage />
+  }
 
   return (
     <div className="flex h-dvh overflow-hidden bg-[var(--softform-page-bg)] bg-fixed">
@@ -81,5 +97,13 @@ export default function PlatformShell() {
         </div>
       </main>
     </div>
+  )
+}
+
+export default function PlatformShell() {
+  return (
+    <WorkspaceProvider>
+      <PlatformShellContent />
+    </WorkspaceProvider>
   )
 }
