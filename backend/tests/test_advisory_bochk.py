@@ -20,12 +20,12 @@ def test_cdi_mock_gateway_consent():
 def test_pd_engine_logic():
     # Good metrics -> low PD
     good_resp = calculate_pd("test", dscr=2.5, debt_ratio=0.2, margin=0.3, cdi_collateral_hkd=1_000_000)
-    assert good_resp.tier in ["Tier A (Excellent)", "Tier B (Good)"]
+    assert good_resp.tier in ["Tier A (Excellent)", "Tier B (Good)", "Planning Tier A (Excellent)", "Planning Tier B (Good)"]
     assert good_resp.probability_default < 0.10
     
     # Bad metrics -> high PD
     bad_resp = calculate_pd("test", dscr=0.8, debt_ratio=0.8, margin=-0.1, cdi_collateral_hkd=0)
-    assert bad_resp.tier in ["Tier E (High Risk)", "Tier D (Elevated)"]
+    assert bad_resp.tier in ["Tier E (High Risk)", "Tier D (Elevated)", "Planning Tier E (High Risk)", "Planning Tier D (Elevated)"]
     assert bad_resp.probability_default > 0.10
     
 def test_loan_structuring_engine():
@@ -66,3 +66,46 @@ def test_loan_structuring_engine():
     
     assert resp.total_estimated_cost > 0
     assert resp.weighted_average_cost_bps > 0
+
+def test_pd_engine_calibration():
+    import os
+    # Ensure no file exists initially
+    dataset_name = "historical_default_dataset.csv"
+    if os.path.exists(dataset_name):
+        os.remove(dataset_name)
+        
+    # Test fallback first
+    res_fallback = calculate_pd("test", dscr=1.5, debt_ratio=0.4, margin=0.15)
+    assert res_fallback.calibration_status == "uncalibrated_proxy"
+    assert "deterministic" in res_fallback.disclaimer.lower()
+    
+    # Create mock dataset: 10 entries with good values (non-defaults) and bad values (defaults)
+    mock_data = [
+        ("dscr", "debt_ratio", "margin", "defaulted"),
+        ("2.5", "0.2", "0.3", "0"),
+        ("2.0", "0.3", "0.25", "0"),
+        ("1.8", "0.35", "0.2", "0"),
+        ("1.6", "0.4", "0.15", "0"),
+        ("1.5", "0.45", "0.1", "0"),
+        ("0.8", "0.7", "0.02", "1"),
+        ("0.7", "0.8", "-0.05", "1"),
+        ("0.6", "0.85", "-0.1", "1"),
+        ("0.5", "0.9", "-0.15", "1"),
+        ("0.4", "0.95", "-0.2", "1")
+    ]
+    
+    try:
+        import csv
+        with open(dataset_name, mode="w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerows(mock_data)
+            
+        # Run calculation and check status is calibrated
+        res_calibrated = calculate_pd("test", dscr=1.5, debt_ratio=0.4, margin=0.15)
+        assert res_calibrated.calibration_status == "calibrated"
+        assert "calibrated" in res_calibrated.disclaimer.lower()
+        
+    finally:
+        if os.path.exists(dataset_name):
+            os.remove(dataset_name)
+

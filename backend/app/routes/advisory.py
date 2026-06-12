@@ -1,6 +1,19 @@
 from typing import Optional, Union, Any
-from fastapi import APIRouter, HTTPException, Header
+from fastapi import APIRouter, HTTPException, Header, Depends
 from pydantic import ValidationError
+
+
+from fastapi import Depends
+import datetime
+from app.routes.workspaces import get_report_repository_dependency, get_workspace_repository_dependency
+from app.persistence.interfaces import ReportRepository, WorkspaceRepository
+from app.models.advisory import (
+    AdvisorReportRequest,
+    AdvisorReportResponse,
+    AdvisorReadyReportPayload,
+    AdvisorReportSection,
+    ReportCitation,
+)
 
 from app.models.advisory import (
     HardGatePrecheckResult,
@@ -12,6 +25,7 @@ from app.models.advisory import (
     AdvisoryChatRequest,
     AdvisoryChatResponse,
     AdvisoryChatSource,
+    StressTestRequest,
 )
 from app.models.financials import FinancialAnalysisResponse, CompanyFinancialSnapshot
 from app.routes.financials import get_demo_analysis
@@ -163,6 +177,37 @@ def get_demo_stress_tests(
     return build_demo_stress_tests(analysis, risk_score, shock_bps=shock_bps)
 
 
+@router.post("/stress-tests", response_model=StressTestingResponse)
+def post_stress_tests(
+    request: StressTestRequest,
+    x_workspace_id: Optional[str] = Header(None, alias="x-workspace-id"),
+):
+    """
+    Consumes financial analysis and risk score to run parameterized stress testing.
+    Validates bounds:
+    - HIBOR shock: 0 to 1000 bps
+    - DSO shock: 0 to 180 days
+    - Input cost shock: -50% to +100%
+    - FX shock: -50% to +50%
+    """
+    ws_id = request.company_id or x_workspace_id
+    analysis = _get_active_or_demo_analysis(x_workspace_id=x_workspace_id, workspace_id=ws_id)
+    if isinstance(analysis, dict) and analysis.get("status") == "insufficient_data":
+        return analysis
+        
+    precheck = build_hard_gate_precheck(analysis)
+    risk_score = build_unified_risk_score(analysis, precheck)
+    
+    return build_demo_stress_tests(
+        analysis,
+        risk_score,
+        shock_bps=request.hibor_shock_bps,
+        dso_days_shock=request.dso_days_shock,
+        input_cost_shock_pct=request.input_cost_shock_pct,
+        fx_shock_pct=request.fx_shock_pct
+    )
+
+
 @router.get("/demo-facility-structures")
 def get_demo_facility_structures(
     x_workspace_id: Optional[str] = Header(None, alias="x-workspace-id"),
@@ -239,6 +284,19 @@ def get_demo_blueprint(
 # -------------------------------------------------------------------------
 # Phase 3: BOCHK Challenge Endpoints
 # -------------------------------------------------------------------------
+
+
+from fastapi import Depends
+import datetime
+from app.routes.workspaces import get_report_repository_dependency, get_workspace_repository_dependency
+from app.persistence.interfaces import ReportRepository, WorkspaceRepository
+from app.models.advisory import (
+    AdvisorReportRequest,
+    AdvisorReportResponse,
+    AdvisorReadyReportPayload,
+    AdvisorReportSection,
+    ReportCitation,
+)
 
 from app.models.advisory import (
     CdiConsentRequest,
@@ -354,7 +412,7 @@ def generate_funding_blueprint(
     
     disclaimers = [
         "This Funding Blueprint is a deterministic advisory response for BOCHK Challenge context.",
-        "Not a real underwriting approval.",
+        "Relationship manager review required; not formal bank underwriting.",
         "Company records are required for production usage."
     ]
     
@@ -431,6 +489,8 @@ def post_advisory_chat(
                         "title": c.metadata.get("title", c.source_file or "Untitled"),
                         "snippet": c.text[:500],
                         "document_id": c.document_id,
+                        "chunk_index": c.chunk_index,
+                        "relevance_score": getattr(c, "relevance_score", None), # Though chunk object from BM25 doesn't currently store score, we can leave it
                     })
                 if workspace_data is None:
                     workspace_data = {}
@@ -444,7 +504,13 @@ def post_advisory_chat(
         ai_mode=str(resp.ai_mode),
         answer=resp.answer,
         sources=[
-            AdvisoryChatSource(title=s.title, snippet=s.snippet, document_id=s.document_id)
+            AdvisoryChatSource(
+                title=s.title,
+                snippet=s.snippet,
+                document_id=s.document_id,
+                chunk_index=getattr(s, 'chunk_index', None),
+                relevance_score=getattr(s, 'relevance_score', None),
+            )
             for s in resp.sources
         ],
         disclaimer=resp.disclaimer,
@@ -512,3 +578,155 @@ def _build_chat_workspace_data(
             data["valuation_summary"] = val if isinstance(val, dict) else {"value": str(val)}
 
     return data
+
+@router.post("/report", response_model=AdvisorReportResponse)
+def compile_advisor_report(
+    request: AdvisorReportRequest,
+    x_workspace_id: Optional[str] = Header(None, alias="x-workspace-id"),
+    workspace_repo: WorkspaceRepository = Depends(get_workspace_repository_dependency),
+    report_repo: ReportRepository = Depends(get_report_repository_dependency),
+):
+    ws_id = x_workspace_id
+    if not ws_id:
+        raise HTTPException(status_code=400, detail="Missing workspace_id")
+    
+    workspace = workspace_repo.get_workspace(ws_id)
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+        
+    analysis = get_demo_analysis(x_workspace_id=ws_id, workspace_id=ws_id)
+    if isinstance(analysis, dict) and analysis.get("status") == "insufficient_data":
+        raise HTTPException(status_code=400, detail="Insufficient financial data for report.")
+
+    precheck = build_hard_gate_precheck(analysis)
+    risk_score = build_unified_risk_score(analysis, precheck)
+    stress_test = build_demo_stress_tests(analysis, risk_score)
+    facility_structuring = build_facility_structuring(analysis, precheck, risk_score, stress_test)
+    blueprint = build_advisory_blueprint(analysis, precheck, risk_score, stress_test, facility_structuring)
+    
+    company_snapshot = {}
+    data_quality = {}
+    if analysis and analysis.snapshot:
+        company_snapshot = {
+            "company_name": analysis.snapshot.company_name,
+            "reporting_period": analysis.snapshot.reporting_period,
+            "currency": analysis.snapshot.currency,
+        }
+        data_quality = getattr(analysis.snapshot, 'data_quality', {}) or {}
+        
+    sections = []
+    
+    # Financial Health
+    sections.append(AdvisorReportSection(
+        title="Financial Health",
+        content=f"Risk Score: {risk_score.score} - {getattr(risk_score, 'band', getattr(risk_score, 'tier', 'N/A'))}\n{precheck.overall_status}"
+    ))
+    
+    # Valuation
+    valuation = "N/A"
+    if analysis and analysis.snapshot and analysis.snapshot.metadata:
+        val = analysis.snapshot.metadata.get("valuation_summary")
+        if val:
+            valuation = str(val)
+    sections.append(AdvisorReportSection(
+        title="Valuation Summary",
+        content=valuation
+    ))
+    
+    # Market Context
+    sections.append(AdvisorReportSection(
+        title="Market Context",
+        content=f"Stress Test: LGD {getattr(stress_test, 'loss_given_default', getattr(stress_test, 'stressed_dscr', 'N/A'))} under +150 bps HIBOR shock."
+    ))
+
+    # Advisory Blueprint
+    blueprint_content = []
+    for section in getattr(blueprint, 'blueprint_sections', getattr(blueprint, 'sections', [])):
+        blueprint_content.append(f"### {section.title}\n{section.content}")
+        
+    sections.append(AdvisorReportSection(
+        title="Advisory Blueprint",
+        content="\n\n".join(blueprint_content)
+    ))
+    
+    # AI CFO Chat excerpts if objective is provided
+    ai_mode = "deterministic_fallback"
+    citations = []
+    if request.objective:
+        workspace_data = _build_chat_workspace_data(analysis, ws_id)
+        try:
+            from app.services.data_room.document_index import get_document_index
+            index = get_document_index()
+            chunks = index.retrieve(
+                workspace_id=ws_id,
+                query=request.objective,
+                top_k=5,
+            )
+            if chunks:
+                excerpts = []
+                for c in chunks:
+                    excerpts.append({
+                        "title": c.metadata.get("title", c.source_file or "Untitled"),
+                        "snippet": c.text[:500],
+                        "document_id": c.document_id,
+                        "chunk_index": c.chunk_index,
+                        "relevance_score": getattr(c, "relevance_score", None),
+                    })
+                workspace_data["document_excerpts"] = excerpts
+        except Exception:
+            pass
+            
+        resp = get_advisory_response(question=request.objective, workspace_data=workspace_data)
+        ai_mode = str(resp.ai_mode)
+        
+        for s in resp.sources:
+            citations.append(ReportCitation(
+                title=s.title,
+                snippet=s.snippet or "",
+                document_id=s.document_id,
+                chunk_index=getattr(s, "chunk_index", None),
+                relevance_score=getattr(s, "relevance_score", None),
+                source_mode="workspace_derived"
+            ))
+            
+        sections.append(AdvisorReportSection(
+            title="AI CFO Notes",
+            content=resp.answer,
+            citations=citations
+        ))
+        
+    report_title = f"Advisor Ready Report - {company_snapshot.get('company_name', 'Workspace')}"
+    if request.objective:
+        report_title += f" ({request.objective})"
+
+    payload = AdvisorReadyReportPayload(
+        workspace_id=ws_id,
+        generated_at=datetime.datetime.utcnow().isoformat() + "Z",
+        title=report_title,
+        company_snapshot=company_snapshot,
+        data_quality=data_quality,
+        sections=sections,
+        ai_mode=ai_mode,
+        limitations=["Information based on provided workspace data; subject to RM review."]
+    )
+    
+    # Save report
+    report = None
+    try:
+        report = report_repo.save_report(
+            workspace_id=ws_id,
+            report_type="advisor_ready",
+            title=report_title,
+            report_payload=payload.model_dump() if hasattr(payload, "model_dump") else payload.dict(),
+            metadata={"source": "advisor_report_endpoint"}
+        )
+    except Exception as e:
+        import logging
+        logging.error(f"Failed to save report: {e}")
+        pass
+        
+    return AdvisorReportResponse(
+        report_id=report["id"] if report else None,
+        job_id=None,
+        payload=payload
+    )

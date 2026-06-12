@@ -11,10 +11,10 @@ from app.models.advisory import (
 from app.models.financials import FinancialAnalysisResponse, RatioMetric
 
 DISCLAIMER = (
-    "This is an indicative, context-only PD / credit scoring foundation for "
-    "advisory readiness. It is not a calibrated regulatory PD model, formal "
-    "underwriting output, or credit approval decision. Production use requires "
-    "validated bureau/CDI data, model governance, calibration, and bank approval."
+    "This is an indicative, context-only planning tier and funding-readiness analysis "
+    "for planning support. It is not a calibrated regulatory PD model or a formal credit "
+    "decision. Production use requires validated bureau/CDI data, model governance, "
+    "calibration, and relationship manager review."
 )
 
 
@@ -107,21 +107,20 @@ def _make_factor(
 
 def build_credit_scoring_result(analysis: FinancialAnalysisResponse) -> CreditScoringResult:
     """
-    Build a deterministic, explainable PD / credit scoring foundation from the
-    finance core outputs in the BOCHK workflow: ratios, receivables diagnostics,
-    valuation/cash-flow cushion, and stress-oriented debt-service sensitivity.
+    Build a deterministic, explainable planning tier / funding-readiness score from the
+    finance core outputs: ratios, receivables diagnostics, valuation/cash-flow cushion,
+    and stress-oriented debt-service sensitivity.
     """
     snapshot = analysis.snapshot
     ratios = analysis.ratios
     risk_diagnostics = analysis.risk_diagnostics
-    valuation = analysis.valuation
 
     factors: list[CreditScoreFactor] = []
     warnings: list[str] = list(analysis.warnings or [])
     hard_constraints: list[str] = []
 
-    current_ratio = _metric_value(ratios.current_ratio)
-    quick_ratio = _metric_value(ratios.quick_ratio)
+    current_ratio = _metric_value(ratios.current_ratio) if ratios else None
+    quick_ratio = _metric_value(ratios.quick_ratio) if ratios else None
     liquidity_anchor = None
     if current_ratio is not None and quick_ratio is not None:
         liquidity_anchor = min(current_ratio, quick_ratio * 1.2)
@@ -145,7 +144,7 @@ def build_credit_scoring_result(analysis: FinancialAnalysisResponse) -> CreditSc
             key="liquidity",
             label="Liquidity and working-capital buffer",
             raw_score=liquidity_score,
-            weight=0.18,
+            weight=0.15,
             band=liquidity_band,
             message=liquidity_message,
             evidence=f"Current ratio={current_ratio}, Quick ratio={quick_ratio}",
@@ -155,8 +154,8 @@ def build_credit_scoring_result(analysis: FinancialAnalysisResponse) -> CreditSc
         )
     )
 
-    debt_ratio = _metric_value(ratios.debt_ratio)
-    net_debt_to_ebitda = _metric_value(ratios.net_debt_to_ebitda)
+    debt_ratio = _metric_value(ratios.debt_ratio) if ratios else None
+    net_debt_to_ebitda = _metric_value(ratios.net_debt_to_ebitda) if ratios else None
     leverage_score_candidates: list[int] = []
     leverage_messages: list[str] = []
     if debt_ratio is not None:
@@ -194,7 +193,7 @@ def build_credit_scoring_result(analysis: FinancialAnalysisResponse) -> CreditSc
             key="leverage",
             label="Leverage and balance-sheet capacity",
             raw_score=leverage_score,
-            weight=0.20,
+            weight=0.18,
             band=leverage_band,
             message=" ".join(leverage_messages) if leverage_messages else "Leverage score unavailable because debt metrics are incomplete.",
             evidence=f"Debt ratio={debt_ratio}, Net debt/EBITDA={net_debt_to_ebitda}",
@@ -204,8 +203,8 @@ def build_credit_scoring_result(analysis: FinancialAnalysisResponse) -> CreditSc
         )
     )
 
-    interest_coverage = _metric_value(ratios.interest_coverage)
-    dscr = _metric_value(ratios.dscr)
+    interest_coverage = _metric_value(ratios.interest_coverage) if ratios else None
+    dscr = _metric_value(ratios.dscr) if ratios else None
     coverage_anchor = None
     if interest_coverage is not None and dscr is not None:
         coverage_anchor = min(interest_coverage / 3.0, dscr)
@@ -232,7 +231,7 @@ def build_credit_scoring_result(analysis: FinancialAnalysisResponse) -> CreditSc
             key="coverage",
             label="Interest coverage and DSCR",
             raw_score=coverage_score,
-            weight=0.22,
+            weight=0.20,
             band=coverage_band,
             message=coverage_message,
             evidence=f"Interest coverage={interest_coverage}, DSCR={dscr}",
@@ -242,9 +241,49 @@ def build_credit_scoring_result(analysis: FinancialAnalysisResponse) -> CreditSc
         )
     )
 
-    dso = _metric_value(ratios.dso)
-    ecl_ar = _metric_value(ratios.expected_credit_loss_ar)
-    receivables_zone = risk_diagnostics.receivables_risk.zone
+    revenue = snapshot.income_statement.revenue if snapshot and snapshot.income_statement else 0.0
+    ebitda = snapshot.income_statement.ebitda if snapshot and snapshot.income_statement else 0.0
+    profitability_score = 35
+    profitability_band = "unavailable"
+    profitability_message = "Profitability score unavailable due to insufficient income statement metrics."
+    ebitda_margin = None
+    if revenue > 0.0:
+        ebitda_margin = ebitda / revenue
+        if ebitda_margin >= 0.15:
+            profitability_score = 90
+            profitability_band = "strong"
+            profitability_message = f"EBITDA margin is strong at {ebitda_margin:.1%}."
+        elif ebitda_margin >= 0.08:
+            profitability_score = 75
+            profitability_band = "adequate"
+            profitability_message = f"EBITDA margin is acceptable at {ebitda_margin:.1%}."
+        elif ebitda_margin >= 0.0:
+            profitability_score = 55
+            profitability_band = "watch"
+            profitability_message = f"EBITDA margin is narrow at {ebitda_margin:.1%}."
+        else:
+            profitability_score = 30
+            profitability_band = "constrained"
+            profitability_message = f"EBITDA margin is negative at {ebitda_margin:.1%}, presenting cash generation risks."
+
+    factors.append(
+        _make_factor(
+            key="profitability",
+            label="Operating profitability margins",
+            raw_score=profitability_score,
+            weight=0.10,
+            band=profitability_band,
+            message=profitability_message,
+            evidence=f"EBITDA margin={f'{ebitda_margin:.2%}' if ebitda_margin is not None else 'N/A'}",
+            source="Financial ratio engine: EBITDA margin",
+            positive_driver="Healthy EBITDA margin supports operational cash generation" if profitability_score >= 75 else None,
+            risk_driver="Thin or negative EBITDA margin limits cash generation capability" if profitability_score < 60 else None,
+        )
+    )
+
+    dso = _metric_value(ratios.dso) if ratios else None
+    ecl_ar = _metric_value(ratios.expected_credit_loss_ar) if ratios else None
+    receivables_zone = risk_diagnostics.receivables_risk.zone if (risk_diagnostics and risk_diagnostics.receivables_risk) else None
     receivables_base = 80
     if receivables_zone == "low":
         receivables_base = 86
@@ -264,7 +303,7 @@ def build_credit_scoring_result(analysis: FinancialAnalysisResponse) -> CreditSc
             key="receivables_quality",
             label="Receivables quality and collection risk",
             raw_score=receivables_score,
-            weight=0.15,
+            weight=0.13,
             band=_band_from_score(receivables_score),
             message=f"Receivables risk zone is {receivables_zone or 'unavailable'}.",
             evidence=f"DSO={dso}, Expected credit loss AR={ecl_ar}, zone={receivables_zone}",
@@ -297,10 +336,10 @@ def build_credit_scoring_result(analysis: FinancialAnalysisResponse) -> CreditSc
             cashflow_message = "Projected FCFF is weak or negative across most forecast years."
     factors.append(
         _make_factor(
-            key="cashflow_valuation_cushion",
+            key="cash_flow",
             label="Cash-flow and valuation cushion",
             raw_score=cashflow_score,
-            weight=0.13,
+            weight=0.12,
             band=_band_from_score(cashflow_score),
             message=cashflow_message,
             evidence=f"Positive projected FCFF years={positive_fcff_years}/{len(projected_fcff) if projected_fcff else 0}",
@@ -345,7 +384,7 @@ def build_credit_scoring_result(analysis: FinancialAnalysisResponse) -> CreditSc
     composite_score = max(0, min(100, int(weighted_score)))
 
     # Integrity failures are a data-quality constraint, not an automatic business failure.
-    failed_integrity = [check for check in analysis.integrity_checks if not check.passed]
+    failed_integrity = [check for check in analysis.integrity_checks if not check.passed] if analysis.integrity_checks else []
     if failed_integrity:
         composite_score = max(0, composite_score - min(12, len(failed_integrity) * 4))
         hard_constraints.append("One or more accounting integrity checks failed; bank review requires corrected statements.")
@@ -359,7 +398,7 @@ def build_credit_scoring_result(analysis: FinancialAnalysisResponse) -> CreditSc
         risk_drivers.append("Accounting integrity check failures reduce confidence in the scoring output")
 
     next_data_needed = []
-    if analysis.snapshot.metadata and analysis.snapshot.metadata.get("preview_only"):
+    if analysis.snapshot and analysis.snapshot.metadata and analysis.snapshot.metadata.get("preview_only"):
         next_data_needed.append("Persist verified Data Room records before production credit review")
     next_data_needed.extend(
         [
@@ -370,9 +409,40 @@ def build_credit_scoring_result(analysis: FinancialAnalysisResponse) -> CreditSc
         ]
     )
 
+    from app.services.advisory.pd_engine import _load_and_train_dataset
+    _, _, _, _, cal_status, _ = _load_and_train_dataset()
+
+    scorecard_assumptions = [
+        "Liquidity levels represent buffer to meet short-term liabilities.",
+        "Debt ratios reflect asset coverage and leverage capacity.",
+        "Debt service coverage (DSCR) reflects operational repayment cushion.",
+        "Operating margins represent baseline business profitability.",
+        "Cash flow cushion reflects projected net cash generation.",
+        "Receivables quality indicates collections efficiency and credit lag risk.",
+        "Stress resilience is based on estimated sensitivity to interest rate shock."
+    ]
+
+    scorecard_limitations = [
+        "Not a formal credit decision or credit approval.",
+        "Not calibrated to historical default databases.",
+        "Relies on unaudited or user-provided data inputs."
+    ]
+
+    scorecard_data_quality = {
+        "liquidity_available": current_ratio is not None or quick_ratio is not None,
+        "leverage_available": debt_ratio is not None or net_debt_to_ebitda is not None,
+        "coverage_available": interest_coverage is not None or dscr is not None,
+        "profitability_available": ebitda_margin is not None,
+        "cash_flow_available": len(projected_fcff) > 0,
+        "receivables_available": dso is not None or ecl_ar is not None,
+        "stress_resilience_available": dscr is not None
+    }
+
+    confidence_band = "high" if all(scorecard_data_quality.values()) else "medium"
+
     return CreditScoringResult(
-        company_id=snapshot.company_id,
-        company_name=snapshot.company_name,
+        company_id=snapshot.company_id if snapshot else "demo_company",
+        company_name=snapshot.company_name if snapshot else "Demo Company",
         composite_score=composite_score,
         risk_tier=tier,
         pd_proxy_band=_pd_proxy_band(composite_score),
@@ -382,7 +452,14 @@ def build_credit_scoring_result(analysis: FinancialAnalysisResponse) -> CreditSc
         risk_drivers=risk_drivers,
         hard_constraints=hard_constraints,
         next_data_needed=next_data_needed,
-        methodology_label="Deterministic SME PD Proxy Scorecard: ratios + receivables + FCFF + stress overlay",
+        methodology_label="Deterministic SME Planning Tier Scorecard: ratios + receivables + FCFF + stress overlay",
         disclaimer=DISCLAIMER,
         warnings=warnings,
+        model_version="1.0.0",
+        model_type="deterministic_scorecard",
+        calibration_status="rules_based",
+        assumptions=scorecard_assumptions,
+        limitations=scorecard_limitations,
+        data_quality=scorecard_data_quality,
+        confidence_band=confidence_band
     )

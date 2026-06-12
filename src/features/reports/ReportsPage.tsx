@@ -18,6 +18,7 @@ import {
   CheckCircle2,
 } from 'lucide-react'
 import PageHeader from '../../components/platform/PageHeader'
+import { generateAdvisorReport, AdvisorReportResponse } from './api/advisorReportApi'
 import StatusChip from '../../components/platform/StatusChip'
 import SectionBlock from '../../components/platform/SectionBlock'
 import MetricDisplay from '../../components/platform/MetricDisplay'
@@ -188,6 +189,12 @@ export default function ReportsPage() {
   const [reportJobs, setReportJobs] = useState<ReportJob[]>([])
   const [jobsLoading, setJobsLoading] = useState(true)
   const [jobsRefreshing, setJobsRefreshing] = useState(false)
+
+  // Advisor Report State
+  const [advisorReport, setAdvisorReport] = useState<AdvisorReportResponse | null>(null)
+  const [generatingAdvisorReport, setGeneratingAdvisorReport] = useState(false)
+  const [advisorReportError, setAdvisorReportError] = useState<string | null>(null)
+
   const [creatingJob, setCreatingJob] = useState(false)
   const [jobsError, setJobsError] = useState<string | null>(null)
   const [jobsNotice, setJobsNotice] = useState<string | null>(null)
@@ -396,6 +403,38 @@ export default function ReportsPage() {
     }
   }, [])
 
+
+  const handleGenerateAdvisorReport = async () => {
+    const workspaceId = localStorage.getItem('active_workspace_id')
+    if (!workspaceId) {
+      setAdvisorReportError('Select a workspace first.')
+      return
+    }
+
+    setGeneratingAdvisorReport(true)
+    setAdvisorReportError(null)
+
+    try {
+      const response = await generateAdvisorReport(workspaceId, {
+        objective: 'Assess funding readiness and key risk metrics',
+      })
+      setAdvisorReport(response)
+    } catch (error) {
+      console.error('Failed to generate advisor report', error)
+      if (error instanceof Error) {
+        setAdvisorReportError(error.message)
+      } else {
+        setAdvisorReportError('Unable to generate advisor report right now.')
+      }
+    } finally {
+      setGeneratingAdvisorReport(false)
+    }
+  }
+
+  const handleExportPDF = () => {
+    window.print()
+  }
+
   const handleCreateReportJob = async () => {
     const workspaceId = localStorage.getItem('active_workspace_id')
     if (!workspaceId) {
@@ -543,6 +582,127 @@ export default function ReportsPage() {
     reportJobs.find((job) => job.id === latestJobId) ??
     reportJobs[0] ??
     null
+
+
+  const renderAdvisorReportSection = () => {
+    return (
+      <section className="softform-card rounded-[32px] p-6 sm:p-8 space-y-6 mb-8 print:shadow-none print:border-none print:m-0 print:p-0">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between print:hidden">
+          <div className="space-y-2">
+            <h2 className="text-lg font-semibold text-softform-navy-950">Advisor-Ready Report</h2>
+            <p className="max-w-3xl text-sm leading-relaxed text-softform-text-secondary">
+              Generate a comprehensive, synchronous advisor-ready report directly from the workspace context.
+            </p>
+          </div>
+          <button
+            onClick={handleGenerateAdvisorReport}
+            disabled={generatingAdvisorReport}
+            className="inline-flex items-center gap-2 rounded-xl bg-softform-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-softform-teal-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {generatingAdvisorReport ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
+            Generate Advisor-Ready Report
+          </button>
+        </div>
+        {advisorReportError && (
+          <div className="rounded-lg bg-red-50 p-3 text-sm text-red-800">
+            {advisorReportError}
+          </div>
+        )}
+        
+        {advisorReport && (() => {
+          const payload = advisorReport.payload;
+          return (
+            <div className="mt-8 space-y-8 print:mt-0">
+              <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 print:hidden border-t border-softform-teal-500/20 pt-8">
+                <div>
+                  <h2 className="text-xl font-bold text-softform-navy-950">Advisor-Ready Report Generated</h2>
+                  <p className="text-sm text-softform-text-secondary mt-1">
+                    Generated at {new Date(payload.generatedAt).toLocaleString()}
+                  </p>
+                </div>
+                <button
+                  onClick={handleExportPDF}
+                  className="inline-flex items-center gap-2 rounded-xl bg-softform-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-softform-teal-700"
+                >
+                  <Download size={16} />
+                  Export PDF
+                </button>
+              </div>
+
+              {/* Print-only Header */}
+              <div className="hidden print:block mb-8">
+                <h1 className="text-3xl font-bold text-softform-navy-950 mb-2">{payload.title}</h1>
+                <div className="text-sm text-softform-text-secondary">
+                  Generated: {new Date(payload.generatedAt).toLocaleString()}<br />
+                  Workspace ID: {payload.workspaceId}<br />
+                  Mode: {payload.aiMode}
+                </div>
+              </div>
+
+              {/* Sections */}
+              <div className="space-y-8">
+                {payload.sections.map((section: any, idx: number) => (
+                  <div key={idx} className="space-y-4">
+                    <h3 className="text-lg font-semibold text-softform-navy-900 border-b border-softform-teal-500/20 pb-2">
+                      {section.title}
+                    </h3>
+                    <div className="text-sm text-softform-text-primary whitespace-pre-wrap leading-relaxed">
+                      {section.content}
+                    </div>
+                    
+                    {section.citations && section.citations.length > 0 && (
+                      <div className="mt-4 space-y-3 bg-softform-bg-alt/50 p-4 rounded-xl">
+                        <h4 className="text-xs font-semibold text-softform-text-secondary uppercase tracking-wider">
+                          Source Citations
+                        </h4>
+                        <ul className="space-y-3">
+                          {section.citations.map((citation: any, cIdx: number) => (
+                            <li key={cIdx} className="text-xs space-y-1">
+                              <div className="font-medium text-softform-navy-800">
+                                {citation.title}
+                                {citation.chunkIndex !== undefined && citation.chunkIndex !== null && ` (Chunk ${citation.chunkIndex})`}
+                                {citation.sourceMode && ` - [${citation.sourceMode}]`}
+                              </div>
+                              <div className="text-softform-text-secondary italic border-l-2 border-softform-teal-500/30 pl-2">
+                                "{citation.snippet}"
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Disclaimers & Limitations */}
+              <div className="mt-12 pt-6 border-t border-softform-teal-500/20 space-y-4">
+                <div className="bg-amber-50 text-amber-900 p-4 rounded-xl text-xs space-y-2">
+                  <h4 className="font-bold uppercase tracking-wider">Important Disclaimers</h4>
+                  <ul className="list-disc pl-4 space-y-1">
+                    {payload.disclaimers.map((disc: string, idx: number) => (
+                      <li key={idx}>{disc}</li>
+                    ))}
+                  </ul>
+                </div>
+                
+                {payload.limitations && payload.limitations.length > 0 && (
+                  <div className="bg-slate-50 text-slate-700 p-4 rounded-xl text-xs space-y-2">
+                    <h4 className="font-bold uppercase tracking-wider">Limitations</h4>
+                    <ul className="list-disc pl-4 space-y-1">
+                      {payload.limitations.map((lim: string, idx: number) => (
+                        <li key={idx}>{lim}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+      </section>
+    )
+  }
 
   const renderReportJobsSection = () => {
     const progressPercent = normalizeProgressPercent(
@@ -893,6 +1053,7 @@ export default function ReportsPage() {
           title="Reports"
           subtitle="Generate lender-ready reports and compliance packs."
         />
+        {renderAdvisorReportSection()}
         {renderReportJobsSection()}
         <div className="flex flex-col items-center justify-center p-8 sm:p-12 bg-white/40 dark:bg-slate-900/40 border border-white/60 dark:border-slate-800/60 rounded-3xl backdrop-blur-md shadow-sm max-w-2xl mx-auto text-center space-y-6">
           <div className="w-16 h-16 rounded-full bg-softform-teal-deep/10 dark:bg-softform-aqua-300/10 flex items-center justify-center text-softform-teal-deep dark:text-softform-aqua-300">
@@ -953,6 +1114,7 @@ export default function ReportsPage() {
           title="Reports"
           subtitle="CFO snapshot and lender-facing brief generated from the active workspace context."
         />
+        {renderAdvisorReportSection()}
         {renderReportJobsSection()}
         <WorkspaceInsufficientDataState
           missingRequirements={missing}
@@ -1035,6 +1197,7 @@ export default function ReportsPage() {
           subtitle="CFO snapshot and lender-facing brief generated from the active workspace context."
           chip={<StatusChip variant="caution">Context not ready</StatusChip>}
         />
+        {renderAdvisorReportSection()}
         {renderReportJobsSection()}
         {renderReadinessGate()}
       </div>
@@ -1048,7 +1211,8 @@ export default function ReportsPage() {
         subtitle="CFO snapshot and lender-facing brief generated from the active workspace context."
         chip={<StatusChip variant={isPreview ? 'signal' : 'neutral'}>{isPreview ? 'Workspace preview' : 'Workspace report'}</StatusChip>}
       />
-      {renderReportJobsSection()}
+      {renderAdvisorReportSection()}
+        {renderReportJobsSection()}
 
       {/* Render soft gate warning if runs are missing in dev/demo mode */}
       {!isReady && renderReadinessGate()}
