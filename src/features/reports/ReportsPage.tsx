@@ -5,6 +5,8 @@ import {
   AlertTriangle,
   ArrowRight,
   BarChart3,
+  CircleAlert,
+  Clock3,
   Download,
   FileText,
   HeartPulse,
@@ -29,6 +31,13 @@ import {
 } from '../../lib/workspaceRunHelpers'
 import { API_BASE_URL } from '../../lib/apiBase'
 import { getFinancialHealthAnalysis } from '../financial-health/financialHealthApi'
+import {
+  createReportGenerationJob,
+  getWorkspaceJob,
+  listWorkspaceJobs,
+  ReportJobsApiError,
+  type ReportJob,
+} from './api/reportJobsApi'
 import {
   getAdvisoryBlueprint,
   getAdvisoryFacilityStructures,
@@ -115,6 +124,38 @@ function reportDate() {
   }).format(new Date())
 }
 
+function formatJobDate(value?: string | null) {
+  if (!value) return 'N/A'
+
+  const parsed = Date.parse(value)
+  if (Number.isNaN(parsed)) return value
+
+  return new Intl.DateTimeFormat('en-HK', {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(parsed))
+}
+
+function formatJobStatus(status?: string | null) {
+  if (!status) return 'unknown'
+  return status.replace(/_/g, ' ')
+}
+
+function jobStatusVariant(status?: string | null): 'signal' | 'caution' | 'neutral' | 'navy' {
+  if (status === 'completed' || status === 'success') return 'signal'
+  if (status === 'failed') return 'caution'
+  if (status === 'running') return 'navy'
+  return 'neutral'
+}
+
+function normalizeProgressPercent(value?: number | null) {
+  if (typeof value !== 'number' || Number.isNaN(value)) return null
+  return Math.min(100, Math.max(0, Math.round(value)))
+}
+
 const requiredKeys = ['financial_health', 'valuation', 'credit_score', 'funding_strategy', 'advisory_blueprint']
 const runLabels: Record<string, string> = {
   financial_health: 'Financial Health',
@@ -142,6 +183,13 @@ export default function ReportsPage() {
   const [isProdMode, setIsProdMode] = useState(false)
   const [runningType, setRunningType] = useState<string | null>(null)
   const [checkingReadiness, setCheckingReadiness] = useState(true)
+  const [reportJobs, setReportJobs] = useState<ReportJob[]>([])
+  const [jobsLoading, setJobsLoading] = useState(true)
+  const [jobsRefreshing, setJobsRefreshing] = useState(false)
+  const [creatingJob, setCreatingJob] = useState(false)
+  const [jobsError, setJobsError] = useState<string | null>(null)
+  const [jobsNotice, setJobsNotice] = useState<string | null>(null)
+  const [latestJobId, setLatestJobId] = useState<string | null>(null)
 
   const activeSnapshotId = useMemo(() => {
     for (const key of requiredKeys) {
@@ -155,6 +203,76 @@ export default function ReportsPage() {
     }
     return 'N/A'
   }, [runStatuses, state.financial])
+
+  const loadReportJobs = async ({
+    showLoadingState = false,
+    preferredJobId,
+  }: {
+    showLoadingState?: boolean
+    preferredJobId?: string | null
+  } = {}) => {
+    const workspaceId = localStorage.getItem('active_workspace_id')
+
+    if (!workspaceId) {
+      setReportJobs([])
+      setLatestJobId(null)
+      setJobsError(null)
+      setJobsNotice('Select a workspace to load report jobs.')
+      setJobsLoading(false)
+      setJobsRefreshing(false)
+      return
+    }
+
+    if (showLoadingState) {
+      setJobsLoading(true)
+    } else {
+      setJobsRefreshing(true)
+    }
+
+    try {
+      const jobs = await listWorkspaceJobs(workspaceId)
+      const detailJobId = preferredJobId ?? jobs[0]?.id ?? null
+      let nextJobs = jobs
+
+      if (detailJobId) {
+        try {
+          const latestJob = await getWorkspaceJob(workspaceId, detailJobId)
+          nextJobs = jobs.some((job) => job.id === latestJob.id)
+            ? jobs.map((job) => (job.id === latestJob.id ? latestJob : job))
+            : [latestJob, ...jobs]
+        } catch (detailError) {
+          console.warn('Failed to load latest report job details', detailError)
+        }
+      }
+
+      setReportJobs(nextJobs)
+      setLatestJobId(detailJobId)
+      setJobsError(null)
+      setJobsNotice(
+        nextJobs.length === 0
+          ? 'No report jobs have been created for this workspace yet.'
+          : null,
+      )
+    } catch (error) {
+      console.error('Failed to load report jobs', error)
+      setReportJobs([])
+      setLatestJobId(null)
+
+      if (error instanceof ReportJobsApiError && error.status === 501) {
+        setJobsError(null)
+        setJobsNotice(error.message)
+      } else if (error instanceof ReportJobsApiError) {
+        setJobsError(error.message)
+        setJobsNotice(null)
+      } else {
+        setJobsError('Report jobs are currently unavailable. Please try again.')
+        setJobsNotice(null)
+      }
+    } finally {
+      setJobsLoading(false)
+      setJobsRefreshing(false)
+    }
+  }
 
   const loadAll = async () => {
     setLoading(true)
@@ -259,8 +377,61 @@ export default function ReportsPage() {
   }
 
   useEffect(() => {
-    loadAll()
+    void loadAll()
+    void loadReportJobs({ showLoadingState: true })
+
+    const handleWorkspaceChanged = () => {
+      void loadAll()
+      void loadReportJobs({ showLoadingState: true })
+    }
+
+    window.addEventListener('workspaceChanged', handleWorkspaceChanged)
+
+    return () => {
+      window.removeEventListener('workspaceChanged', handleWorkspaceChanged)
+    }
   }, [])
+
+  const handleCreateReportJob = async () => {
+    const workspaceId = localStorage.getItem('active_workspace_id')
+    if (!workspaceId) {
+      setJobsError('Select a workspace before creating a report job.')
+      setJobsNotice(null)
+      return
+    }
+
+    setCreatingJob(true)
+    setJobsError(null)
+
+    try {
+      const createdJob = await createReportGenerationJob(workspaceId, {
+        reportType: 'financial_health',
+        reportPayload: {},
+        metadata: {
+          title: 'Workspace CFO report',
+          requestedFrom: 'reports_page',
+        },
+        maxAttempts: 3,
+      })
+
+      await loadReportJobs({ preferredJobId: createdJob.id })
+    } catch (error) {
+      console.error('Failed to create report job', error)
+
+      if (error instanceof ReportJobsApiError && error.status === 501) {
+        setJobsNotice(error.message)
+        setJobsError(null)
+      } else if (error instanceof Error) {
+        setJobsError(error.message)
+        setJobsNotice(null)
+      } else {
+        setJobsError('Unable to create a report job right now.')
+        setJobsNotice(null)
+      }
+    } finally {
+      setCreatingJob(false)
+    }
+  }
 
   const valuation =
     ((state.financial as unknown as {
@@ -324,6 +495,280 @@ export default function ReportsPage() {
     ]
   }, [state.financial, state.credit, state.funding, state.blueprint, valuation, topChannel])
 
+  const latestJob =
+    reportJobs.find((job) => job.id === latestJobId) ??
+    reportJobs[0] ??
+    null
+
+  const renderReportJobsSection = () => {
+    const progressPercent = normalizeProgressPercent(
+      typeof latestJob?.metadata?.progress === 'object'
+        ? (latestJob.metadata.progress?.percent as number | null | undefined)
+        : null,
+    )
+    const progressStage =
+      typeof latestJob?.metadata?.progress === 'object'
+        ? latestJob.metadata.progress?.stage
+        : null
+    const progressMessage =
+      typeof latestJob?.metadata?.progress === 'object'
+        ? latestJob.metadata.progress?.message
+        : null
+
+    return (
+      <section className="softform-card rounded-[32px] p-6 sm:p-8 space-y-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold text-softform-navy-950">
+                Report Jobs
+              </h2>
+              {latestJob && (
+                <StatusChip variant={jobStatusVariant(latestJob.status)}>
+                  {formatJobStatus(latestJob.status)}
+                </StatusChip>
+              )}
+            </div>
+            <p className="max-w-3xl text-sm leading-relaxed text-softform-text-secondary">
+              Create a background report job for this workspace and manually refresh to review progress.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => void loadReportJobs()}
+              disabled={jobsLoading || jobsRefreshing || creatingJob}
+              className="inline-flex items-center gap-2 rounded-xl border border-white/70 bg-white/50 px-4 py-2.5 text-xs font-semibold text-softform-navy-950 shadow-sm transition hover:bg-white/70 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <RotateCw
+                size={14}
+                className={jobsRefreshing ? 'animate-spin' : undefined}
+              />
+              Refresh jobs
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleCreateReportJob()}
+              disabled={creatingJob || jobsRefreshing || hasSnapshot === false}
+              className="inline-flex items-center gap-2 rounded-xl bg-softform-navy-900 px-4 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-softform-navy-800 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {creatingJob ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <FileText size={14} />
+              )}
+              Generate report job
+            </button>
+          </div>
+        </div>
+
+        {hasSnapshot === false && (
+          <div className="rounded-[24px] border border-softform-amber-200/50 bg-softform-cream/40 px-4 py-3 text-sm text-softform-text-secondary">
+            Create an active financial snapshot before starting a new report job for this workspace.
+          </div>
+        )}
+
+        {jobsLoading ? (
+          <SkeletonLoader variant="card" className="min-h-[180px]" />
+        ) : jobsError ? (
+          <div className="rounded-[24px] border border-red-100 bg-red-50/70 p-4 text-sm text-red-700">
+            {jobsError}
+          </div>
+        ) : jobsNotice ? (
+          <div className="rounded-[24px] border border-softform-aqua-300/30 bg-softform-mist-100/50 p-4 text-sm text-softform-text-secondary">
+            {jobsNotice}
+          </div>
+        ) : (
+          <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+            <div className="space-y-3">
+              {reportJobs.slice(0, 5).map((job) => {
+                const jobProgress = job.metadata?.progress
+                const jobPercent = normalizeProgressPercent(jobProgress?.percent)
+
+                return (
+                  <div
+                    key={job.id}
+                    className="rounded-[24px] border border-white/70 bg-white/50 p-4 shadow-sm"
+                  >
+                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                      <div className="space-y-1.5">
+                        <p className="text-sm font-semibold text-softform-navy-950">
+                          {job.jobType}
+                        </p>
+                        <p className="text-[11px] uppercase tracking-[0.14em] text-softform-text-muted">
+                          {job.id}
+                        </p>
+                      </div>
+                      <StatusChip variant={jobStatusVariant(job.status)}>
+                        {formatJobStatus(job.status)}
+                      </StatusChip>
+                    </div>
+
+                    <div className="mt-4 grid gap-3 md:grid-cols-2">
+                      <div className="rounded-2xl border border-white/65 bg-white/45 px-3 py-2.5">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">
+                          Created
+                        </p>
+                        <p className="mt-1 text-xs text-softform-text-secondary">
+                          {formatJobDate(job.createdAt)}
+                        </p>
+                      </div>
+                      <div className="rounded-2xl border border-white/65 bg-white/45 px-3 py-2.5">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">
+                          Completed
+                        </p>
+                        <p className="mt-1 text-xs text-softform-text-secondary">
+                          {formatJobDate(job.completedAt)}
+                        </p>
+                      </div>
+                    </div>
+
+                    {(jobProgress?.stage || jobProgress?.message || jobPercent !== null) && (
+                      <div className="mt-4 rounded-2xl border border-softform-aqua-300/20 bg-softform-mist-50/70 px-3 py-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">
+                            Progress
+                          </p>
+                          {jobPercent !== null && (
+                            <span className="text-xs font-semibold text-softform-teal-deep">
+                              {jobPercent}%
+                            </span>
+                          )}
+                        </div>
+                        {jobPercent !== null && (
+                          <div className="mt-2 h-2 overflow-hidden rounded-full bg-softform-ice-100">
+                            <div
+                              className="h-full rounded-full bg-softform-teal-500 transition-all"
+                              style={{ width: `${jobPercent}%` }}
+                            />
+                          </div>
+                        )}
+                        {(jobProgress?.stage || jobProgress?.message) && (
+                          <p className="mt-2 text-xs leading-relaxed text-softform-text-secondary">
+                            {[jobProgress?.stage, jobProgress?.message]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {job.errorMessage && (
+                      <div className="mt-4 rounded-2xl border border-red-100 bg-red-50/70 px-3 py-3 text-xs leading-relaxed text-red-700">
+                        <span className="font-semibold">Failure details:</span>{' '}
+                        {job.errorMessage}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className="rounded-[24px] border border-white/70 bg-white/45 p-5">
+              <div className="flex items-center gap-2">
+                <Clock3 size={16} className="text-softform-teal-500" />
+                <h3 className="text-sm font-semibold text-softform-navy-950">
+                  Latest Job Summary
+                </h3>
+              </div>
+
+              {latestJob ? (
+                <div className="mt-4 space-y-4">
+                  <div className="rounded-2xl border border-white/70 bg-white/60 px-4 py-3">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">
+                      Job Type
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-softform-navy-950">
+                      {latestJob.jobType}
+                    </p>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                    <div className="rounded-2xl border border-white/70 bg-white/60 px-4 py-3">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">
+                        Status
+                      </p>
+                      <div className="mt-2">
+                        <StatusChip variant={jobStatusVariant(latestJob.status)}>
+                          {formatJobStatus(latestJob.status)}
+                        </StatusChip>
+                      </div>
+                    </div>
+                    <div className="rounded-2xl border border-white/70 bg-white/60 px-4 py-3">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">
+                        Created At
+                      </p>
+                      <p className="mt-1 text-sm text-softform-text-secondary">
+                        {formatJobDate(latestJob.createdAt)}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-white/70 bg-white/60 px-4 py-3">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">
+                        Completed At
+                      </p>
+                      <p className="mt-1 text-sm text-softform-text-secondary">
+                        {formatJobDate(latestJob.completedAt)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {(progressPercent !== null || progressStage || progressMessage) && (
+                    <div className="rounded-2xl border border-softform-aqua-300/20 bg-softform-mist-50/70 px-4 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">
+                          Progress
+                        </p>
+                        {progressPercent !== null && (
+                          <span className="text-sm font-semibold text-softform-teal-deep">
+                            {progressPercent}%
+                          </span>
+                        )}
+                      </div>
+                      {progressPercent !== null && (
+                        <div className="mt-2 h-2 overflow-hidden rounded-full bg-softform-ice-100">
+                          <div
+                            className="h-full rounded-full bg-softform-teal-500 transition-all"
+                            style={{ width: `${progressPercent}%` }}
+                          />
+                        </div>
+                      )}
+                      {(progressStage || progressMessage) && (
+                        <p className="mt-2 text-sm leading-relaxed text-softform-text-secondary">
+                          {[progressStage, progressMessage].filter(Boolean).join(' · ')}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {latestJob.errorMessage && (
+                    <div className="rounded-2xl border border-red-100 bg-red-50/70 px-4 py-3 text-sm leading-relaxed text-red-700">
+                      <span className="font-semibold">Latest failure:</span>{' '}
+                      {latestJob.errorMessage}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="mt-4 rounded-2xl border border-dashed border-white/80 bg-white/35 px-4 py-5 text-sm text-softform-text-secondary">
+                  Create a report job to start tracking status and progress here.
+                </div>
+              )}
+
+              <div className="mt-4 rounded-2xl border border-softform-amber-200/40 bg-softform-cream/35 px-4 py-3 text-xs leading-relaxed text-softform-text-secondary">
+                <div className="flex items-start gap-2">
+                  <CircleAlert size={14} className="mt-0.5 shrink-0 text-softform-amber-500" />
+                  <span>
+                    Manual refresh keeps the demo flow predictable. Pending and running jobs may not update until you refresh.
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </section>
+    )
+  }
+
   if (loading || checkingReadiness) {
     return (
       <div className="space-y-8 pb-12">
@@ -356,6 +801,7 @@ export default function ReportsPage() {
           title="Reports"
           subtitle="Generate lender-ready reports and compliance packs."
         />
+        {renderReportJobsSection()}
         <div className="flex flex-col items-center justify-center p-8 sm:p-12 bg-white/40 dark:bg-slate-900/40 border border-white/60 dark:border-slate-800/60 rounded-3xl backdrop-blur-md shadow-sm max-w-2xl mx-auto text-center space-y-6">
           <div className="w-16 h-16 rounded-full bg-softform-teal-deep/10 dark:bg-softform-aqua-300/10 flex items-center justify-center text-softform-teal-deep dark:text-softform-aqua-300">
             <FileText size={28} />
@@ -415,6 +861,7 @@ export default function ReportsPage() {
           title="Reports"
           subtitle="CFO snapshot and lender-facing brief generated from the active workspace context."
         />
+        {renderReportJobsSection()}
         <WorkspaceInsufficientDataState
           missingRequirements={missing}
           nextActions={nextAct}
@@ -496,6 +943,7 @@ export default function ReportsPage() {
           subtitle="CFO snapshot and lender-facing brief generated from the active workspace context."
           chip={<StatusChip variant="caution">Context not ready</StatusChip>}
         />
+        {renderReportJobsSection()}
         {renderReadinessGate()}
       </div>
     )
@@ -508,6 +956,7 @@ export default function ReportsPage() {
         subtitle="CFO snapshot and lender-facing brief generated from the active workspace context."
         chip={<StatusChip variant={isPreview ? 'signal' : 'neutral'}>{isPreview ? 'Workspace preview' : 'Workspace report'}</StatusChip>}
       />
+      {renderReportJobsSection()}
 
       {/* Render soft gate warning if runs are missing in dev/demo mode */}
       {!isReady && renderReadinessGate()}
