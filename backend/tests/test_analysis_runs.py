@@ -22,6 +22,29 @@ def clean_storage_and_settings():
     WorkspaceStore._write_json(WorkspaceStore._runs_file, [])
     WorkspaceStore._write_json(WorkspaceStore._audits_file, [])
     
+    if settings.normalized_persistence_backend == "database":
+        from app.db.session import SessionLocal, get_engine
+        get_engine()
+        from app.db.session import SessionLocal
+        if SessionLocal is not None:
+            session = SessionLocal()
+            try:
+                from app.db.models import Workspace, WorkspaceFile, WorkspaceFileVersion, FinancialSnapshot, FinancialSnapshotVersion, AnalysisRun, AuditEvent, Job, Report
+                session.query(WorkspaceFileVersion).delete()
+                session.query(WorkspaceFile).delete()
+                session.query(FinancialSnapshotVersion).delete()
+                session.query(FinancialSnapshot).delete()
+                session.query(AnalysisRun).delete()
+                session.query(AuditEvent).delete()
+                session.query(Job).delete()
+                session.query(Report).delete()
+                session.query(Workspace).delete()
+                session.commit()
+            except Exception:
+                session.rollback()
+            finally:
+                session.close()
+                
     # Yield to run test
     yield
     
@@ -34,6 +57,29 @@ def clean_storage_and_settings():
     WorkspaceStore._write_json(WorkspaceStore._snapshots_file, [])
     WorkspaceStore._write_json(WorkspaceStore._runs_file, [])
     WorkspaceStore._write_json(WorkspaceStore._audits_file, [])
+    
+    if settings.normalized_persistence_backend == "database":
+        from app.db.session import SessionLocal, get_engine
+        get_engine()
+        from app.db.session import SessionLocal
+        if SessionLocal is not None:
+            session = SessionLocal()
+            try:
+                from app.db.models import Workspace, WorkspaceFile, WorkspaceFileVersion, FinancialSnapshot, FinancialSnapshotVersion, AnalysisRun, AuditEvent, Job, Report
+                session.query(WorkspaceFileVersion).delete()
+                session.query(WorkspaceFile).delete()
+                session.query(FinancialSnapshotVersion).delete()
+                session.query(FinancialSnapshot).delete()
+                session.query(AnalysisRun).delete()
+                session.query(AuditEvent).delete()
+                session.query(Job).delete()
+                session.query(Report).delete()
+                session.query(Workspace).delete()
+                session.commit()
+            except Exception:
+                session.rollback()
+            finally:
+                session.close()
 
 
 def _setup_active_workspace() -> str:
@@ -110,6 +156,7 @@ def test_analysis_run_serialization():
 def test_workspace_store_run_methods():
     """2. Test WorkspaceStore save/list/latest/get run methods."""
     ws_id = "ws_store_methods"
+    WorkspaceStore.create_workspace(ws_id, "Store Methods Workspace")
     run_1 = AnalysisRun(
         id="run_1",
         workspaceId=ws_id,

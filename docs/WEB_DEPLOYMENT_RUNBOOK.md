@@ -1,6 +1,6 @@
 # FinSight CFO: Web Deployment Runbook
 
-This runbook outlines how to configure, secure, and deploy FinSight CFO in a public web/production environment.
+This runbook outlines how to configure, secure, deploy, and verify FinSight CFO in a public web or production environment with a PostgreSQL database and S3-compatible object storage.
 
 ---
 
@@ -8,7 +8,7 @@ This runbook outlines how to configure, secure, and deploy FinSight CFO in a pub
 
 FinSight CFO is structured as a two-tier application:
 1. **Frontend**: A React SPA built using Vite. In production, this is compiled to static HTML/JS/CSS assets and served by Nginx.
-2. **Backend**: A FastAPI REST API service. In production, this runs on Uvicorn behind a reverse proxy (Nginx).
+2. **Backend**: A FastAPI REST API service. In production, this runs on Uvicorn/Gunicorn.
 
 ```mermaid
 flowchart TD
@@ -17,11 +17,69 @@ flowchart TD
     Nginx -->|Proxy /api/*| Backend[FastAPI Backend:8000]
     Backend -->|SQL| DB[(PostgreSQL Database)]
     Backend -->|Cache/Broker| Redis[(Redis Caching & Queue)]
+    Backend -->|Object Storage| S3[(S3 Compatible Object Storage)]
 ```
 
 ---
 
-## 2. Environment Variables Checklist
+## 2. Database Provisioning & Schema Setup
+
+For production web deployments, FinSight CFO switches from its default in-memory/JSON-file persistence mode to a relational database backend.
+
+### Required Environment Variables
+Set the following environment variables in your deployment environment:
+```bash
+# Set persistence mode to relational database
+PERSISTENCE_BACKEND="database"
+
+# Database URL pointing to a hosted PostgreSQL instance (SQLAlchemy format)
+DATABASE_URL="postgresql+psycopg2://<db_user>:<db_password>@<db_host>:<db_port>/<db_name>"
+
+# Toggle database SQL logging (Keep false in production to optimize performance)
+DATABASE_ECHO=false
+```
+
+### Running Schema Migrations (Alembic)
+Schema migrations must be run automatically during container startup or deployment pipelines.
+Run the following command from the `backend/` directory to upgrade the database schema to the latest version:
+```bash
+cd backend
+python -m alembic upgrade head
+```
+
+Or, in a Docker environment:
+```dockerfile
+ENTRYPOINT ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+```
+
+---
+
+## 3. Object Storage Configuration (S3 / MinIO)
+
+FinSight CFO supports S3-compatible object storage for storing physical file uploads (data room spreadsheets, PDFs, etc.). If any S3 environment variables are missing, the application falls back safely to writing files to the local file system.
+
+### S3 Settings
+```bash
+# S3 access credentials
+S3_ACCESS_KEY_ID="minio_access_key"
+S3_SECRET_ACCESS_KEY="minio_secret_key"
+
+# Target bucket name (Canonical: S3_BUCKET; Fallback: S3_BUCKET_NAME)
+S3_BUCKET="finsight-cfo-assets"
+
+# The endpoint URL for S3 (Leave empty for standard AWS S3, or set for MinIO/LocalStack)
+S3_ENDPOINT_URL="http://minio:9000"
+
+# S3 Region configuration (Canonical: S3_REGION; Fallback: S3_REGION_NAME)
+S3_REGION="us-east-1"
+
+# Force SSL / HTTPS for S3 connections
+S3_SECURE=true
+```
+
+---
+
+## 4. Environment Variables Checklist
 
 Create a `.env.production` file (using `.env.production.example` as a template) or inject these variables into your hosting platform:
 
@@ -34,66 +92,48 @@ Create a `.env.production` file (using `.env.production.example` as a template) 
 | `PERSISTENCE_BACKEND` | Switch storage driver to database mode. | `database` |
 | `DATABASE_URL` | Connection string to your production database. | `postgresql://db_user:pwd@db_host:5432/db_name` |
 | `AUTH_MODE` | Authentication provider mode. | `production` |
-| `AUTH_SECRET` | 32+ character random string for signing JWT tokens / auth context. | `a_very_long_secure_random_key_here` |
+| `JWT_SECRET_KEY` | Canonical 32+ character random string for signing JWT tokens. | `a_very_long_secure_random_key_here` |
+| `AUTH_SECRET` | Deprecated fallback 32+ character random string. | `a_very_long_secure_random_key_here` |
 | `QUEUE_BACKEND` | Enable Redis as the background task broker. | `redis` |
-| `REDIS_URL` | Redis server connection URI. | `redis://:password@redis-host:6379/0` |
+| `QUEUE_REDIS_URL` | Canonical Redis server connection URI. | `redis://:password@redis-host:6379/0` |
+| `REDIS_URL` | Deprecated Redis connection URI fallback. | `redis://:password@redis-host:6379/0` |
 | `VITE_API_BASE_URL` | Frontend API base endpoint. Leave empty/blank if using Nginx same-origin proxying. | ` ` (blank) |
 
 ---
 
-## 3. Production Config Guardrails
+## 5. Production Config Guardrails
 
 The application runs strict checks upon boot under `APP_MODE=production`:
-- **CORS Lock**: The app will fail to start if allowed origins only include localhost domains (e.g., `localhost` or `127.0.0.1`).
+- **CORS Lock**: The app will fail to start if allowed origins only include localhost domains.
 - **Demo Mode Lock**: Startup fails if `ALLOW_DEMO_FALLBACK` or `MARKET_WATCH_USE_FIXTURES` are true in production mode.
-- **Auth Key Lock**: Startup fails if `AUTH_SECRET` is missing or blank.
+- **Auth Key Lock**: Startup fails if both `JWT_SECRET_KEY` and `AUTH_SECRET` are missing or blank.
 - **DB Connection Lock**: Startup fails if `PERSISTENCE_BACKEND=database` but `DATABASE_URL` is not provided.
 
 ---
 
-## 4. Deployment Options
+## 6. Deployment Options
 
 ### Option A: Single VM / VPS (Docker Compose)
 The easiest way to run the entire stack on a single Virtual Private Server (Ubuntu/Debian) is using Docker Compose.
-
-1. **Prerequisites**: Ensure Docker and Docker Compose (V2) are installed.
-2. **Setup Env**: Copy `.env.production.example` to `.env.production` and fill in the secrets.
-3. **Run Services**:
+1. **Setup Env**: Copy `.env.production.example` to `.env.production` and fill in the secrets.
+2. **Run Services**:
    ```bash
    docker compose -f docker-compose.production.yml up -d --build
    ```
-4. **Proxy / SSL**: Set up Certbot (Let's Encrypt) on the host machine to wrap Nginx (port 80) with SSL (port 443).
+3. **Proxy / SSL**: Set up Certbot (Let's Encrypt) on the host machine to wrap Nginx (port 80) with SSL (port 443).
 
 ### Option B: Managed PaaS (Render, Railway, Fly.io)
-For fully-managed, serverless container hosting:
-
-#### 1. Backend Service
-- **Type**: Web Service / Private Service
-- **Build Command**: `pip install -r backend/requirements.txt`
-- **Start Command**: `PYTHONPATH=backend uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT`
-- **Environment**: Add all production environment variables to the dashboard.
-- **Health Check Path**: `/health` (lightweight)
-- **Readiness Probe Path**: `/ready` (performs database and Redis connection verification)
-
-#### 2. Managed Database & Cache
-- Provision a Managed PostgreSQL database on the platform. Copy the connection string to `DATABASE_URL`.
-- Provision a Managed Redis cluster. Copy the connection string to `REDIS_URL`.
-
-### Option C: Decoupled (Vercel Frontend + Hosted Backend)
-If you want to host the frontend on Vercel/Netlify for global CDN caching:
-
-1. **Deploy Frontend on Vercel**:
-   - Framework preset: `Vite`
-   - Build command: `npm run build`
-   - Output directory: `dist`
-   - Environment variables: Set `VITE_API_BASE_URL` to your public hosted backend URL (e.g., `https://api.yourcompany.com`).
-2. **Deploy Backend**:
-   - Set up the backend on Render, AWS ECS, or Fly.io.
-   - Configure `CORS_ALLOW_ORIGINS` to contain your Vercel URL (e.g., `https://your-app.vercel.app`).
+1. **Backend Service**:
+   - Build Command: `pip install -r backend/requirements.txt`
+   - Start Command: `PYTHONPATH=backend uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT`
+   - Health Check Path: `/health`
+   - Readiness Probe Path: `/ready` (performs database and Redis connection verification)
+2. **Managed Database & Cache**:
+   - Provision Managed PostgreSQL and Redis instances. Map connections to `DATABASE_URL` and `QUEUE_REDIS_URL` respectively.
 
 ---
 
-## 5. Security Best Practices
+## 7. Security Best Practices
 
 ### SSL/TLS
 Always serve the application over HTTPS. Ensure the Nginx configuration or cloud load balancer terminates SSL.
@@ -107,17 +147,23 @@ The provided `nginx.conf` injects the following headers to safeguard the applica
 
 ---
 
-## 6. Database Migrations
+## 8. Verification and Health Checks
 
-When `PERSISTENCE_BACKEND=database` is active, the PostgreSQL schema must be prepared.
+### Local Verification Mode
+If `PERSISTENCE_BACKEND` is set to `"local"` or left unset, FinSight CFO stores all state under local JSON configurations in the `storage_db` directory. This is optimal for developer environments and does not require starting PostgreSQL or S3.
 
-To run database migrations:
-1. Ensure your database is running and accessible.
-2. From the `backend` directory, run:
-   ```bash
-   alembic upgrade head
-   ```
-   *In Docker Compose setups, this can be added to the backend container startup command or executed via:*
-   ```bash
-   docker compose -f docker-compose.production.yml exec backend alembic upgrade head
-   ```
+### Startup Verification
+Ensure the service starts correctly and the `/health` check endpoint returns `200 OK`:
+```bash
+curl -f http://localhost:8000/health
+```
+
+### Running the Test Suite
+Validate the persistence modes by running the test suite:
+```bash
+# Run tests under database configuration
+$env:PERSISTENCE_BACKEND="database"
+$env:DATABASE_URL="sqlite:///./storage_db/finsight_test.db"
+$env:PYTHONPATH="."
+python -m pytest tests
+```

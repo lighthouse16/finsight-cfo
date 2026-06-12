@@ -55,8 +55,10 @@ class Settings(BaseSettings):
     S3_BUCKET_NAME: str = ""        # Deprecated fallback
     S3_ACCESS_KEY_ID: str = ""
     S3_SECRET_ACCESS_KEY: str = ""
-    S3_REGION: str = "us-east-1"
+    S3_REGION: str = "us-east-1"    # Canonical S3 Region
+    S3_REGION_NAME: str = "us-east-1" # Deprecated S3 Region fallback
     S3_FORCE_PATH_STYLE: bool = True
+    S3_SECURE: bool = True
 
     # AI / LLM Provider Configuration
     LLM_PROVIDER: str = ""  # "openai", "azure_openai", "google_ai", or empty for deterministic fallback
@@ -106,6 +108,12 @@ class Settings(BaseSettings):
         if s3_bucket_val:
             self.S3_BUCKET = s3_bucket_val
             self.S3_BUCKET_NAME = s3_bucket_val
+
+        # Standardize S3 Region
+        s3_region_val = self.S3_REGION or self.S3_REGION_NAME
+        if s3_region_val:
+            self.S3_REGION = s3_region_val
+            self.S3_REGION_NAME = s3_region_val
 
     @property
     def normalized_object_storage_backend(self) -> str:

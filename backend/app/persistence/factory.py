@@ -1,8 +1,8 @@
 from app.core.config import settings, Settings
 from app.persistence.errors import PersistenceConfigurationError, PersistenceAdapterNotImplementedError
-from app.persistence.interfaces import WorkspaceRepository, FileMetadataRepository, AnalysisRunRepository, AuditEventRepository, JobRepository, ReportRepository
-from app.persistence.local_adapters import LocalWorkspaceRepository, LocalFileMetadataRepository, LocalAnalysisRunRepository, LocalAuditEventRepository, LocalJobRepository, LocalReportRepository
-from app.persistence.database_adapters import DatabaseWorkspaceRepository, DatabaseFileMetadataRepository, DatabaseAnalysisRunRepository, DatabaseAuditEventRepository, DatabaseJobRepository, DatabaseReportRepository
+from app.persistence.interfaces import WorkspaceRepository, FileMetadataRepository, FinancialSnapshotRepository, AnalysisRunRepository, AuditEventRepository, JobRepository, ReportRepository
+from app.persistence.local_adapters import LocalWorkspaceRepository, LocalFileMetadataRepository, LocalFinancialSnapshotRepository, LocalAnalysisRunRepository, LocalAuditEventRepository, LocalJobRepository, LocalReportRepository
+from app.persistence.database_adapters import DatabaseWorkspaceRepository, DatabaseFileMetadataRepository, DatabaseFinancialSnapshotRepository, DatabaseAnalysisRunRepository, DatabaseAuditEventRepository, DatabaseJobRepository, DatabaseReportRepository
 
 def get_persistence_backend_name(app_settings: Settings = settings) -> str:
     """
@@ -130,4 +130,25 @@ def get_report_repository(app_settings: Settings = settings, db_session=None) ->
         return DatabaseReportRepository(db_session)
     else:
         raise PersistenceConfigurationError(f"Unsupported persistence backend: '{backend}'")
+
+
+def get_financial_snapshot_repository(app_settings: Settings = settings, db_session=None) -> FinancialSnapshotRepository:
+    """
+    Factory function returning the active FinancialSnapshotRepository adapter.
+    Raises PersistenceConfigurationError if database backend is selected but session is missing.
+    """
+    backend = get_persistence_backend_name(app_settings)
+    if backend == "local":
+        if 'LocalFinancialSnapshotRepository' not in globals():
+            raise PersistenceAdapterNotImplementedError("Local financial snapshot repository adapter does not exist.")
+        return LocalFinancialSnapshotRepository()
+    elif backend == "database":
+        if db_session is None:
+            raise PersistenceConfigurationError(
+                "Database session is required when database persistence backend is active."
+            )
+        return DatabaseFinancialSnapshotRepository(db_session)
+    else:
+        raise PersistenceConfigurationError(f"Unsupported persistence backend: '{backend}'")
+
 

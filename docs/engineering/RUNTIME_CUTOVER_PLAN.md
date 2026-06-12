@@ -42,15 +42,13 @@ The following persistence repository interfaces are fully implemented and availa
 
 * **ORM Schema Mapping**: SQLAlchemy declarative models representing all target tables.
 * **Migrations**: Alembic migrations `0001` through `0006` matching the schema design and compatible with SQLite and PostgreSQL.
-* **Repository Adapters**: Complete implementations for Workspaces, Files, Analysis Runs, Audit Events, Jobs, and Reports database persistence.
+* **Repository Adapters**: Complete implementations for Workspaces, Files, Financial Snapshots, Analysis Runs, Audit Events, Jobs, and Reports database persistence.
+* **Object Storage Module**: Dynamically routes files to local disk or S3/MinIO compatible storage.
 * **Factory & Helper Logic**: Factory methods to switch between local and database modes based on `PERSISTENCE_BACKEND` configurations.
 * **Test Coverage**: In-memory SQLite test suites validating schema upgrades, downgrades, and repository operations.
 
 ## 5. What Is Not Ready
 
-* **HTTP Routes / Handler Integration**: Workspace CRUD, File Metadata, and Analysis Run endpoints are integrated. Other handlers (audits, reports, jobs) are not yet wired.
-* **Database Session Middleware**: FastAPI dependency injection is integrated in workspaces.
-* **Data Migration Scripts**: Tools to serialize legacy localized JSON database records and insert them into the relational database.
 * **Tenant Access Rules (RBAC)**: Fine-grained user-to-workspace mapping checks (deferred to a subsequent Auth/RBAC task).
 
 ## 6. Cutover Strategy
@@ -120,7 +118,8 @@ If a critical issue occurs during the database cutover:
 
 ## 14. Acceptance Criteria before Switching Production Runtime
 
-- [ ] All 6 repository adapters are wired to HTTP routes.
-- [ ] 100% of backend tests pass with `PERSISTENCE_BACKEND="database"`.
+- [x] All 7 repository adapters are wired to HTTP routes/WorkspaceStore.
+- [x] 100% of backend tests pass with `PERSISTENCE_BACKEND="database"`.
 - [ ] Migration check scripts run without drift against a clean PostgreSQL container.
 - [ ] Read/write performance under PostgreSQL shows sub-50ms latency.
+
