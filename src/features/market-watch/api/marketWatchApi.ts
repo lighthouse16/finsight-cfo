@@ -1512,4 +1512,62 @@ export async function getFinancialPreviewAnalysis(): Promise<FinancialAnalysisRe
   }
 }
 
+export async function getMarketFundingIntelligence(): Promise<unknown> {
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/api/market-funding/intelligence`,
+      {
+        headers: getWorkspaceHeaders(),
+        signal: AbortSignal.timeout(5000),
+      }
+    )
+    if (!res.ok) {
+      throw new Error(`Backend returned ${res.status}`)
+    }
+    return await res.json()
+  } catch (error) {
+    console.warn('Market funding intelligence fetch failed', error)
+    return null
+  }
+}
+
+export async function getMarketFundingChannels(): Promise<unknown> {
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/api/market-funding/funding-channels`,
+      {
+        headers: getWorkspaceHeaders(),
+        signal: AbortSignal.timeout(5000),
+      }
+    )
+    if (!res.ok) {
+      throw new Error(`Backend returned ${res.status}`)
+    }
+    return await res.json()
+  } catch (error) {
+    console.warn('Market funding channels fetch failed', error)
+    return []
+  }
+}
+
+export async function getMarketFundingTimingSignals(): Promise<unknown> {
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/api/market-funding/timing-signals`,
+      {
+        headers: getWorkspaceHeaders(),
+        signal: AbortSignal.timeout(5000),
+      }
+    )
+    if (!res.ok) {
+      throw new Error(`Backend returned ${res.status}`)
+    }
+    return await res.json()
+  } catch (error) {
+    console.warn('Market funding timing signals fetch failed', error)
+    return null
+  }
+}
+
+
 

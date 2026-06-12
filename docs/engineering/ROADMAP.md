@@ -83,11 +83,24 @@ This document outlines the high-level roadmap for transitioning FinSight CFO fro
 33. **Product Smoke Flow Coverage (Phase 15)** [COMPLETED]
     - Add focused backend end-to-end product smoke tests for the real FinSight CFO product flow.
 
+---
 
+## Sprint 2 Detailed Plan — Market Research & Funding Intelligence [COMPLETED]
 
-
+1. **Backend Service & Routes** [COMPLETED]
+   - Implement `market_funding` schemas, mock adapters, and service logic for HIBOR/LPR spread, red flags, and Golden Timing Index.
+   - Register endpoints `/api/market-funding/intelligence`, `/api/market-funding/funding-channels`, `/api/market-funding/timing-signals`.
+2. **Frontend Funding Strategy Page & API** [COMPLETED]
+   - Integrate market watch and timing signal widgets with visual status alerts.
+   - Show red flags (window dressing, mega IPO liquidity, inverted curve, high rate environment).
+   - Render ranked list of funding channels (SFGS 80%, SFGS 90%, BOCHK SME, Virtual Bank, Working Capital Buffer) with pros, cons, and recommendations.
+   - Include standard compliance disclaimer ("context-only, RM review required").
+3. **Integration Verification & Unit Tests** [COMPLETED]
+   - Implement comprehensive backend test cases for timing calculations and channel sorting logic.
+   - Run production linting and build validation on the frontend.
 
 ---
+
 
 ## Phase 3: Authentication & Multi-Tenancy
 - Integrate production identity providers (OIDC/OAuth2/SAML).

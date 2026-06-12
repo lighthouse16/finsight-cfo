@@ -46,12 +46,8 @@ This board tracks active, planned, and completed tasks for current engineering s
 | **T-132** | `commercial/worker-runtime-manual-trigger` | **Done** | Backend Engineer | Low |
 | **T-132** | `commercial/end-to-end-product-smoke-tests` | **Done** | Backend Engineer | Low |
 
+## Sprint 2 — Market & Funding Intelligence [COMPLETED]
 
-
-
-
-
-
-
-
-
+| Task ID | Task Branch / Scope | Status | Suggested Owner | Risk Level |
+| :--- | :--- | :--- | :--- | :--- |
+| **T-201** | `commercial/market-funding-intelligence` | **Done** | Fullstack Engineer | Low |
