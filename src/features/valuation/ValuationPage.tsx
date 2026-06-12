@@ -259,13 +259,7 @@ export default function ValuationPage() {
   const valuationYears = dcf?.valuationYears ?? []
   const sensitivity = valuation.sensitivity ?? []
   const sanityChecks = valuation.sanityChecks ?? []
-  const modelWarnings = Array.from(
-    new Set([
-      ...(valuation.warnings ?? []),
-      ...(dcf?.warnings ?? []),
-      ...(wacc?.warnings ?? []),
-    ])
-  )
+
   const isPersistent = Boolean(snapshot?.metadata?.persistent || snapshot?.metadata?.source === 'workspace_persistent_snapshot')
   const isPreview = Boolean(snapshot?.metadata?.preview_only || snapshot?.metadata?.previewOnly || snapshot?.metadata?.source === 'data_room_workspace_preview')
 
@@ -500,19 +494,7 @@ export default function ValuationPage() {
 
 
 
-      {/* Model Warnings */}
-      {modelWarnings.length > 0 && (
-        <section className="rounded-[24px] border border-softform-amber-300/25 bg-softform-cream/35 p-5 shadow-soft-inner">
-          <div className="flex items-start gap-3">
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-softform-navy-950">Model Warnings</p>
-              {modelWarnings.slice(0, 5).map((warning: any, idx: number) => (
-                <p key={idx} className="text-xs leading-relaxed text-softform-text-secondary">{warning}</p>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
+
 
       {/* Bottom Navigation */}
       <WorkflowFooter
