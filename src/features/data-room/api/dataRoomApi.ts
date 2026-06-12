@@ -11,6 +11,10 @@ export interface UploadedFileRecord {
   status: string
   uploadedAt: string
   filePath: string
+  parserStatus?: string
+  recordCount?: number
+  warnings?: string[]
+  metadata?: any
 }
 
 export interface WorkspaceSnapshotResponse {

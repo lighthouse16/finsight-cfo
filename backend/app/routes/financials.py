@@ -163,6 +163,14 @@ def _resolve_workspace_analysis(ws_id: Optional[str], is_preview: bool = False):
                     from app.services.analysis_run_service import execute_financial_health_run
                     run = execute_financial_health_run(ws_id, snapshot.id)
                     res = dict(run.results)
+                    if "snapshot" in res:
+                        meta = dict(res["snapshot"].get("metadata") or {})
+                        meta.update({
+                            "mode": "production",
+                            "source": "workspace_persistent_snapshot",
+                            "persistent": True,
+                        })
+                        res["snapshot"]["metadata"] = meta
                     res["run_metadata"] = {
                         "id": run.id,
                         "runId": run.id,
@@ -226,7 +234,15 @@ def _resolve_workspace_analysis(ws_id: Optional[str], is_preview: bool = False):
             )
 
     # Standard Harbour & Finch fallback
-    return _build_financial_analysis_response(get_demo_financial_snapshot())
+    snapshot = get_demo_financial_snapshot()
+    metadata = dict(snapshot.metadata or {})
+    metadata.update({
+        "mode": "demo",
+        "source": "demo_sample",
+        "demo_only": True,
+    })
+    snapshot.metadata = metadata
+    return _build_financial_analysis_response(snapshot)
 
 
 @router.get("/demo-analysis")

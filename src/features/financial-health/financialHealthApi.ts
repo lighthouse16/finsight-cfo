@@ -3,6 +3,21 @@ import { API_BASE_URL, getWorkspaceHeaders, handleApiResponse } from '../../lib/
 
 
 export async function getFinancialHealthAnalysis(): Promise<any> {
+  const workspaceId = localStorage.getItem('active_workspace_id')
+  if (workspaceId) {
+    try {
+      const workspaceRes = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/financial-analysis`, {
+        headers: getWorkspaceHeaders(),
+        signal: AbortSignal.timeout(5000),
+      })
+      if (workspaceRes.ok) {
+        return workspaceRes.json()
+      }
+    } catch (error) {
+      console.warn('Workspace financial analysis unavailable; checking fallback.', error)
+    }
+  }
+
   try {
     const previewRes = await fetch(`${API_BASE_URL}/api/financials/preview-analysis`, {
       headers: getWorkspaceHeaders(),

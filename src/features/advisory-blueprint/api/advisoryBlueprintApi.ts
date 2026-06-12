@@ -60,6 +60,21 @@ export async function getAdvisoryFacilityStructures(): Promise<FacilityStructuri
 }
 
 export async function getFinancialPreviewAnalysis(): Promise<FinancialAnalysisResponse | null> {
+  const workspaceId = localStorage.getItem('active_workspace_id')
+  if (workspaceId) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/financial-analysis`, {
+        headers: getWorkspaceHeaders(),
+        signal: AbortSignal.timeout(5000),
+      })
+      if (res.ok) {
+        return res.json()
+      }
+    } catch (error) {
+      console.warn('Workspace persistent financial analysis fetch failed; checking preview fallback.', error)
+    }
+  }
+
   try {
     const res = await fetch(`${API_BASE_URL}/api/financials/preview-analysis`, {
       headers: getWorkspaceHeaders(),
