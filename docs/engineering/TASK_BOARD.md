@@ -45,6 +45,7 @@ This board tracks active, planned, and completed tasks for current engineering s
 | **T-131** | `commercial/feature-flagged-report-worker-harness` | **Done** | Backend Architect | Low |
 | **T-132** | `commercial/worker-runtime-manual-trigger` | **Done** | Backend Engineer | Low |
 | **T-132** | `commercial/end-to-end-product-smoke-tests` | **Done** | Backend Engineer | Low |
+| **T-133** | `commercial/rbac-route-guardrails` | **Done** | Backend Engineer | Low |
 
 
 
