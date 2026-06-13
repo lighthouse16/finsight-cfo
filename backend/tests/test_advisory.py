@@ -505,10 +505,14 @@ def test_advisory_response_azure_openai_success(mock_call_llm, mock_get_settings
 
 def test_chat_endpoint_deterministic_fallback():
     """Verify the chat endpoint returns deterministic fallback when no LLM key is set."""
-    response = client.post(
-        "/api/advisory/chat",
-        json={"question": "What is the financial health of this company?"},
-    )
+    from app.core.config import Settings
+    from unittest.mock import patch
+    settings = Settings(GOOGLE_API_KEY="")
+    with patch("app.services.advisory.ai_provider.get_settings", return_value=settings):
+        response = client.post(
+            "/api/advisory/chat",
+            json={"question": "What is the financial health of this company?"},
+        )
     assert response.status_code == 200
     data = response.json()
     assert data["aiMode"] == "deterministic_fallback"
@@ -522,10 +526,14 @@ def test_chat_endpoint_deterministic_fallback():
 
 def test_chat_endpoint_safety_language():
     """Verify the chat endpoint never returns unsafe language."""
-    response = client.post(
-        "/api/advisory/chat",
-        json={"question": "Will my loan be approved?"},
-    )
+    from app.core.config import Settings
+    from unittest.mock import patch
+    settings = Settings(GOOGLE_API_KEY="")
+    with patch("app.services.advisory.ai_provider.get_settings", return_value=settings):
+        response = client.post(
+            "/api/advisory/chat",
+            json={"question": "Will my loan be approved?"},
+        )
     assert response.status_code == 200
     data = response.json()
     json_str = str(data).lower()
