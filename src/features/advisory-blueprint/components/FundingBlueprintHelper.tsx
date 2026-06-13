@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Loader2, Play, DollarSign, Database, Activity, Landmark, ShieldCheck } from 'lucide-react'
 import SectionBlock from '../../../components/platform/SectionBlock'
 import StatusChip from '../../../components/platform/StatusChip'
+import { API_BASE_URL } from '../../../lib/apiBase'
 
 interface FundingBlueprintHelperProps {
   onRun?: () => void;
@@ -37,7 +38,7 @@ export default function FundingBlueprintHelper({ onRun }: FundingBlueprintHelper
     try {
       const workspaceId = localStorage.getItem('active_workspace_id') || 'demo_company'
       
-      const res = await fetch('http://localhost:8000/api/advisory/funding-blueprint', {
+      const res = await fetch(`${API_BASE_URL}/api/advisory/funding-blueprint`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
