@@ -37,6 +37,8 @@ from app.models.market_watch import (
     RedFlagsMacroSummaryResponse,
     RedFlagsSummaryComponent,
 )
+from app.services.market_watch.source_registry import build_provenance
+
 
 def get_rates_liquidity_fixture() -> RatesLiquidityResponse:
     now = datetime.utcnow().isoformat() + "Z"
@@ -902,10 +904,7 @@ def get_cross_border_funding_context_fixture() -> CrossBorderFundingContextRespo
     spread_bps = round((4.20 - 3.45) * 100, 1)  # +75.0 bps
 
     provenance = CrossBorderFundingProvenance(
-        source="market_watch_cross_border_funding_context_v1",
-        provider="FinSight CFO Market Watch",
-        asOf=None,
-        freshness="Workspace",
+        **build_provenance("cross_border_funding_context_v1"),
     )
 
     return CrossBorderFundingContextResponse(
@@ -1165,10 +1164,7 @@ def get_red_flags_macro_summary_fixture() -> RedFlagsMacroSummaryResponse:
     ]
 
     provenance = RedFlagProvenance(
-        source="market_watch_red_flags_macro_summary_v1",
-        provider="FinSight CFO Market Watch",
-        asOf=None,
-        freshness="Workspace",
+        **build_provenance("red_flags_macro_summary_v1"),
     )
 
     return RedFlagsMacroSummaryResponse(

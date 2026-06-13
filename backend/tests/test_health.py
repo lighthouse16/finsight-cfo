@@ -61,6 +61,7 @@ def test_runtime_status_production_warnings():
         REPORT_WORKER_ENABLED=False,
         OPENAI_API_KEY="",
         AZURE_OPENAI_API_KEY="",
+        GOOGLE_API_KEY="",
     )
     with patch("app.main.get_settings", return_value=prod_settings):
         response = client.get("/api/runtime/status")
