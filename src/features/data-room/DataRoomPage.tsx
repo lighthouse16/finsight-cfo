@@ -35,7 +35,6 @@ import {
 import { getFinancialHealthAnalysis } from '../financial-health/financialHealthApi'
 import { API_BASE_URL } from '../../lib/apiBase'
 import { fetchBackendConfig, triggerAnalysisRun } from '../../lib/workspaceRunHelpers'
-import ReleaseOnboardingChecklist from '../../components/platform/ReleaseOnboardingChecklist'
 
 type UploadState = {
   uploading: boolean
@@ -1218,8 +1217,7 @@ export default function DataRoomPage() {
 
         {/* Right Column (Sidebar) */}
         <div className="space-y-6 lg:w-[380px] shrink-0">
-          {/* Onboarding checklist */}
-          <ReleaseOnboardingChecklist compact={true} />
+
 
           {/* Accepted Formats & Ingestion Guide */}
           <div className="softform-card rounded-[24px] p-6 space-y-4">

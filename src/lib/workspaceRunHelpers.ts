@@ -118,10 +118,10 @@ export interface BackendConfig {
 }
 
 const SAFE_BACKEND_CONFIG: BackendConfig = {
-  appMode: 'production',
-  allowDemoFallback: false,
-  isProduction: true,
-  authMode: 'production',
+  appMode: import.meta.env.DEV ? 'development' : 'production',
+  allowDemoFallback: import.meta.env.DEV,
+  isProduction: !import.meta.env.DEV,
+  authMode: import.meta.env.DEV ? 'local' : 'production',
 }
 
 export async function fetchBackendConfig(): Promise<BackendConfig> {
@@ -137,7 +137,7 @@ export async function fetchBackendConfig(): Promise<BackendConfig> {
     const authMode = data.auth_mode ?? 'production'
     return { appMode, allowDemoFallback, isProduction, authMode }
   } catch (e) {
-    console.warn('Failed to fetch backend config, using production-safe defaults:', e)
+    console.warn('Failed to fetch backend config, using environment-aware defaults:', e)
     return SAFE_BACKEND_CONFIG
   }
 }

@@ -17,7 +17,6 @@ import PlatformShell from '../components/platform/PlatformShell'
 import RouteLoadingFallback from '../components/platform/RouteLoadingFallback'
 import { WorkspaceProvider, useWorkspace } from '../context/workspaceContext'
 
-const LandingPage = lazy(() => import('../pages/LandingPage'))
 const LoginPage = lazy(() => import('../pages/LoginPage'))
 const SignupPage = lazy(() => import('../pages/SignupPage'))
 const PlatformPlaceholderPage = lazy(
@@ -283,10 +282,10 @@ export default function AppRouter() {
             element={<Navigate to="/platform" replace />}
           />
 
-          {/* Landing page for reference/production fallback */}
+          {/* Landing page redirects to platform */}
           <Route
             path="/landing"
-            element={withPageFallback(<LandingPage />, 'Loading FinSight CFO...')}
+            element={<Navigate to="/platform" replace />}
           />
 
           {/* Login page */}
