@@ -519,10 +519,13 @@ def post_advisory_chat(
 
 
 def _build_chat_workspace_data(
-    analysis: FinancialAnalysisResponse,
+    analysis: Any,
     workspace_id: str,
 ) -> dict:
     """Flatten a FinancialAnalysisResponse into a dict suitable for RAG context."""
+    if isinstance(analysis, dict):
+        analysis = FinancialAnalysisResponse.model_validate(analysis)
+
     data: dict = {}
 
     snapshot = analysis.snapshot

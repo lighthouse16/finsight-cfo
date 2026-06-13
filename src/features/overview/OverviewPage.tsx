@@ -35,7 +35,6 @@ import {
 } from '../../lib/workspaceRunHelpers'
 import { API_BASE_URL } from '../../lib/apiBase'
 import WorkspaceInsufficientDataState from '../../components/platform/WorkspaceInsufficientDataState'
-import WorkspaceDashboard from './WorkspaceDashboard'
 import { useWorkspace } from '../../context/workspaceContext'
 
 type OverviewState = {
@@ -235,7 +234,6 @@ export default function OverviewPage() {
         }
       />
 
-      <WorkspaceDashboard />
 
       {/* Cockpit Hero Section in Premium Navy Contrast Card */}
       <NavyHeroSection

@@ -1000,40 +1000,44 @@ def _call_google_gemini(
 
 
 
-    try:
+    import time
 
-        with httpx.Client(timeout=_LLM_TIMEOUT_SECONDS) as http:
+    max_retries = 3
+    retry_delay = 1.0
+    resp = None
 
-            resp = http.post(
+    for attempt in range(max_retries):
+        try:
+            with httpx.Client(timeout=_LLM_TIMEOUT_SECONDS) as http:
+                resp = http.post(
+                    url,
+                    params={"key": api_key},
+                    json=payload,
+                    headers={"Content-Type": "application/json"},
+                )
+            if resp.status_code in (429, 503):
+                if attempt < max_retries - 1:
+                    time.sleep(retry_delay * (attempt + 1))
+                    continue
+            break
+        except httpx.TimeoutException:
+            if attempt < max_retries - 1:
+                time.sleep(retry_delay)
+                continue
+            return None, "Google AI request timed out."
+        except httpx.RequestError as e:
+            if attempt < max_retries - 1:
+                time.sleep(retry_delay)
+                continue
+            return None, f"Google AI request error: {e}"
+        except Exception as e:
+            return None, f"Unexpected Google AI error: {e}"
 
-                url,
-
-                params={"key": api_key},
-
-                json=payload,
-
-                headers={"Content-Type": "application/json"},
-
-            )
-
-    except httpx.TimeoutException:
-
-        return None, "Google AI request timed out."
-
-    except httpx.RequestError as e:
-
-        return None, f"Google AI request error: {e}"
-
-    except Exception as e:
-
-        return None, f"Unexpected Google AI error: {e}"
-
-
+    if resp is None:
+        return None, "Google AI request failed (no response)."
 
     if resp.status_code != 200:
-
         body = resp.text[:300] if resp.text else "(empty body)"
-
         return None, f"Google AI HTTP error: {resp.status_code} {body}"
 
 

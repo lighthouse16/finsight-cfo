@@ -72,7 +72,74 @@ function getValuation(financial: FinancialAnalysisResponse | null) {
   return financial?.valuation ?? null
 }
 
+const renderMarkdown = (text: string, isUser: boolean = false) => {
+  if (!text) return null;
+  
+  const lines = text.split('\n');
+  const renderedElements: React.ReactNode[] = [];
+  
+  const textColor = isUser ? 'text-white' : 'text-softform-text-secondary';
+  const headerColor = isUser ? 'text-white' : 'text-softform-navy-950';
+  const strongColor = isUser ? 'text-white' : 'text-softform-navy-950';
+  
+  lines.forEach((line, index) => {
+    const trimmed = line.trim();
+    
+    // Check if it's a list item
+    const isListItem = trimmed.startsWith('- ') || trimmed.startsWith('* ');
+    
+    // Process formatting within a line (bold/italic)
+    const processInline = (str: string) => {
+      const parts = str.split('**');
+      return parts.map((part, i) => {
+        if (i % 2 === 1) {
+          return <strong key={i} className={`font-bold ${strongColor}`}>{part}</strong>;
+        }
+        return part;
+      });
+    };
 
+    if (trimmed.startsWith('### ')) {
+      renderedElements.push(
+        <h3 key={index} className={`text-sm font-bold mt-3 mb-1.5 first:mt-0 ${headerColor}`}>
+          {processInline(trimmed.substring(4))}
+        </h3>
+      );
+    } else if (trimmed.startsWith('## ')) {
+      renderedElements.push(
+        <h2 key={index} className={`text-base font-bold mt-4 mb-2 first:mt-0 ${headerColor}`}>
+          {processInline(trimmed.substring(3))}
+        </h2>
+      );
+    } else if (trimmed.startsWith('# ')) {
+      renderedElements.push(
+        <h1 key={index} className={`text-lg font-extrabold mt-5 mb-2.5 first:mt-0 ${headerColor}`}>
+          {processInline(trimmed.substring(2))}
+        </h1>
+      );
+    } else if (isListItem) {
+      renderedElements.push(
+        <li key={index} className={`ml-4 list-disc text-sm my-0.5 leading-relaxed ${textColor}`}>
+          {processInline(trimmed.substring(2))}
+        </li>
+      );
+    } else if (trimmed === '---' || trimmed === '***') {
+      renderedElements.push(
+        <hr key={index} className={`my-3 ${isUser ? 'border-white/20' : 'border-softform-navy-950/10'}`} />
+      );
+    } else if (trimmed === '') {
+      renderedElements.push(<div key={index} className="h-1.5" />);
+    } else {
+      renderedElements.push(
+        <p key={index} className={`text-sm leading-relaxed my-0.5 font-normal ${textColor}`}>
+          {processInline(line)}
+        </p>
+      );
+    }
+  });
+  
+  return <div className="space-y-0.5">{renderedElements}</div>;
+};
 
 export default function AiCfoPage() {
   const [context, setContext] = useState<AiContext>({ financial: null, credit: null, funding: null, macro: null, blueprint: null })
@@ -618,7 +685,9 @@ export default function AiCfoPage() {
               {messages.map((message) => (
                 <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[86%] rounded-[24px] px-5 py-4 ${message.role === 'user' ? 'softform-navy-card text-white' : 'softform-panel text-softform-text-secondary border border-white/75 shadow-sm'}`}>
-                    <p className={`text-sm leading-relaxed ${message.role === 'user' ? 'text-white' : 'text-softform-navy-950 font-normal'}`}>{message.content}</p>
+                    <div className={`text-sm leading-relaxed ${message.role === 'user' ? 'text-white' : 'text-softform-navy-950 font-normal'}`}>
+                      {renderMarkdown(message.content, message.role === 'user')}
+                    </div>
                     {message.sources && message.sources.length > 0 && (
                       <div className="mt-3 flex flex-wrap gap-1.5 border-t border-softform-navy-950/5 pt-2">
                         {message.sources.map((source, idx) => (
