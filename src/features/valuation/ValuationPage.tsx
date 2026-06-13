@@ -315,7 +315,7 @@ export default function ValuationPage() {
       {/* Business Valuation Hero Section in Premium Navy Contrast Card */}
       <NavyHeroSection
         eyebrow="Business valuation engine"
-        title={`${snapshot.companyName} · ${snapshot.reportingPeriod}`}
+        title={`${snapshot.companyName ?? activeWorkspace?.companyName ?? 'Workspace Company'} · ${snapshot.reportingPeriod ?? 'FY2025'}`}
         description="This DCF view is assumptions-based and intended to support the CFO narrative, funding readiness, and advisory preparation. It is not a formal appraisal or investment recommendation."
         aside={
           <div className="flex flex-wrap items-center justify-around gap-6 bg-white/5 border border-white/10 rounded-[24px] p-6 backdrop-blur-md">
