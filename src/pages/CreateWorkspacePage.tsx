@@ -14,7 +14,6 @@ import {
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useWorkspace } from '../context/workspaceContext'
-import { API_BASE_URL } from '../lib/apiBase'
 
 const INDUSTRY_OPTIONS = [
   { value: '', label: 'Select industry…' },
@@ -59,7 +58,7 @@ const REGION_OPTIONS = [
 
 export default function CreateWorkspacePage() {
   const navigate = useNavigate()
-  const { createWorkspace, refreshWorkspaces } = useWorkspace()
+  const { createWorkspace, exploreWithMockData } = useWorkspace()
 
   const [companyName, setCompanyName] = useState('')
   const [industry, setIndustry] = useState('')
@@ -99,24 +98,10 @@ export default function CreateWorkspacePage() {
     setFormError(null)
     setIsLoadingDemo(true)
     try {
-      const res = await fetch(`${API_BASE_URL}/api/workspaces/reset-sample`, {
-        method: 'POST',
-      })
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({ detail: 'Failed to load demo' }))
-        throw new Error(
-          typeof data.detail === 'string'
-            ? data.detail
-            : data.detail?.message || 'Failed to load demo workspace',
-        )
-      }
-      // Select the demo workspace
-      localStorage.setItem('active_workspace_id', 'workspace_sample_novus')
-      window.dispatchEvent(new Event('workspaceChanged'))
-      await refreshWorkspaces()
+      await exploreWithMockData()
       navigate('/platform/overview')
     } catch (err: any) {
-      setFormError(err?.message || 'Demo workspace is not available in this environment.')
+      setFormError(err?.message || 'Sample workspace is not available in this environment.')
     } finally {
       setIsLoadingDemo(false)
     }

@@ -18,7 +18,7 @@ import {
   AlertTriangle,
 } from 'lucide-react'
 import { useWorkspace } from '../../context/workspaceContext'
-import { fetchWorkspaceFiles, fetchActiveWorkspaceSnapshot } from '../data-room/api/dataRoomApi'
+import { fetchWorkspaceFiles, fetchActiveWorkspaceSnapshot, isDemoWorkspace, SYNTHETIC_DEMO_BADGE } from '../data-room/api/dataRoomApi'
 import { fetchAllRunStatuses } from '../../lib/workspaceRunHelpers'
 
 type StepStatus = 'not_started' | 'ready' | 'completed' | 'blocked'
@@ -225,16 +225,23 @@ export default function WorkspaceDashboard() {
             Follow these steps to move from uploaded records to a complete advisory output.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="h-2 flex-1 min-w-[80px] rounded-full bg-softform-navy-950/5 sm:w-32 sm:flex-none">
-            <div
-              className="h-full rounded-full bg-softform-teal-deep transition-all duration-500"
-              style={{ width: `${(completedCount / steps.length) * 100}%` }}
-            />
+        <div className="flex flex-wrap items-center gap-2">
+          {isDemoWorkspace(activeWorkspace) && (
+            <span className="rounded-full border border-softform-teal-deep/20 bg-softform-teal-deep/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-softform-teal-deep">
+              {SYNTHETIC_DEMO_BADGE}
+            </span>
+          )}
+          <div className="flex items-center gap-2">
+            <div className="h-2 flex-1 min-w-[80px] rounded-full bg-softform-navy-950/5 sm:w-32 sm:flex-none">
+              <div
+                className="h-full rounded-full bg-softform-teal-deep transition-all duration-500"
+                style={{ width: `${(completedCount / steps.length) * 100}%` }}
+              />
+            </div>
+            <span className="text-xs font-semibold text-softform-text-muted tabular-finance">
+              {completedCount}/{steps.length}
+            </span>
           </div>
-          <span className="text-xs font-semibold text-softform-text-muted tabular-finance">
-            {completedCount}/{steps.length}
-          </span>
         </div>
       </div>
 

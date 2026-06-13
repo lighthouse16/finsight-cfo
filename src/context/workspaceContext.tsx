@@ -8,8 +8,11 @@ import {
   type ReactNode,
 } from 'react'
 import {
-  listWorkspaces,
+  SAMPLE_WORKSPACE_ID,
   createWorkspace as apiCreateWorkspace,
+  dedupeWorkspaces,
+  listWorkspaces,
+  resetSampleWorkspace,
   type CompanyWorkspace,
 } from '../features/data-room/api/dataRoomApi'
 import { fetchBackendConfig, type BackendConfig } from '../lib/workspaceRunHelpers'
@@ -34,6 +37,8 @@ export interface WorkspaceContextValue {
   ) => Promise<CompanyWorkspace>
   /** Reload workspace list from backend */
   refreshWorkspaces: () => Promise<void>
+  /** Reset/load the canonical sample workspace and select it */
+  exploreWithMockData: () => Promise<CompanyWorkspace>
 }
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null)
@@ -65,19 +70,10 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
           setActiveWorkspace(found)
           return
         }
-        // Saved workspace no longer exists — clear it
         localStorage.removeItem('active_workspace_id')
       }
 
-      // Auto-select first workspace if list is non-empty and nothing was saved
-      if (list.length > 0) {
-        const first = list[0]
-        localStorage.setItem('active_workspace_id', first.id)
-        setActiveWorkspace(first)
-        window.dispatchEvent(new Event('workspaceChanged'))
-      } else {
-        setActiveWorkspace(null)
-      }
+      setActiveWorkspace(null)
     },
     [],
   )
@@ -85,7 +81,7 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
   const refreshWorkspaces = useCallback(async () => {
     setIsLoading(true)
     try {
-      const list = await listWorkspaces()
+      const list = dedupeWorkspaces(await listWorkspaces())
       setWorkspaces(list)
       syncActiveFromList(list)
     } catch (err) {
@@ -117,17 +113,26 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
       metadata?: Record<string, string>,
     ): Promise<CompanyWorkspace> => {
       const newWs = await apiCreateWorkspace(companyName, currency, reportingPeriod, metadata)
-      // Refresh list
-      const updatedList = await listWorkspaces()
+      const updatedList = dedupeWorkspaces(await listWorkspaces())
       setWorkspaces(updatedList)
       // Select newly created workspace
       localStorage.setItem('active_workspace_id', newWs.id)
-      setActiveWorkspace(newWs)
+      setActiveWorkspace(updatedList.find((workspace) => workspace.id === newWs.id) ?? newWs)
       window.dispatchEvent(new Event('workspaceChanged'))
       return newWs
     },
     [],
   )
+  const exploreWithMockData = useCallback(async (): Promise<CompanyWorkspace> => {
+    const sampleWorkspace = await resetSampleWorkspace()
+    const updatedList = dedupeWorkspaces(await listWorkspaces())
+    const canonicalSample = updatedList.find((workspace) => workspace.id === SAMPLE_WORKSPACE_ID) ?? sampleWorkspace
+    setWorkspaces(updatedList)
+    localStorage.setItem('active_workspace_id', SAMPLE_WORKSPACE_ID)
+    setActiveWorkspace(canonicalSample)
+    window.dispatchEvent(new Event('workspaceChanged'))
+    return canonicalSample
+  }, [])
 
   // Load on mount
   useEffect(() => {
@@ -155,6 +160,7 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
     selectWorkspace,
     createWorkspace: createWorkspaceHandler,
     refreshWorkspaces,
+    exploreWithMockData,
   }
 
   return (

@@ -41,10 +41,21 @@ docker compose down -v
 - **Expected Screen:** The Overview dashboard appears or prompts for workspace selection.
 - **Talking Point:** "Welcome to FinSight CFO, a streamlined financial intelligence platform for SMEs to securely analyze their health and readiness for financing."
 
-**Step 2: Select Workspace**
-- **Action:** Click the top workspace dropdown and select the sample company.
-- **Expected Screen:** The context updates globally.
-- **Talking Point:** "We isolate data into secure workspaces. We'll use a sample company today to demonstrate the analytics engine."
+**Step 2: Choose an Entry Path**
+- **Action:** If no workspace is active, use the entry choice screen. Otherwise click the top workspace dropdown.
+- **Expected Screen:** Two clear actions are visible: **Start from scratch** and **Explore with mock data**.
+- **Talking Point:** "FinSight CFO separates clean customer workspaces from the synthetic sample company so users know whether they are uploading their own records or reviewing a guided sample."
+
+**Scratch mode for real users:**
+- Choose **Start from scratch** to create a **Clean workspace**.
+- The user then uploads their own financial documents in the Data Room.
+- No sample data is loaded into this workspace.
+
+**Mock-data mode for judges:**
+- Choose **Explore with mock data** to load **Sample company: Novus Retail Solutions Ltd**.
+- The product uses synthetic financials, a sample snapshot, AI CFO context, and report paths for rapid evaluation.
+- Key surfaces show the **Synthetic Demo Data** badge.
+- What remains synthetic: company records, financial snapshot, analysis outputs, AI CFO context, and generated reports.
 
 **Step 3: Review Financial Data**
 - **Action:** Navigate to the **Data Room**.

@@ -57,6 +57,8 @@ import type {
   FundingChannelRankingResponse,
   RedFlagsMacroSummaryResponse,
 } from '../market-watch/types'
+import { useWorkspace } from '../../context/workspaceContext'
+import { isDemoWorkspace, SYNTHETIC_DEMO_BADGE } from '../data-room/api/dataRoomApi'
 
 type ReportState = {
   financial: FinancialAnalysisResponse | null
@@ -201,6 +203,9 @@ export default function ReportsPage() {
   const [latestJobId, setLatestJobId] = useState<string | null>(null)
   const [tickSummary, setTickSummary] = useState<ReportWorkerTickSummary | null>(null)
   const [runningTick, setRunningTick] = useState(false)
+
+  const { activeWorkspace } = useWorkspace()
+  const demoReportChip = isDemoWorkspace(activeWorkspace) ? <StatusChip variant="neutral">{SYNTHETIC_DEMO_BADGE}</StatusChip> : null
 
   const activeSnapshotId = useMemo(() => {
     for (const key of requiredKeys) {
@@ -1209,7 +1214,12 @@ export default function ReportsPage() {
       <PageHeader
         title="Reports"
         subtitle="CFO snapshot and lender-facing brief generated from the active workspace context."
-        chip={<StatusChip variant={isPreview ? 'signal' : 'neutral'}>{isPreview ? 'Workspace preview' : 'Workspace report'}</StatusChip>}
+        chip={(
+          <div className="flex flex-wrap items-center gap-2">
+            {demoReportChip}
+            <StatusChip variant={isPreview ? 'signal' : 'neutral'}>{isPreview ? 'Workspace preview' : 'Workspace report'}</StatusChip>
+          </div>
+        )}
       />
       {renderAdvisorReportSection()}
         {renderReportJobsSection()}

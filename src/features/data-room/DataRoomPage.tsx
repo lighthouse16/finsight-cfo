@@ -35,6 +35,7 @@ import {
 import { getFinancialHealthAnalysis } from '../financial-health/financialHealthApi'
 import { API_BASE_URL } from '../../lib/apiBase'
 import { fetchBackendConfig, triggerAnalysisRun } from '../../lib/workspaceRunHelpers'
+import { useWorkspace } from '../../context/workspaceContext'
 import ReleaseOnboardingChecklist from '../../components/platform/ReleaseOnboardingChecklist'
 
 type UploadState = {
@@ -123,6 +124,8 @@ export default function DataRoomPage() {
     return 'demo_sample'
   }, [analysisResult])
 
+  const { exploreWithMockData } = useWorkspace()
+
   const handleRunWorkspaceAnalysis = async () => {
     if (!activeWorkspaceId) return
     setIsRunningWorkspaceAnalysis(true)
@@ -142,21 +145,12 @@ export default function DataRoomPage() {
   const handleLoadDemoWorkspace = async () => {
     setIsResetting(true)
     try {
-      const res = await fetch(`${API_BASE_URL}/api/workspaces/reset-sample`, {
-        method: 'POST'
-      })
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}))
-        throw new Error(errData.detail?.message || 'Failed to initialize sample workspace')
-      }
-      const data = await res.json()
-      localStorage.setItem('active_workspace_id', data.workspaceId)
-      setActiveWorkspaceId(data.workspaceId)
-      window.dispatchEvent(new Event('workspaceChanged'))
-      setActiveNotification('Sample company (Novus Retail Solutions Ltd) successfully initialized and pre-analyzed.')
+      const workspace = await exploreWithMockData()
+      setActiveWorkspaceId(workspace.id)
+      setActiveNotification('Sample company: Novus Retail Solutions Ltd successfully initialized and pre-analyzed.')
       
       // Force refresh data
-      await reloadWorkspaceData(data.workspaceId)
+      await reloadWorkspaceData(workspace.id)
     } catch (err: any) {
       console.error(err)
       alert(err.message || 'Error initializing sample workspace')

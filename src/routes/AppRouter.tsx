@@ -45,6 +45,7 @@ const ValuationPage = lazy(
 const ReportsPage = lazy(() => import('../features/reports/ReportsPage'))
 const AiCfoPage = lazy(() => import('../features/ai-cfo/AiCfoPage'))
 const DataRoomPage = lazy(() => import('../features/data-room/DataRoomPage'))
+const CreateWorkspacePage = lazy(() => import('../pages/CreateWorkspacePage'))
 
 type PlatformRoute = {
   path: string
@@ -274,6 +275,10 @@ export default function AppRouter() {
         {/* Platform shell with nested routes */}
         <Route path="/platform" element={<PlatformShell />}>
           <Route index element={<Navigate to="overview" replace />} />
+          <Route
+            path="create-workspace"
+            element={withShellFallback(<CreateWorkspacePage />, 'Loading workspace setup...')}
+          />
           {platformRoutes.map((route) => (
             <Route
               key={route.path}

@@ -32,6 +32,40 @@ export interface CompanyWorkspace {
   metadata?: any
 }
 
+export const SAMPLE_WORKSPACE_ID = 'workspace_sample_novus'
+export const SAMPLE_WORKSPACE_NAME = 'Novus Retail Solutions Ltd'
+export const SYNTHETIC_DEMO_BADGE = 'Synthetic Demo Data'
+
+export function isDemoWorkspace(workspace: Pick<CompanyWorkspace, 'id' | 'companyName'> | null | undefined): boolean {
+  if (!workspace) return false
+  return workspace.id === SAMPLE_WORKSPACE_ID || workspace.companyName === SAMPLE_WORKSPACE_NAME
+}
+
+export function dedupeWorkspaces(list: CompanyWorkspace[]): CompanyWorkspace[] {
+  const byId = new Map<string, CompanyWorkspace>()
+
+  list.forEach((workspace) => {
+    if (!byId.has(workspace.id)) {
+      byId.set(workspace.id, workspace)
+    }
+  })
+
+  return Array.from(byId.values()).sort((a, b) => {
+    if (a.id === SAMPLE_WORKSPACE_ID) return 1
+    if (b.id === SAMPLE_WORKSPACE_ID) return -1
+    return a.companyName.localeCompare(b.companyName)
+  })
+}
+
+export function getWorkspaceDisplayName(workspace: CompanyWorkspace, list: CompanyWorkspace[]): string {
+  const duplicates = list.filter((candidate) => candidate.companyName === workspace.companyName)
+  if (duplicates.length <= 1) return workspace.companyName
+
+  const created = workspace.createdAt ? new Date(workspace.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : ''
+  const suffix = created || workspace.id.slice(-6)
+  return `${workspace.companyName} · ${suffix}`
+}
+
 export async function fetchWorkspaceFiles(workspaceId: string): Promise<UploadedFileRecord[]> {
   const res = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/files`, {
     headers: getWorkspaceHeaders(),
@@ -128,6 +162,18 @@ export async function listWorkspaces(): Promise<CompanyWorkspace[]> {
   })
   if (!res.ok) {
     throw new Error(`Failed to list workspaces: ${res.statusText}`)
+  }
+  return res.json()
+}
+
+export async function resetSampleWorkspace(): Promise<CompanyWorkspace> {
+  const res = await fetch(`${API_BASE_URL}/api/workspaces/reset-sample`, {
+    method: 'POST',
+    headers: getWorkspaceHeaders(),
+  })
+  if (!res.ok) {
+    const detail = await res.json().then((d) => d.detail ?? res.statusText).catch(() => res.statusText)
+    throw new Error(typeof detail === 'string' ? detail : detail?.message || 'Failed to load sample workspace')
   }
   return res.json()
 }

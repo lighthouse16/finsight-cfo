@@ -1,25 +1,39 @@
 import { useState, useEffect, useRef } from 'react'
-import { Menu, Search, Bell, ChevronDown, Plus, Building2, Check, Loader2 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Menu, Search, Bell, ChevronDown, Plus, Building2, Check, Database, Loader2 } from 'lucide-react'
 import { useWorkspace } from '../../context/workspaceContext'
+import {
+  getWorkspaceDisplayName,
+  isDemoWorkspace,
+  SYNTHETIC_DEMO_BADGE,
+} from '../../features/data-room/api/dataRoomApi'
 
 type TopCommandBarProps = {
   onMenuToggle: () => void
 }
 
 export default function TopCommandBar({ onMenuToggle }: TopCommandBarProps) {
-  const { workspaces, activeWorkspace, selectWorkspace, createWorkspace } = useWorkspace()
+  const navigate = useNavigate()
+  const { workspaces, activeWorkspace, selectWorkspace, exploreWithMockData } = useWorkspace()
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
-  const [isCreateOpen, setIsCreateOpen] = useState(false)
-  const [newCompanyName, setNewCompanyName] = useState('')
-  const [isCreating, setIsCreating] = useState(false)
+  const [isLoadingDemo, setIsLoadingDemo] = useState(false)
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const userRole = localStorage.getItem('active_user_role') || 'User'
   const userMenuRef = useRef<HTMLDivElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  const companyWorkspaces = workspaces.filter((workspace) => !isDemoWorkspace(workspace))
+  const demoWorkspaces = workspaces.filter(isDemoWorkspace)
+  const activeIsDemo = isDemoWorkspace(activeWorkspace)
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+      const target = event.target as Node
+      if (userMenuRef.current && !userMenuRef.current.contains(target)) {
         setIsUserMenuOpen(false)
+      }
+      if (dropdownRef.current && !dropdownRef.current.contains(target)) {
+        setIsDropdownOpen(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -38,29 +52,52 @@ export default function TopCommandBar({ onMenuToggle }: TopCommandBarProps) {
     setIsDropdownOpen(false)
   }
 
-  const handleCreateWorkspace = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const name = newCompanyName.trim()
-    if (!name) return
+  const handleStartFromScratch = () => {
+    setIsDropdownOpen(false)
+    navigate('/platform/create-workspace')
+  }
 
-    setIsCreating(true)
+  const handleExploreWithMockData = async () => {
+    setIsLoadingDemo(true)
     try {
-      await createWorkspace(name)
-      setNewCompanyName('')
-      setIsCreateOpen(false)
+      await exploreWithMockData()
       setIsDropdownOpen(false)
+      navigate('/platform/overview')
     } catch (err) {
-      console.error('Error creating workspace', err)
-      alert('Error connecting to backend')
+      console.error('Error loading sample workspace', err)
+      alert('Sample workspace is not available in this environment.')
     } finally {
-      setIsCreating(false)
+      setIsLoadingDemo(false)
     }
   }
+
+  const renderWorkspaceButton = (workspace: (typeof workspaces)[number]) => (
+    <button
+      key={workspace.id}
+      id={`workspace-select-${workspace.id}`}
+      type="button"
+      onClick={() => handleSelectWorkspace(workspace.id)}
+      className={`flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left text-xs transition-colors ${
+        activeWorkspace?.id === workspace.id
+          ? 'bg-softform-navy-900 font-semibold text-white'
+          : 'text-softform-navy-950 hover:bg-softform-navy-950/5'
+      }`}
+    >
+      <span className="min-w-0">
+        <span className="block truncate">{getWorkspaceDisplayName(workspace, workspaces)}</span>
+        {isDemoWorkspace(workspace) && (
+          <span className={`mt-0.5 block text-[9px] font-bold uppercase tracking-[0.12em] ${activeWorkspace?.id === workspace.id ? 'text-softform-amber-200' : 'text-softform-amber-500'}`}>
+            {SYNTHETIC_DEMO_BADGE}
+          </span>
+        )}
+      </span>
+      {activeWorkspace?.id === workspace.id && <Check size={14} className="shrink-0" />}
+    </button>
+  )
 
   return (
     <header className="sticky top-0 z-30 px-4 pb-2 pt-4 sm:px-6">
       <div className="flex items-center gap-3 rounded-[22px] border border-white/70 bg-[linear-gradient(145deg,rgba(255,255,255,0.76),rgba(231,240,244,0.66))] px-4 py-2.5 shadow-[0_12px_40px_rgba(8,17,31,0.12),0_4px_16px_rgba(8,17,31,0.06),inset_0_1px_0_rgba(255,255,255,0.82)] backdrop-blur-[20px] sm:px-5 sm:py-3">
-        {/* Mobile hamburger */}
         <button
           type="button"
           onClick={onMenuToggle}
@@ -70,107 +107,92 @@ export default function TopCommandBar({ onMenuToggle }: TopCommandBarProps) {
           <Menu size={20} />
         </button>
 
-        {/* Workspace Selector Dropdown */}
-        <div className="relative shrink-0 select-none z-50">
+        <div className="relative z-50 shrink-0 select-none" ref={dropdownRef}>
           <button
+            id="workspace-selector-trigger"
             type="button"
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className="flex items-center gap-2 rounded-xl border border-white/60 bg-white/40 px-3 py-1.5 text-xs font-semibold text-softform-navy-950 transition hover:bg-white/60 hover:shadow-sm focus:outline-none"
+            className="flex items-center gap-2 rounded-xl border border-white/60 bg-white/40 px-3 py-1.5 text-xs font-semibold text-softform-navy-950 transition hover:bg-white/60 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-softform-teal-500"
+            aria-expanded={isDropdownOpen}
           >
             <Building2 size={14} className="text-softform-navy-700" />
-            <span className="max-w-[120px] truncate">
-              {activeWorkspace ? activeWorkspace.companyName : 'Loading Workspace...'}
+            <span className="max-w-[150px] truncate">
+              {activeWorkspace ? activeWorkspace.companyName : 'Choose workspace'}
             </span>
+            {activeIsDemo && (
+              <span className="hidden rounded-full bg-softform-amber-200/60 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-softform-amber-500 sm:inline-flex">
+                Synthetic
+              </span>
+            )}
             <ChevronDown size={14} className={`text-softform-navy-500 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
           </button>
 
           {isDropdownOpen && (
-            <>
-              {/* Overlay to close */}
-              <div 
-                className="fixed inset-0 z-40" 
-                onClick={() => {
-                  setIsDropdownOpen(false)
-                  setIsCreateOpen(false)
-                }} 
-              />
-              
-              <div className="absolute left-0 mt-2 z-50 w-64 origin-top-left rounded-2xl border border-white/80 bg-white/95 p-2.5 shadow-[0_20px_50px_rgba(8,17,31,0.15)] backdrop-blur-md transition-all duration-200">
-                <div className="px-2 pb-1.5 pt-1 text-[10px] font-bold uppercase tracking-wider text-softform-navy-900/40">
-                  Select Workspace
+            <div className="absolute left-0 z-50 mt-2 w-80 origin-top-left rounded-3xl border border-white/80 bg-white/95 p-3 shadow-[0_24px_70px_rgba(8,17,31,0.18)] backdrop-blur-xl transition-all duration-200">
+              {activeWorkspace && (
+                <div className="mb-2 rounded-2xl bg-[linear-gradient(145deg,rgba(234,247,244,0.72),rgba(255,255,255,0.72))] px-3 py-3 ring-1 ring-white/80">
+                  <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-softform-text-muted">Current workspace</div>
+                  <div className="mt-1 flex items-center justify-between gap-2 text-sm font-black text-softform-navy-950">
+                    <span className="truncate">{activeWorkspace.companyName}</span>
+                    {activeIsDemo && (
+                      <span className="shrink-0 rounded-full bg-softform-amber-200/70 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-softform-amber-500">
+                        {SYNTHETIC_DEMO_BADGE}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                
-                <div className="max-h-40 overflow-y-auto custom-scrollbar space-y-0.5">
-                  {workspaces.map((w) => (
-                    <button
-                      key={w.id}
-                      onClick={() => handleSelectWorkspace(w.id)}
-                      className={`flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-left text-xs transition-colors ${
-                        activeWorkspace?.id === w.id
-                          ? 'bg-softform-navy-900 text-white font-medium'
-                          : 'text-softform-navy-950 hover:bg-black/5'
-                      }`}
-                    >
-                      <span className="truncate">{w.companyName}</span>
-                      {activeWorkspace?.id === w.id && <Check size={14} className="shrink-0" />}
-                    </button>
-                  ))}
-                </div>
+              )}
 
-                <div className="my-1.5 border-t border-softform-navy-950/5" />
-
-                {!isCreateOpen ? (
-                  <button
-                    type="button"
-                    onClick={() => setIsCreateOpen(true)}
-                    className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-xs font-semibold text-softform-teal-600 hover:bg-softform-teal-50/50 hover:text-softform-teal-700 transition-colors"
-                  >
-                    <Plus size={14} />
-                    New Company Workspace
-                  </button>
-                ) : (
-                  <form onSubmit={handleCreateWorkspace} className="space-y-2 p-1 pt-0.5">
-                    <input
-                      type="text"
-                      placeholder="Company Name"
-                      value={newCompanyName}
-                      onChange={(e) => setNewCompanyName(e.target.value)}
-                      required
-                      className="w-full rounded-xl border border-softform-navy-950/10 bg-white px-2.5 py-1.5 text-xs text-softform-navy-950 placeholder:text-softform-navy-950/30 focus:border-softform-teal-500 focus:outline-none"
-                    />
-                    <div className="flex gap-1.5">
-                      <button
-                        type="submit"
-                        disabled={isCreating}
-                        className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-softform-teal-600 py-1.5 text-xs font-semibold text-white hover:bg-softform-teal-700 disabled:opacity-50"
-                      >
-                        {isCreating ? (
-                          <Loader2 size={12} className="animate-spin" />
-                        ) : (
-                          'Create'
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setIsCreateOpen(false)}
-                        className="rounded-xl border border-softform-navy-950/10 px-2.5 py-1.5 text-xs font-semibold text-softform-navy-700 hover:bg-black/5"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </form>
-                )}
+              <div className="grid gap-2">
+                <button
+                  id="workspace-dropdown-start-scratch"
+                  type="button"
+                  onClick={handleStartFromScratch}
+                  className="flex items-start gap-3 rounded-2xl px-3 py-3 text-left transition hover:bg-softform-navy-950/5"
+                >
+                  <Plus size={16} className="mt-0.5 text-softform-teal-deep" />
+                  <span>
+                    <span className="block text-xs font-black text-softform-navy-950">Start from scratch</span>
+                    <span className="mt-0.5 block text-[11px] leading-4 text-softform-text-secondary">Create a clean workspace and upload your own company records.</span>
+                  </span>
+                </button>
+                <button
+                  id="workspace-dropdown-explore-mock-data"
+                  type="button"
+                  onClick={handleExploreWithMockData}
+                  disabled={isLoadingDemo}
+                  className="flex items-start gap-3 rounded-2xl px-3 py-3 text-left transition hover:bg-softform-navy-950/5 disabled:opacity-60"
+                >
+                  {isLoadingDemo ? <Loader2 size={16} className="mt-0.5 animate-spin text-softform-amber-500" /> : <Database size={16} className="mt-0.5 text-softform-amber-500" />}
+                  <span>
+                    <span className="block text-xs font-black text-softform-navy-950">Explore with mock data</span>
+                    <span className="mt-0.5 block text-[11px] leading-4 text-softform-text-secondary">Use synthetic sample data to review the full product flow quickly.</span>
+                  </span>
+                </button>
               </div>
-            </>
+
+              <div className="my-2 border-t border-softform-navy-950/8" />
+
+              <div className="max-h-56 space-y-3 overflow-y-auto pr-1 custom-scrollbar">
+                <div>
+                  <div className="px-2 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">Company workspaces</div>
+                  {companyWorkspaces.length > 0 ? companyWorkspaces.map(renderWorkspaceButton) : (
+                    <div className="px-3 py-2 text-[11px] text-softform-text-muted">No clean company workspaces yet.</div>
+                  )}
+                </div>
+                <div>
+                  <div className="px-2 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">Demo workspace</div>
+                  {demoWorkspaces.length > 0 ? demoWorkspaces.map(renderWorkspaceButton) : (
+                    <div className="px-3 py-2 text-[11px] text-softform-text-muted">Load the sample company to enable this path.</div>
+                  )}
+                </div>
+              </div>
+            </div>
           )}
         </div>
 
-        {/* Search placeholder */}
         <div className="group relative mx-auto hidden max-w-sm flex-1 md:block">
-          <Search
-            size={15}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-softform-text-muted opacity-60"
-          />
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-softform-text-muted opacity-60" />
           <input
             id="workspace-search"
             name="workspace-search"
@@ -180,60 +202,34 @@ export default function TopCommandBar({ onMenuToggle }: TopCommandBarProps) {
             aria-label="Search workspace"
             className="w-full rounded-xl border border-white/50 bg-white/40 py-2 pl-9 pr-4 text-sm text-softform-text-primary placeholder:text-softform-text-muted/60 opacity-60 focus-visible:outline-none disabled:cursor-default"
           />
-          <span
-            role="tooltip"
-            className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-softform-navy-950 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-white opacity-0 shadow-md transition-opacity duration-200 group-hover:opacity-100"
-          >
+          <span role="tooltip" className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-softform-navy-950 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-white opacity-0 shadow-md transition-opacity duration-200 group-hover:opacity-100">
             Search coming soon
           </span>
         </div>
 
-        {/* Notification bell */}
         <div className="group relative ml-auto sm:ml-0">
-          <button
-            type="button"
-            disabled
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/50 bg-white/30 text-softform-text-muted opacity-60 transition hover:bg-white/50 hover:text-softform-navy-950 disabled:cursor-default"
-            aria-label="Notifications"
-          >
+          <button type="button" disabled className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/50 bg-white/30 text-softform-text-muted opacity-60 transition hover:bg-white/50 hover:text-softform-navy-950 disabled:cursor-default" aria-label="Notifications">
             <Bell size={16} />
           </button>
-          <span
-            role="tooltip"
-            className="pointer-events-none absolute right-0 top-full z-50 mt-2 whitespace-nowrap rounded-lg bg-softform-navy-950 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-white opacity-0 shadow-md transition-opacity duration-200 group-hover:opacity-100"
-          >
+          <span role="tooltip" className="pointer-events-none absolute right-0 top-full z-50 mt-2 whitespace-nowrap rounded-lg bg-softform-navy-950 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-white opacity-0 shadow-md transition-opacity duration-200 group-hover:opacity-100">
             Notifications coming soon
           </span>
         </div>
 
-        {/* Avatar / User Menu */}
         <div className="relative shrink-0" ref={userMenuRef}>
-          <button
-            type="button"
-            onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-            className="flex h-9 items-center gap-2 rounded-full bg-[linear-gradient(145deg,#0d1726,#1c324b)] pl-2 pr-3 text-[11px] font-bold text-white/90 shadow-sm ring-2 ring-white/80 transition hover:ring-softform-teal-500/50"
-            aria-label="User menu"
-            aria-expanded={isUserMenuOpen}
-          >
-            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-white/10 uppercase">
-              {userRole.charAt(0)}
-            </div>
-            <span className="hidden sm:inline-block max-w-[80px] truncate capitalize font-medium text-white/80 tracking-wide">
-              {userRole}
-            </span>
+          <button type="button" onClick={() => setIsUserMenuOpen(!isUserMenuOpen)} className="flex h-9 items-center gap-2 rounded-full bg-[linear-gradient(145deg,#0d1726,#1c324b)] pl-2 pr-3 text-[11px] font-bold text-white/90 shadow-sm ring-2 ring-white/80 transition hover:ring-softform-teal-500/50" aria-label="User menu" aria-expanded={isUserMenuOpen}>
+            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-white/10 uppercase">{userRole.charAt(0)}</div>
+            <span className="hidden sm:inline-block max-w-[80px] truncate capitalize font-medium text-white/80 tracking-wide">{userRole}</span>
           </button>
           <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-softform-emerald-soft ring-2 ring-white" aria-hidden="true" />
-          
+
           {isUserMenuOpen && (
             <div className="absolute right-0 mt-2 z-50 w-48 origin-top-right rounded-2xl border border-white/80 bg-white/95 p-2 shadow-[0_20px_50px_rgba(8,17,31,0.15)] backdrop-blur-md transition-all duration-200">
               <div className="px-3 pb-2 pt-2 border-b border-softform-navy-950/10 mb-1">
                 <div className="text-[10px] font-bold uppercase tracking-wider text-softform-navy-900/40">Logged in as</div>
                 <div className="text-sm font-semibold text-softform-navy-950 truncate capitalize">{userRole}</div>
               </div>
-              <button
-                onClick={handleLogout}
-                className="flex w-full items-center justify-start rounded-xl px-3 py-2 text-left text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors"
-              >
+              <button onClick={handleLogout} className="flex w-full items-center justify-start rounded-xl px-3 py-2 text-left text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors">
                 Sign out
               </button>
             </div>

@@ -33,6 +33,8 @@ import {
   fetchBackendConfig,
 } from '../../lib/workspaceRunHelpers'
 import { API_BASE_URL } from '../../lib/apiBase'
+import { useWorkspace } from '../../context/workspaceContext'
+import { isDemoWorkspace, SYNTHETIC_DEMO_BADGE } from '../data-room/api/dataRoomApi'
 
 type AiMessage = {
   id: string
@@ -91,6 +93,10 @@ export default function AiCfoPage() {
   const [isProdMode, setIsProdMode] = useState(false)
   const [runningType, setRunningType] = useState<string | null>(null)
   const [checkingReadiness, setCheckingReadiness] = useState(true)
+
+  const { activeWorkspace } = useWorkspace()
+  const isSyntheticDemo = isDemoWorkspace(activeWorkspace)
+  const demoChip = isSyntheticDemo ? <StatusChip variant="neutral">{SYNTHETIC_DEMO_BADGE}</StatusChip> : null
 
   const { financial, credit, funding } = context
   const valuation = getValuation(financial)
@@ -484,7 +490,12 @@ export default function AiCfoPage() {
       <PageHeader
         title="AI CFO"
         subtitle="Ask questions across the current financial, valuation, readiness, funding, market, and advisory context."
-        chip={<StatusChip variant={isReady ? 'signal' : 'neutral'}>{isReady ? 'Context ready' : 'Context incomplete'}</StatusChip>}
+        chip={(
+          <div className="flex flex-wrap items-center gap-2">
+            {demoChip}
+            <StatusChip variant={isReady ? 'signal' : 'neutral'}>{isReady ? 'Context ready' : 'Context incomplete'}</StatusChip>
+          </div>
+        )}
       />
 
       {/* Show context warning banner in dev/local mode if not ready */}

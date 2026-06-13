@@ -27,7 +27,7 @@ import type { CreditScoringResult } from '../advisory-blueprint/types'
 import type { FundingChannelRankingResponse, RedFlagsMacroSummaryResponse } from '../market-watch/types'
 import type { BochkWorkflowRun } from '../workflow/workflowApi'
 import { formatHKD, formatPercent, formatBand, bandVariant, variantForBand } from '../../lib/formatters'
-import { listWorkspaces } from '../data-room/api/dataRoomApi'
+import { isDemoWorkspace, listWorkspaces, SYNTHETIC_DEMO_BADGE } from '../data-room/api/dataRoomApi'
 import {
   triggerAnalysisRun,
   fetchAllRunStatuses,
@@ -228,8 +228,8 @@ export default function OverviewPage() {
         title="Overview"
         subtitle="Executive command center across financial health, valuation, credit readiness, funding strategy, and macro watch signals."
         chip={
-          activeWorkspace?.id === 'workspace_sample_novus' ? (
-            <StatusChip variant="caution">Demo Workspace</StatusChip>
+          isDemoWorkspace(activeWorkspace) ? (
+            <StatusChip variant="neutral">{SYNTHETIC_DEMO_BADGE}</StatusChip>
           ) : (
             <StatusChip variant={bandVariant(state.macro?.summaryBand)}>{formatBand(state.macro?.summaryBand ?? 'workspace')}</StatusChip>
           )
