@@ -247,11 +247,11 @@ export default function OverviewPage() {
         aside={
           <div className="grid gap-3 sm:grid-cols-2">
             <Link to="/platform/data-room" className="rounded-[22px] border border-white/10 bg-white/5 p-4 shadow-soft-inner hover-lift">
-              <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-white/50">Data mode</p>
+              <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-slate-300">Data mode</p>
               <p className="mt-1 text-sm font-semibold text-white">{state.financial?.snapshot.metadata?.source ? 'Workspace preview' : 'Context-only'}</p>
             </Link>
             <Link to="/platform/advisory-blueprint" className="rounded-[22px] border border-white/10 bg-white/5 p-4 shadow-soft-inner hover-lift">
-              <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-white/50">Advisor output</p>
+              <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-slate-300">Advisor output</p>
               <p className="mt-1 text-sm font-semibold text-white">Blueprint ready</p>
             </Link>
           </div>
