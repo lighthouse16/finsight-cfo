@@ -19,7 +19,6 @@ import StatusChip from '../../components/platform/StatusChip'
 import SectionBlock from '../../components/platform/SectionBlock'
 import SkeletonLoader from '../../components/platform/SkeletonLoader'
 import SourceInfoTooltip from '../market-watch/components/SourceInfoTooltip'
-import RunMetadataBadge from '../../components/platform/RunMetadataBadge'
 import WorkspaceInsufficientDataState from '../../components/platform/WorkspaceInsufficientDataState'
 import {
   getAdvisoryBlueprint,
@@ -45,7 +44,6 @@ import type { FinancialAnalysisResponse } from '../market-watch/types'
 
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import FundingBlueprintHelper from './components/FundingBlueprintHelper'
 
 // CDI & Market integration imports
 import { createAndFetchMockCdiData } from '../cdi/cdiApi'
@@ -469,7 +467,6 @@ export default function AdvisoryBlueprintPage() {
       )}
 
       <div className="flex flex-wrap items-center gap-3">
-        <RunMetadataBadge metadata={blueprint?.run_metadata} />
         {blueprint?.run_metadata && (
           <button
             onClick={handleRunAnalysis}
@@ -1267,9 +1264,6 @@ export default function AdvisoryBlueprintPage() {
           </div>
         </SectionBlock>
       )}
-
-      {/* 9. BOCHK Phase 3 Interactive Engine */}
-      <FundingBlueprintHelper />
 
       {/* Subtle CTA to Data Room & Market Watch */}
       <section className="flex flex-col sm:flex-row gap-6 items-center justify-between p-8 rounded-[36px] border border-white/70 bg-gradient-to-r from-softform-mist-100/50 to-white/50 backdrop-blur-md shadow-base-card">

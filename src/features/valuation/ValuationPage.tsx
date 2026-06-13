@@ -12,7 +12,6 @@ import PageLoadingSkeleton from '../../components/platform/PageLoadingSkeleton'
 import WorkflowFooter from '../../components/platform/WorkflowFooter'
 import type { ValuationOutput } from '../market-watch/types'
 import { formatHKD, formatPercent, formatMultiple, bandVariant } from '../../lib/formatters'
-import RunMetadataBadge from '../../components/platform/RunMetadataBadge'
 import { fetchLatestRunSafe, triggerAnalysisRun } from '../../lib/workspaceRunHelpers'
 import { fetchActiveWorkspaceSnapshot, fetchWorkspaceFiles } from '../data-room/api/dataRoomApi'
 import { useWorkspace } from '../../context/workspaceContext'
@@ -297,7 +296,6 @@ export default function ValuationPage() {
       )}
 
       <div className="flex flex-wrap items-center gap-3">
-        <RunMetadataBadge metadata={analysis?.run_metadata} />
         {analysis?.run_metadata && (
           <button
             onClick={handleRunAnalysis}

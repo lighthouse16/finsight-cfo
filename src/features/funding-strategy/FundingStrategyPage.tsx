@@ -15,7 +15,6 @@ import type { FacilityStructuringResponse } from '../advisory-blueprint/types'
 import type { FundingChannelRankingResponse } from '../market-watch/types'
 import type { CdiConsentSession, CdiMockDataResponse } from '../cdi/cdiApi'
 import { formatHKD, formatPercent, formatBand, bandVariant } from '../../lib/formatters'
-import RunMetadataBadge from '../../components/platform/RunMetadataBadge'
 import { fetchLatestRunSafe, triggerAnalysisRun } from '../../lib/workspaceRunHelpers'
 
 import WorkspaceInsufficientDataState from '../../components/platform/WorkspaceInsufficientDataState'
@@ -218,7 +217,6 @@ export default function FundingStrategyPage() {
       />
 
       <div className="flex flex-wrap items-center gap-3">
-        <RunMetadataBadge metadata={ranking?.run_metadata} />
         {ranking?.run_metadata && (
           <button
             onClick={handleRunAnalysis}

@@ -14,7 +14,6 @@ import { createAndFetchMockCdiData } from '../cdi/cdiApi'
 import type { CreditScoreFactor, FundingReadinessBand, PdRiskTier } from '../advisory-blueprint/types'
 import type { CdiConsentSession, CdiMockDataResponse } from '../cdi/cdiApi'
 import { formatHKD, formatPercent, formatBand } from '../../lib/formatters'
-import RunMetadataBadge from '../../components/platform/RunMetadataBadge'
 import { fetchLatestRunSafe, triggerAnalysisRun } from '../../lib/workspaceRunHelpers'
 
 import WorkspaceInsufficientDataState from '../../components/platform/WorkspaceInsufficientDataState'
@@ -215,7 +214,6 @@ export default function CreditReadinessPage() {
       />
 
       <div className="flex flex-wrap items-center gap-3">
-        <RunMetadataBadge metadata={creditScore?.run_metadata} />
         {creditScore?.run_metadata && (
           <button
             onClick={handleRunAnalysis}
