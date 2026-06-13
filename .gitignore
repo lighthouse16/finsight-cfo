@@ -39,3 +39,7 @@ Thumbs.db
 
 # Logs
 *.log
+
+# AI agent / development agent tools
+.agents/
+.claude/
