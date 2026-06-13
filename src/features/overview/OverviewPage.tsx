@@ -227,7 +227,7 @@ export default function OverviewPage() {
         subtitle="Executive command center across financial health, valuation, credit readiness, funding strategy, and macro watch signals."
         chip={
           activeWorkspace?.id === 'workspace_sample_novus' ? (
-            <StatusChip variant="caution">Demo Workspace</StatusChip>
+            <StatusChip variant="caution">Synthetic Demo Data</StatusChip>
           ) : (
             <StatusChip variant={bandVariant(state.macro?.summaryBand)}>{formatBand(state.macro?.summaryBand ?? 'workspace')}</StatusChip>
           )

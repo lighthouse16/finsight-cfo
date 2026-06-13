@@ -1,4 +1,4 @@
-﻿# User Journey Smoke Test
+# User Journey Smoke Test
 
 Use this checklist to verify the workspace-first SaaS journey end to end.
 
@@ -11,15 +11,14 @@ Use this checklist to verify the workspace-first SaaS journey end to end.
 
 ## 1. Open app with no workspace
 
-1. Clear or use a test account with no company workspaces.
-2. Open the app and sign in if required.
-3. Navigate to the platform area.
+1. Clear the active workspace ID from localStorage (`localStorage.removeItem('active_workspace_id')`).
+2. Open the app.
 
 Expected result:
 
-- The platform shell does not show a blank dashboard.
-- The user is routed/gated into the company workspace creation experience.
-- No implicit default workspace is auto-created by the top command bar.
+- The user is automatically redirected to `/create-workspace`.
+- The two-card choice screen ("Start from scratch" and "Explore with mock data") is rendered.
+- No default workspace is silently created.
 
 ## 2. Create company workspace
 
@@ -84,15 +83,18 @@ Expected result:
 
 ## 7. Verify demo sample workspace labeling
 
-1. Return to the no-workspace onboarding flow or use the Load Sample Company action.
-2. Load the sample/demo workspace.
-3. Open Overview.
+1. Clear the active workspace ID and open the app to go to `/create-workspace`.
+2. Click **Open sample company** under the **Explore with mock data** card.
+3. Verify the redirection to `/platform/overview`.
 
 Expected result:
 
-- The active workspace is the sample workspace, `workspace_sample_novus`.
-- Overview displays a visible Demo Workspace badge.
-- Demo/sample data is labeled synthetic/demo and distinguishable from real company data.
+- The active workspace is set to `workspace_sample_novus`.
+- A "Synthetic Demo Data" badge is displayed:
+  - In the Top Command Bar next to the workspace selector dropdown.
+  - In the Overview page header chip.
+  - In the AI CFO page header chip and assistant hero card.
+  - In the Reports page header chip and reports package hero card.
 
 ## 8. Cleanup
 
