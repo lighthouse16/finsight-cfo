@@ -409,8 +409,6 @@ def build_credit_scoring_result(analysis: FinancialAnalysisResponse) -> CreditSc
         ]
     )
 
-    from app.services.advisory.pd_engine import _load_and_train_dataset
-    _, _, _, _, cal_status, _ = _load_and_train_dataset()
 
     scorecard_assumptions = [
         "Liquidity levels represent buffer to meet short-term liabilities.",

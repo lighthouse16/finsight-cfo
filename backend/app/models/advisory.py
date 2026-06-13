@@ -100,9 +100,9 @@ class CreditScoringResult(AdvisoryBaseModel):
     methodology_label: str
     disclaimer: str
     warnings: List[str] = Field(default_factory=list)
-    calibration_status: str = "indicative_readiness_index"
     model_version: str = "1.0.0"
     model_type: str = "deterministic_scorecard"
+    calibration_status: str = "rules_based"
     assumptions: List[str] = Field(default_factory=list)
     limitations: List[str] = Field(default_factory=list)
     data_quality: dict = Field(default_factory=dict)
@@ -313,9 +313,9 @@ class PdEstimateResponse(AdvisoryBaseModel):
     score: int
     factor_contributions: List[PdFactorContribution]
     disclaimer: str
-    calibration_status: str = "indicative_readiness_index"
     model_version: str = "1.0.0"
     model_type: str = "indicative_pd_proxy"
+    calibration_status: str = "uncalibrated_proxy"
     assumptions: List[str] = Field(default_factory=list)
     limitations: List[str] = Field(default_factory=list)
     data_quality: dict = Field(default_factory=dict)

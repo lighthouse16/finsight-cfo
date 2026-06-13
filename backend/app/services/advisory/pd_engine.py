@@ -4,6 +4,7 @@ import math
 from typing import Optional
 from app.models.advisory import PdEstimateResponse, PdFactorContribution
 
+
 def _load_and_train_dataset() -> tuple[float, float, float, float, str, str]:
     # Look for dataset file in various locations
     paths = [
@@ -108,6 +109,7 @@ class ICalibratedPdModel:
     def predict_calibrated_pd(self, features: dict) -> float:
         raise NotImplementedError("Predicting calibrated PD is not implemented. Use uncalibrated proxy.")
 
+
 def calculate_pd(
     company_id: str,
     dscr: Optional[float],
@@ -182,6 +184,7 @@ def calculate_pd(
         "CDI collateral acts as a linear credit mitigant to lower default probability score."
     ]
     
+
     pd_limitations = [
         "Not calibrated to historical default data.",
         "Not a formal credit decision."
@@ -195,6 +198,7 @@ def calculate_pd(
     }
     
     confidence_band = "medium" if (dscr is not None and debt_ratio is not None and margin is not None) else "low"
+
     return PdEstimateResponse(
         company_id=company_id,
         z_score=z_score,
@@ -203,9 +207,9 @@ def calculate_pd(
         score=score_100,
         factor_contributions=factors,
         disclaimer=disclaimer,
-        calibration_status=cal_status,
         model_version="1.0.0",
         model_type="indicative_pd_proxy",
+        calibration_status=cal_status,
         assumptions=pd_assumptions,
         limitations=pd_limitations,
         data_quality=pd_data_quality,
