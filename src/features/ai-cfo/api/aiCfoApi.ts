@@ -3,7 +3,8 @@ import { API_BASE_URL, getWorkspaceHeaders } from '../../../lib/apiBase'
 export interface AdvisoryChatSource {
   title: string
   snippet?: string | null
-  documentId?: string | null
+  documentId?: string
+  chunkIndex?: number | null
 }
 
 export interface AdvisoryChatResponse {

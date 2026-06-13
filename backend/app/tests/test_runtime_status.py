@@ -54,3 +54,14 @@ class TestRuntimeStatusEndpoint:
             data = response.json()
             ai_warnings = [w for w in data["warnings"] if "AI" in w or "LLM" in w]
             assert len(ai_warnings) > 0
+
+    def test_status_does_not_expose_secrets(self):
+        response = client.get("/api/runtime/status")
+        assert response.status_code == 200
+        content = response.text.lower()
+        # Verify secrets are not leaked
+        assert "secret" not in content
+        assert "password" not in content
+        assert "key" not in content
+        assert "database_url" not in content
+

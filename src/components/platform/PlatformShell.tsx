@@ -1,8 +1,11 @@
 import { useState, useCallback, useEffect } from 'react'
-import { Outlet, useLocation } from 'react-router-dom'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import SidebarNav from './SidebarNav'
 import TopCommandBar from './TopCommandBar'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useWorkspace } from '../../context/workspaceContext'
+import CreateWorkspacePage from '../../pages/CreateWorkspacePage'
+import PageLoadingSkeleton from './PageLoadingSkeleton'
 
 const SIDEBAR_COLLAPSED_KEY = 'finsight-sidebar-collapsed'
 
@@ -23,8 +26,10 @@ function writeCollapsedToStorage(value: boolean): void {
   }
 }
 
-export default function PlatformShell() {
+function PlatformShellContent() {
   const location = useLocation()
+  const navigate = useNavigate()
+  const { workspaces, isLoading, backendConfig } = useWorkspace()
   // Mobile drawer state
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
@@ -32,6 +37,16 @@ export default function PlatformShell() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(
     readCollapsedFromStorage,
   )
+
+  // Enforce auth redirect in production/OIDC if token is missing
+  useEffect(() => {
+    if (!isLoading && backendConfig && backendConfig.isProduction) {
+      const token = localStorage.getItem('access_token')
+      if (!token) {
+        navigate('/login', { replace: true })
+      }
+    }
+  }, [isLoading, backendConfig, navigate])
 
   // Sync collapsed state to localStorage whenever it changes
   useEffect(() => {
@@ -49,6 +64,18 @@ export default function PlatformShell() {
   const handleCollapseToggle = useCallback(() => {
     setSidebarCollapsed((prev) => !prev)
   }, [])
+
+  if (isLoading) {
+    return (
+      <div className="min-h-dvh bg-[var(--softform-page-bg)] px-6 py-8 softform-page">
+        <PageLoadingSkeleton layout="overview" />
+      </div>
+    )
+  }
+
+  if (workspaces.length === 0) {
+    return <CreateWorkspacePage />
+  }
 
   return (
     <div className="flex h-dvh overflow-hidden bg-[var(--softform-page-bg)] bg-fixed">
@@ -82,4 +109,8 @@ export default function PlatformShell() {
       </main>
     </div>
   )
+}
+
+export default function PlatformShell() {
+  return <PlatformShellContent />
 }

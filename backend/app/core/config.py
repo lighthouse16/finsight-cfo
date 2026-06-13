@@ -29,16 +29,58 @@ class Settings(BaseSettings):
     # Live Data Foundation Configs
     FX_PROVIDER: str = "frankfurter"
     FX_PROVIDER_BASE_URL: str = "https://api.frankfurter.dev/v2"
+    
+    # Provider Integrations
+    CDI_API_BASE_URL: str = ""
+    CDI_CLIENT_ID: str = ""
+    CDI_CLIENT_SECRET: str = ""
+    CCRA_API_BASE_URL: str = ""
+    CCRA_API_KEY: str = ""
+    MPF_API_BASE_URL: str = ""
+    MPF_API_KEY: str = ""
+    CARGOX_API_BASE_URL: str = ""
+    CARGOX_API_KEY: str = ""
+    BOCHK_CATALOG_API_BASE_URL: str = ""
+    BOCHK_CATALOG_API_KEY: str = ""
+    
+    # Market Providers
     ALPHA_VANTAGE_API_KEY: str = ""
     CHINADATA_API_KEY: str = ""
     IHS_MARKIT_API_KEY: str = ""
     IHS_API_KEY: str = ""
     FEDWATCH_API_KEY: str = ""
     RMB_BENCHMARK_API_KEY: str = ""
+    APIFY_TOKEN: str = ""
+    SQX_API_KEY: str = ""
+    CBONDS_API_KEY: str = ""
+    
     LENDER_CATALOG_PATH: str = ""
     BOCHK_CATALOG_CONFIGURED: bool = False
     COMMODITY_PROVIDER: str = "fixture"
     MARKET_WATCH_AUTO_REFRESH_SECONDS: int = 300
+
+    def provider_configured(self, provider_name: str) -> bool:
+        """Helper to check if a live provider is configured based on required credentials."""
+        name = provider_name.lower()
+        if name == "cdi":
+            return bool(self.CDI_API_BASE_URL and self.CDI_CLIENT_ID and self.CDI_CLIENT_SECRET)
+        elif name == "ccra":
+            return bool(self.CCRA_API_BASE_URL and self.CCRA_API_KEY)
+        elif name == "mpf":
+            return bool(self.MPF_API_BASE_URL and self.MPF_API_KEY)
+        elif name == "cargox":
+            return bool(self.CARGOX_API_BASE_URL and self.CARGOX_API_KEY)
+        elif name == "bochk":
+            return bool(self.BOCHK_CATALOG_API_BASE_URL and self.BOCHK_CATALOG_API_KEY)
+        elif name == "cme":
+            return False  # Update if CME requires specific API keys
+        elif name == "apify":
+            return bool(self.APIFY_TOKEN)
+        elif name == "sqx":
+            return bool(self.SQX_API_KEY or self.CBONDS_API_KEY)
+        elif name == "chinadata":
+            return bool(self.CHINADATA_API_KEY)
+        return False
 
     CORS_ALLOW_ORIGINS: str = (
         "http://localhost:5173,http://127.0.0.1:5173,"
@@ -49,7 +91,14 @@ class Settings(BaseSettings):
     PERSISTENCE_BACKEND: str = "local"
     STORAGE_BACKEND: str = "local"
     DATABASE_URL: str = "sqlite:///./storage_db/finsight_dev.db"
+    TIMESCALE_DATABASE_URL: Optional[str] = ""
     DATABASE_ECHO: bool = False
+
+    # OIDC Configuration
+    OIDC_ISSUER_URL: Optional[str] = ""
+    OIDC_CLIENT_ID: Optional[str] = ""
+    OIDC_AUDIENCE: Optional[str] = ""
+    OIDC_JWKS_URL: Optional[str] = ""
 
     # Object Storage Configs
     OBJECT_STORAGE_BACKEND: str = "local_file"
@@ -99,6 +148,11 @@ class Settings(BaseSettings):
         if auth_secret_val:
             self.JWT_SECRET_KEY = auth_secret_val
             self.AUTH_SECRET = auth_secret_val
+            
+        # Standardize TimescaleDB URL
+        timescale_url_val = self.TIMESCALE_DATABASE_URL or self.DATABASE_URL
+        if timescale_url_val:
+            self.TIMESCALE_DATABASE_URL = timescale_url_val
             
         # Standardize Redis URL
         redis_url_val = self.QUEUE_REDIS_URL or self.REDIS_URL

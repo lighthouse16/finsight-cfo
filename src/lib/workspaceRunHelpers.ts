@@ -35,9 +35,12 @@ export function getActiveWorkspaceId(): string | null {
   return localStorage.getItem('active_workspace_id')
 }
 
-export async function triggerAnalysisRun(workspaceId: string, runType: string): Promise<any> {
+export async function triggerAnalysisRun(workspaceId: string, runType: string, snapshotId?: string): Promise<any> {
   const slug = RUN_TYPE_SLUGS[runType] || runType
-  const res = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/analysis/${slug}/run`, {
+  const params = new URLSearchParams()
+  if (snapshotId) params.set('snapshot_id', snapshotId)
+  const queryString = params.toString() ? `?${params.toString()}` : ''
+  const res = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/analysis/${slug}/run${queryString}`, {
     method: 'POST',
     headers: getWorkspaceHeaders({
       'Content-Type': 'application/json',
@@ -111,12 +114,14 @@ export interface BackendConfig {
   appMode: string
   allowDemoFallback: boolean
   isProduction: boolean
+  authMode: string
 }
 
 const SAFE_BACKEND_CONFIG: BackendConfig = {
   appMode: 'production',
   allowDemoFallback: false,
   isProduction: true,
+  authMode: 'production',
 }
 
 export async function fetchBackendConfig(): Promise<BackendConfig> {
@@ -129,7 +134,8 @@ export async function fetchBackendConfig(): Promise<BackendConfig> {
     const appMode = data.app_mode ?? 'production'
     const allowDemoFallback = data.allow_demo_fallback ?? false
     const isProduction = appMode === 'production' || !allowDemoFallback
-    return { appMode, allowDemoFallback, isProduction }
+    const authMode = data.auth_mode ?? 'production'
+    return { appMode, allowDemoFallback, isProduction, authMode }
   } catch (e) {
     console.warn('Failed to fetch backend config, using production-safe defaults:', e)
     return SAFE_BACKEND_CONFIG

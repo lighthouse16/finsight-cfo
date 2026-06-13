@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useState, useMemo } from 'react'
-import { Calculator, TrendingUp, BarChart3, Loader2, RefreshCw, Play, AlertTriangle } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { Calculator, TrendingUp, BarChart3, Loader2, RefreshCw, Play, AlertTriangle, FolderOpen, Building2, FileSearch } from 'lucide-react'
 import PageHeader from '../../components/platform/PageHeader'
 import StatusChip from '../../components/platform/StatusChip'
 import SectionBlock from '../../components/platform/SectionBlock'
@@ -9,87 +10,204 @@ import ServiceErrorState from '../../components/platform/ServiceErrorState'
 import NavyHeroSection from '../../components/platform/NavyHeroSection'
 import PageLoadingSkeleton from '../../components/platform/PageLoadingSkeleton'
 import WorkflowFooter from '../../components/platform/WorkflowFooter'
-import { getFinancialHealthAnalysis } from '../financial-health/financialHealthApi'
 import type { ValuationOutput } from '../market-watch/types'
 import { formatHKD, formatPercent, formatMultiple, bandVariant } from '../../lib/formatters'
-import RunMetadataBadge from '../../components/platform/RunMetadataBadge'
 import { fetchLatestRunSafe, triggerAnalysisRun } from '../../lib/workspaceRunHelpers'
+import { fetchActiveWorkspaceSnapshot, fetchWorkspaceFiles } from '../data-room/api/dataRoomApi'
+import { useWorkspace } from '../../context/workspaceContext'
 
-import WorkspaceInsufficientDataState from '../../components/platform/WorkspaceInsufficientDataState'
+type ValuationPrerequisite = 'no_workspace' | 'no_files' | 'no_snapshot' | 'no_run'
 
 function assumptionNumber(valuation: ValuationOutput, key: string) {
   const value = valuation.assumptions?.[key]
   return typeof value === 'number' ? value : null
 }
 
+function getSnapshotId(snapshot: any): string | undefined {
+  return snapshot?.id ?? snapshot?.snapshotId ?? snapshot?.metadata?.snapshotId
+}
+
+function ValuationPrerequisiteCard({
+  state,
+  isRunning,
+  onRun,
+}: {
+  state: ValuationPrerequisite
+  isRunning: boolean
+  onRun: () => void
+}) {
+  const content: Record<ValuationPrerequisite, {
+    icon: JSX.Element
+    eyebrow: string
+    title: string
+    description: string
+    primaryLabel: string
+    to?: string
+    onClick?: () => void
+  }> = {
+    no_workspace: {
+      icon: <Building2 size={28} />,
+      eyebrow: 'Workspace required',
+      title: 'Create a company workspace first',
+      description: 'Valuation models are generated from an active company workspace. Create or select a workspace before opening the valuation route directly.',
+      primaryLabel: 'Create Workspace',
+      to: '/platform/overview',
+    },
+    no_files: {
+      icon: <FolderOpen size={28} />,
+      eyebrow: 'Financial records required',
+      title: 'Upload financial documents before valuation',
+      description: 'Add the company financial statements in the Data Room so FinSight CFO can prepare the snapshot used by valuation.',
+      primaryLabel: 'Open Data Room',
+      to: '/platform/data-room',
+    },
+    no_snapshot: {
+      icon: <FileSearch size={28} />,
+      eyebrow: 'Snapshot review required',
+      title: 'Review and activate a financial snapshot before valuation',
+      description: 'Uploaded files need to be parsed, reviewed, and activated as the financial snapshot before valuation analysis can run.',
+      primaryLabel: 'Review Snapshot',
+      to: '/platform/data-room',
+    },
+    no_run: {
+      icon: <Calculator size={28} />,
+      eyebrow: 'Analysis run required',
+      title: 'Run valuation analysis',
+      description: 'An active financial snapshot is available, but valuation has not been run for this workspace yet. Run the backend analysis to generate valuation results.',
+      primaryLabel: 'Run Valuation',
+      onClick: onRun,
+    },
+  }
+
+  const current = content[state]
+  const buttonClass = 'inline-flex items-center justify-center gap-2 rounded-full bg-softform-navy-950 px-6 py-3 text-sm font-semibold text-white shadow-[0_18px_44px_rgba(8,17,31,0.22)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-softform-navy-800 disabled:cursor-not-allowed disabled:opacity-60'
+
+  return (
+    <div className="relative overflow-hidden rounded-[32px] border border-white/70 bg-white/70 p-7 shadow-[0_24px_80px_rgba(8,17,31,0.14),inset_0_1px_0_rgba(255,255,255,0.8)] backdrop-blur-xl sm:p-10">
+      <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-softform-aqua-300/25 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-28 left-8 h-64 w-64 rounded-full bg-softform-amber-300/25 blur-3xl" />
+      <div className="relative mx-auto flex max-w-2xl flex-col items-center text-center">
+        <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-white/70 bg-white/70 text-softform-teal-deep shadow-[0_16px_40px_rgba(8,17,31,0.12)]">
+          {current.icon}
+        </div>
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-softform-teal-deep">{current.eyebrow}</p>
+        <h2 className="mt-3 text-2xl font-bold tracking-tight text-softform-navy-950 sm:text-3xl">{current.title}</h2>
+        <p className="mt-3 max-w-xl text-sm leading-6 text-softform-text-secondary">{current.description}</p>
+        <div className="mt-7 flex flex-wrap justify-center gap-3">
+          {current.to ? (
+            <Link id={`valuation-${state}-primary-cta`} to={current.to} className={buttonClass}>
+              {current.primaryLabel}
+            </Link>
+          ) : (
+            <button id="valuation-run-primary-cta" type="button" onClick={current.onClick} disabled={isRunning} className={buttonClass}>
+              {isRunning ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} fill="currentColor" />}
+              {current.primaryLabel}
+            </button>
+          )}
+          {state === 'no_workspace' && (
+            <Link id="valuation-workspaces-secondary-cta" to="/platform/overview" className="inline-flex items-center justify-center rounded-full border border-white/70 bg-white/60 px-6 py-3 text-sm font-semibold text-softform-navy-950 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/80">
+              Workspaces
+            </Link>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function ValuationPage() {
+  const { activeWorkspace, isLoading: workspaceLoading } = useWorkspace()
   const [analysis, setAnalysis] = useState<any>(null)
+  const [activeSnapshot, setActiveSnapshot] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [hasSnapshotButNoRun, setHasSnapshotButNoRun] = useState(false)
+  const [prerequisite, setPrerequisite] = useState<ValuationPrerequisite | null>(null)
   const [isRunning, setIsRunning] = useState(false)
 
-  const loadValuation = async () => {
+  const loadValuation = useCallback(async () => {
+    if (workspaceLoading) return
+
     setLoading(true)
     setError(null)
-    setHasSnapshotButNoRun(false)
+    setPrerequisite(null)
+    setAnalysis(null)
+    setActiveSnapshot(null)
+
+    const workspaceId = activeWorkspace?.id ?? localStorage.getItem('active_workspace_id')
+
+    if (!workspaceId) {
+      setPrerequisite('no_workspace')
+      setLoading(false)
+      return
+    }
+
     try {
-      // 1. Check legacy/direct analysis status first
-      const legacyData = await getFinancialHealthAnalysis()
-      if (legacyData && legacyData.status === 'insufficient_data') {
-        setAnalysis(legacyData)
+      const files = await fetchWorkspaceFiles(workspaceId)
+      if (!Array.isArray(files) || files.length === 0) {
+        setPrerequisite('no_files')
         return
       }
 
-      // 2. Check for latest valuation run
-      const workspaceId = localStorage.getItem('active_workspace_id')
-      if (workspaceId) {
-        const latestRun = await fetchLatestRunSafe(workspaceId, 'valuation')
-        if (latestRun) {
-          const analysisData = {
-            ...latestRun.results,
-            run_metadata: {
-              id: latestRun.id,
-              runId: latestRun.id,
-              snapshotId: latestRun.snapshotId,
-              status: latestRun.status,
-              runType: latestRun.runType,
-              createdAt: latestRun.createdAt,
-              logicVersion: latestRun.logicVersion,
-              warningsCount: latestRun.warnings?.length ?? 0
-            }
-          }
-          setAnalysis(analysisData)
-        } else {
-          // Snapshot exists, but no run yet
-          setHasSnapshotButNoRun(true)
-          setAnalysis(legacyData)
+      let snapshotResponse
+      try {
+        snapshotResponse = await fetchActiveWorkspaceSnapshot(workspaceId)
+      } catch (snapshotError: any) {
+        if (snapshotError?.message?.includes('404') || snapshotError?.message?.toLowerCase?.().includes('not found')) {
+          setPrerequisite('no_snapshot')
+          return
         }
-      } else {
-        setAnalysis({
-          status: 'insufficient_data',
-          missingRequirements: ['Please select or create a workspace in the Data Room.'],
-          nextActions: ['Go to the Data Room']
-        })
+        throw snapshotError
       }
+
+      if (!snapshotResponse?.snapshot || snapshotResponse.status === 'insufficient_data') {
+        setPrerequisite('no_snapshot')
+        return
+      }
+
+      setActiveSnapshot(snapshotResponse.snapshot)
+
+      const latestRun = await fetchLatestRunSafe(workspaceId, 'valuation')
+      if (!latestRun || !latestRun.results) {
+        setPrerequisite('no_run')
+        return
+      }
+
+      setAnalysis({
+        ...latestRun.results,
+        run_metadata: {
+          id: latestRun.id,
+          runId: latestRun.id,
+          snapshotId: latestRun.snapshotId,
+          status: latestRun.status,
+          runType: latestRun.runType,
+          createdAt: latestRun.createdAt,
+          logicVersion: latestRun.logicVersion,
+          warningsCount: latestRun.warnings?.length ?? 0,
+        },
+      })
     } catch (e) {
       console.error('Valuation load failed', e)
-      setError('Valuation is currently unavailable. Please check the backend connection.')
+      setError('Valuation is currently unavailable. Please check the backend connection and retry.')
     } finally {
       setLoading(false)
     }
-  }
+  }, [activeWorkspace?.id, workspaceLoading])
 
   const handleRunAnalysis = async () => {
-    const workspaceId = localStorage.getItem('active_workspace_id')
-    if (!workspaceId) return
+    const workspaceId = activeWorkspace?.id ?? localStorage.getItem('active_workspace_id')
+    if (!workspaceId) {
+      setPrerequisite('no_workspace')
+      return
+    }
     setIsRunning(true)
+    setError(null)
     try {
-      await triggerAnalysisRun(workspaceId, 'valuation')
+      await triggerAnalysisRun(workspaceId, 'valuation', getSnapshotId(activeSnapshot))
       await loadValuation()
     } catch (err: any) {
       console.error('Failed to trigger valuation run:', err)
-      alert(`Failed to run valuation: ${err.message || err}`)
+      setError(`Failed to run valuation: ${err.message || err}`)
+      setPrerequisite(null)
     } finally {
       setIsRunning(false)
     }
@@ -97,88 +215,50 @@ export default function ValuationPage() {
 
   useEffect(() => {
     loadValuation()
-  }, [])
+  }, [loadValuation])
 
-  const isInsufficientData = useMemo(() => {
-    return analysis && analysis.status === 'insufficient_data'
-  }, [analysis])
-
-  if (loading) {
+  if (loading || workspaceLoading) {
     return <PageLoadingSkeleton layout="valuation" metricCount={4} sectionCount={2} />
   }
 
-  if (isInsufficientData) {
-    return (
-      <div className="space-y-8 pb-12">
-        <PageHeader
-          title="Valuation"
-          subtitle="Indicative WACC and DCF valuation view built from the active financial analysis snapshot."
-        />
-        <WorkspaceInsufficientDataState
-          missingRequirements={analysis?.missingRequirements}
-          nextActions={analysis?.nextActions}
-        />
-      </div>
-    )
-  }
-
-  if (hasSnapshotButNoRun) {
-    return (
-      <div className="space-y-8 pb-12">
-        <PageHeader
-          title="Valuation"
-          subtitle="Indicative WACC and DCF valuation view built from the active financial analysis snapshot."
-        />
-        <div className="flex flex-col items-center justify-center p-8 sm:p-12 bg-white/40 dark:bg-slate-900/40 border border-white/60 dark:border-slate-800/60 rounded-3xl backdrop-blur-md shadow-sm max-w-2xl mx-auto text-center space-y-6">
-          <div className="w-16 h-16 rounded-full bg-softform-teal-deep/10 dark:bg-softform-aqua-300/10 flex items-center justify-center text-softform-teal-deep dark:text-softform-aqua-300">
-            <Calculator size={28} />
-          </div>
-          <div className="space-y-2">
-            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Valuation Analysis Needed</h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-              An active workspace snapshot exists, but no valuation analysis run has been triggered for this snapshot yet. Run the analysis to generate models.
-            </p>
-          </div>
-          <button
-            onClick={handleRunAnalysis}
-            disabled={isRunning}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 text-sm font-semibold rounded-full shadow-sm disabled:opacity-50 transition-colors"
-          >
-            {isRunning ? (
-              <Loader2 size={16} className="animate-spin text-softform-teal-deep dark:text-softform-aqua-300" />
-            ) : (
-              <Play size={16} fill="currentColor" className="ml-0.5" />
-            )}
-            <span>Run Valuation Analysis</span>
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  if (error || !analysis) {
+  if (error) {
     return (
       <ServiceErrorState
-        message={error || 'Unable to connect to valuation services.'}
+        message={error}
         onRetry={loadValuation}
       />
     )
   }
 
-  const valuation = analysis.valuation ?? {}
-  const snapshot = analysis.snapshot
+  if (prerequisite) {
+    return (
+      <div className="space-y-8 pb-12">
+        <PageHeader
+          title="Valuation"
+          subtitle="Indicative WACC and DCF valuation view built from the active financial analysis snapshot."
+        />
+        <ValuationPrerequisiteCard state={prerequisite} isRunning={isRunning} onRun={handleRunAnalysis} />
+      </div>
+    )
+  }
+
+  if (!analysis) {
+    return (
+      <ServiceErrorState
+        message="Unable to load valuation data. Please retry or run valuation after activating a workspace snapshot."
+        onRetry={loadValuation}
+      />
+    )
+  }
+
+  const valuation = analysis.valuation ?? analysis ?? {}
+  const snapshot = activeSnapshot ?? analysis.snapshot ?? {}
   const dcf = valuation.dcf
   const wacc = valuation.wacc
   const valuationYears = dcf?.valuationYears ?? []
   const sensitivity = valuation.sensitivity ?? []
   const sanityChecks = valuation.sanityChecks ?? []
-  const modelWarnings = Array.from(
-    new Set([
-      ...(valuation.warnings ?? []),
-      ...(dcf?.warnings ?? []),
-      ...(wacc?.warnings ?? []),
-    ])
-  )
+
   const isPersistent = Boolean(snapshot?.metadata?.persistent || snapshot?.metadata?.source === 'workspace_persistent_snapshot')
   const isPreview = Boolean(snapshot?.metadata?.preview_only || snapshot?.metadata?.previewOnly || snapshot?.metadata?.source === 'data_room_workspace_preview')
 
@@ -216,7 +296,6 @@ export default function ValuationPage() {
       )}
 
       <div className="flex flex-wrap items-center gap-3">
-        <RunMetadataBadge metadata={analysis?.run_metadata} />
         {analysis?.run_metadata && (
           <button
             onClick={handleRunAnalysis}
@@ -411,19 +490,9 @@ export default function ValuationPage() {
         )}
       </section>
 
-      {/* Model Warnings */}
-      {modelWarnings.length > 0 && (
-        <section className="rounded-[24px] border border-softform-amber-300/25 bg-softform-cream/35 p-5 shadow-soft-inner">
-          <div className="flex items-start gap-3">
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-softform-navy-950">Model Warnings</p>
-              {modelWarnings.slice(0, 5).map((warning: any, idx: number) => (
-                <p key={idx} className="text-xs leading-relaxed text-softform-text-secondary">{warning}</p>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
+
+
+
 
       {/* Bottom Navigation */}
       <WorkflowFooter

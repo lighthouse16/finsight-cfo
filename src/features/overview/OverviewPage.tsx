@@ -34,8 +34,10 @@ import {
   ANALYSIS_RUN_TYPES,
 } from '../../lib/workspaceRunHelpers'
 import { API_BASE_URL } from '../../lib/apiBase'
-
 import WorkspaceInsufficientDataState from '../../components/platform/WorkspaceInsufficientDataState'
+import WorkspaceDashboard from './WorkspaceDashboard'
+import { useWorkspace } from '../../context/workspaceContext'
+import ReleaseOnboardingChecklist from '../../components/platform/ReleaseOnboardingChecklist'
 
 type OverviewState = {
   financial: any
@@ -52,6 +54,7 @@ type NextAction = {
 }
 
 export default function OverviewPage() {
+  const { activeWorkspace } = useWorkspace()
   const [state, setState] = useState<OverviewState>({ financial: null, credit: null, funding: null, macro: null, workflow: null })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -224,8 +227,16 @@ export default function OverviewPage() {
       <PageHeader
         title="Overview"
         subtitle="Executive command center across financial health, valuation, credit readiness, funding strategy, and macro watch signals."
-        chip={<StatusChip variant={bandVariant(state.macro?.summaryBand)}>{formatBand(state.macro?.summaryBand ?? 'workspace')}</StatusChip>}
+        chip={
+          activeWorkspace?.id === 'workspace_sample_novus' ? (
+            <StatusChip variant="caution">Demo Workspace</StatusChip>
+          ) : (
+            <StatusChip variant={bandVariant(state.macro?.summaryBand)}>{formatBand(state.macro?.summaryBand ?? 'workspace')}</StatusChip>
+          )
+        }
       />
+
+      <WorkspaceDashboard />
 
       {/* Cockpit Hero Section in Premium Navy Contrast Card */}
       <NavyHeroSection
@@ -236,17 +247,20 @@ export default function OverviewPage() {
         aside={
           <div className="grid gap-3 sm:grid-cols-2">
             <Link to="/platform/data-room" className="rounded-[22px] border border-white/10 bg-white/5 p-4 shadow-soft-inner hover-lift">
-              <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-white/50">Data mode</p>
+              <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-slate-300">Data mode</p>
               <p className="mt-1 text-sm font-semibold text-white">{state.financial?.snapshot.metadata?.source ? 'Workspace preview' : 'Context-only'}</p>
             </Link>
             <Link to="/platform/advisory-blueprint" className="rounded-[22px] border border-white/10 bg-white/5 p-4 shadow-soft-inner hover-lift">
-              <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-white/50">Advisor output</p>
+              <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-slate-300">Advisor output</p>
               <p className="mt-1 text-sm font-semibold text-white">Blueprint ready</p>
             </Link>
           </div>
         }
       />
 
+
+      {/* Onboarding Checklist */}
+      <ReleaseOnboardingChecklist />
 
       {/* KPI Metric Grid */}
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">

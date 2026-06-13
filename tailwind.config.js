@@ -25,8 +25,8 @@ export default {
           },
           text: {
             primary: '#111827',
-            secondary: '#526173',
-            muted: '#8794a3',
+            secondary: '#475569',
+            muted: '#5c6e80',
           },
           aqua: {
             300: '#85d9ce',

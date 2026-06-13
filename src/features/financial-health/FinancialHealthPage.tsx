@@ -14,7 +14,6 @@ import type { FinancialSignal, IntegrityCheckResult, RatioMetric } from '../mark
 import { getFinancialHealthAnalysis } from './financialHealthApi'
 import { motion } from 'framer-motion'
 import { formatNumber, formatHKD, formatBand, bandVariant } from '../../lib/formatters'
-import RunMetadataBadge from '../../components/platform/RunMetadataBadge'
 import { fetchLatestRunSafe, triggerAnalysisRun } from '../../lib/workspaceRunHelpers'
 
 import WorkspaceInsufficientDataState from '../../components/platform/WorkspaceInsufficientDataState'
@@ -242,7 +241,6 @@ export default function FinancialHealthPage() {
       )}
 
       <div className="flex flex-wrap items-center gap-3">
-        <RunMetadataBadge metadata={analysis?.run_metadata} />
         {analysis?.run_metadata && (
           <button
             onClick={handleRunAnalysis}

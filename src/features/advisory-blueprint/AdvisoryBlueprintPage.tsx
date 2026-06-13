@@ -19,7 +19,6 @@ import StatusChip from '../../components/platform/StatusChip'
 import SectionBlock from '../../components/platform/SectionBlock'
 import SkeletonLoader from '../../components/platform/SkeletonLoader'
 import SourceInfoTooltip from '../market-watch/components/SourceInfoTooltip'
-import RunMetadataBadge from '../../components/platform/RunMetadataBadge'
 import WorkspaceInsufficientDataState from '../../components/platform/WorkspaceInsufficientDataState'
 import {
   getAdvisoryBlueprint,
@@ -27,6 +26,7 @@ import {
   getAdvisoryStressTests,
   getAdvisoryFacilityStructures,
   getFinancialPreviewAnalysis,
+  runParameterizedStressTests,
 } from './api/advisoryBlueprintApi'
 import { fetchLatestRunSafe, triggerAnalysisRun } from '../../lib/workspaceRunHelpers'
 import {
@@ -44,7 +44,6 @@ import type { FinancialAnalysisResponse } from '../market-watch/types'
 
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import FundingBlueprintHelper from './components/FundingBlueprintHelper'
 
 // CDI & Market integration imports
 import { createAndFetchMockCdiData } from '../cdi/cdiApi'
@@ -82,6 +81,55 @@ export default function AdvisoryBlueprintPage() {
 
   // Funding request input state
   const [fundingRequestAmount, setFundingRequestAmount] = useState<string>('')
+
+  // Parameterized Stress inputs state
+  const [paramHiborShock, setParamHiborShock] = useState<number>(150)
+  const [paramDsoShock, setParamDsoShock] = useState<number>(30)
+  const [paramInputCostShock, setParamInputCostShock] = useState<number>(10)
+  const [paramFxShock, setParamFxShock] = useState<number>(5)
+  const [isRefreshingStress, setIsRefreshingStress] = useState<boolean>(false)
+  const [stressValidationError, setStressValidationError] = useState<string | null>(null)
+
+  const handleApplyParameterizedStress = async () => {
+    setIsRefreshingStress(true)
+    setStressValidationError(null)
+    
+    if (paramHiborShock < 0 || paramHiborShock > 1000) {
+      setStressValidationError("HIBOR shock must be between 0 and 1000 bps")
+      setIsRefreshingStress(false)
+      return
+    }
+    if (paramDsoShock < 0 || paramDsoShock > 180) {
+      setStressValidationError("DSO shock must be between 0 and 180 days")
+      setIsRefreshingStress(false)
+      return
+    }
+    if (paramInputCostShock < -50 || paramInputCostShock > 100) {
+      setStressValidationError("Input cost shock must be between -50% and +100%")
+      setIsRefreshingStress(false)
+      return
+    }
+    if (paramFxShock < -50 || paramFxShock > 50) {
+      setStressValidationError("FX shock must be between -50% and +50%")
+      setIsRefreshingStress(false)
+      return
+    }
+
+    try {
+      const result = await runParameterizedStressTests({
+        hiborShockBps: paramHiborShock,
+        dsoDaysShock: paramDsoShock,
+        inputCostShockPct: paramInputCostShock,
+        fxShockPct: paramFxShock
+      })
+      setStressTests(result)
+    } catch (e: any) {
+      console.error('Failed to run parameterized stress test', e)
+      setStressValidationError(e.message || 'Failed to execute parameterized stress tests.')
+    } finally {
+      setIsRefreshingStress(false)
+    }
+  }
 
   const handleCdiToggle = async () => {
     if (cdiData) {
@@ -419,7 +467,6 @@ export default function AdvisoryBlueprintPage() {
       )}
 
       <div className="flex flex-wrap items-center gap-3">
-        <RunMetadataBadge metadata={blueprint?.run_metadata} />
         {blueprint?.run_metadata && (
           <button
             onClick={handleRunAnalysis}
@@ -1034,6 +1081,119 @@ export default function AdvisoryBlueprintPage() {
             </div>
           </div>
 
+          {/* Parameterized Stress Controls */}
+          <div className="p-5 bg-white/50 dark:bg-slate-800/10 border border-white/80 dark:border-slate-850/35 rounded-2xl space-y-4">
+            <h4 className="text-xs font-bold uppercase tracking-[0.14em] text-softform-navy-950 flex items-center gap-1.5">
+              <TrendingUp size={14} className="text-softform-teal-500" />
+              <span>Interactive Scenario Parameters</span>
+            </h4>
+            
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              {/* Slider 1: HIBOR Shock */}
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center text-xs font-semibold text-softform-navy-950">
+                  <span>HIBOR Rate Shock</span>
+                  <span className="text-softform-teal-deep">{paramHiborShock} bps</span>
+                </div>
+                <input 
+                  type="range" 
+                  min="0" 
+                  max="1000" 
+                  step="25"
+                  value={paramHiborShock} 
+                  onChange={(e) => setParamHiborShock(Number(e.target.value))}
+                  className="w-full accent-softform-teal-deep h-1.5 bg-slate-200 dark:bg-slate-805 rounded-lg appearance-none cursor-pointer"
+                />
+                <span className="text-[10px] text-softform-text-muted block">Range: 0 to 1000 bps</span>
+              </div>
+
+              {/* Slider 2: DSO Days Shock */}
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center text-xs font-semibold text-softform-navy-950">
+                  <span>DSO days shock</span>
+                  <span className="text-softform-teal-deep">{paramDsoShock} days</span>
+                </div>
+                <input 
+                  type="range" 
+                  min="0" 
+                  max="180" 
+                  step="5"
+                  value={paramDsoShock} 
+                  onChange={(e) => setParamDsoShock(Number(e.target.value))}
+                  className="w-full accent-softform-teal-deep h-1.5 bg-slate-200 dark:bg-slate-805 rounded-lg appearance-none cursor-pointer"
+                />
+                <span className="text-[10px] text-softform-text-muted block">Range: 0 to 180 days</span>
+              </div>
+
+              {/* Slider 3: Input Cost Shock */}
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center text-xs font-semibold text-softform-navy-950">
+                  <span>Input cost shock</span>
+                  <span className="text-softform-teal-deep">{paramInputCostShock}%</span>
+                </div>
+                <input 
+                  type="range" 
+                  min="-50" 
+                  max="100" 
+                  step="5"
+                  value={paramInputCostShock} 
+                  onChange={(e) => setParamInputCostShock(Number(e.target.value))}
+                  className="w-full accent-softform-teal-deep h-1.5 bg-slate-200 dark:bg-slate-805 rounded-lg appearance-none cursor-pointer"
+                />
+                <span className="text-[10px] text-softform-text-muted block">Range: -50% to +100%</span>
+              </div>
+
+              {/* Slider 4: FX Shock */}
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center text-xs font-semibold text-softform-navy-950">
+                  <span>FX Shock</span>
+                  <span className="text-softform-teal-deep">{paramFxShock}%</span>
+                </div>
+                <input 
+                  type="range" 
+                  min="-50" 
+                  max="50" 
+                  step="5"
+                  value={paramFxShock} 
+                  onChange={(e) => setParamFxShock(Number(e.target.value))}
+                  className="w-full accent-softform-teal-deep h-1.5 bg-slate-200 dark:bg-slate-805 rounded-lg appearance-none cursor-pointer"
+                />
+                <span className="text-[10px] text-softform-text-muted block">Range: -50% to +50%</span>
+              </div>
+            </div>
+
+            {stressValidationError && (
+              <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-600 rounded-xl text-xs flex items-center gap-1.5">
+                <AlertTriangle size={14} className="shrink-0" />
+                <span>{stressValidationError}</span>
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 pt-3 border-t border-slate-100 dark:border-slate-800/80">
+              <div className="space-y-1">
+                <p className="text-[10px] leading-relaxed text-softform-text-secondary">
+                  <strong>Scenario Planning Disclaimer:</strong> All scenario planning models are for indicative simulation only and do not constitute formal underwriting credit decisions.
+                </p>
+                <p className="text-[10px] leading-relaxed text-amber-500 dark:text-amber-400 font-semibold">
+                  Relationship manager review required. Any facility calibration or credit readiness projection requires a formal RM review.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleApplyParameterizedStress}
+                disabled={isRefreshingStress}
+                className="inline-flex items-center gap-1.5 px-4.5 py-2.5 rounded-xl bg-softform-navy-900 hover:bg-softform-navy-800 text-white text-xs font-semibold disabled:opacity-50 shrink-0 self-end sm:self-center shadow-sm transition"
+              >
+                {isRefreshingStress ? (
+                  <Loader2 size={12} className="animate-spin text-white" />
+                ) : (
+                  <Play size={12} className="fill-current text-white" />
+                )}
+                <span>{isRefreshingStress ? 'Simulating...' : 'Apply Scenario Parameters'}</span>
+              </button>
+            </div>
+          </div>
+
           <p className="text-sm leading-relaxed text-softform-text-secondary mb-4">
             Simulated scenario shocks applied to baseline metrics. Displays impact on key performance signals.
           </p>
@@ -1104,9 +1264,6 @@ export default function AdvisoryBlueprintPage() {
           </div>
         </SectionBlock>
       )}
-
-      {/* 9. BOCHK Phase 3 Interactive Engine */}
-      <FundingBlueprintHelper />
 
       {/* Subtle CTA to Data Room & Market Watch */}
       <section className="flex flex-col sm:flex-row gap-6 items-center justify-between p-8 rounded-[36px] border border-white/70 bg-gradient-to-r from-softform-mist-100/50 to-white/50 backdrop-blur-md shadow-base-card">

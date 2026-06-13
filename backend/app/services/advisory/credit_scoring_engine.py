@@ -409,6 +409,7 @@ def build_credit_scoring_result(analysis: FinancialAnalysisResponse) -> CreditSc
         ]
     )
 
+
     scorecard_assumptions = [
         "Liquidity levels represent buffer to meet short-term liabilities.",
         "Debt ratios reflect asset coverage and leverage capacity.",
