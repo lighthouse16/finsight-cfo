@@ -2,44 +2,26 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  FolderOpen,
   Database,
   HeartPulse,
   BarChart3,
-  ShieldCheck,
-  Landmark,
-  ScrollText,
   BotMessageSquare,
   FileText,
   ArrowRight,
-  CheckCircle2,
-  Lock,
   Loader2,
-  AlertTriangle,
 } from 'lucide-react'
 import { useWorkspace } from '../../context/workspaceContext'
 import { fetchWorkspaceFiles, fetchActiveWorkspaceSnapshot } from '../data-room/api/dataRoomApi'
-import { fetchAllRunStatuses } from '../../lib/workspaceRunHelpers'
-
-type StepStatus = 'not_started' | 'ready' | 'completed' | 'blocked'
-
-interface JourneyStep {
-  id: string
-  label: string
-  description: string
-  route: string
-  icon: typeof FolderOpen
-  status: StepStatus
-  blockedReason?: string
-  ctaLabel: string
-}
+import { fetchAllRunStatuses, ANALYSIS_RUN_TYPES } from '../../lib/workspaceRunHelpers'
+import StatusChip from '../../components/platform/StatusChip'
 
 export default function WorkspaceDashboard() {
   const { activeWorkspace } = useWorkspace()
 
-  const [hasFiles, setHasFiles] = useState<boolean | null>(null)
+  const [filesCount, setFilesCount] = useState<number | null>(null)
   const [hasSnapshot, setHasSnapshot] = useState<boolean | null>(null)
   const [runStatuses, setRunStatuses] = useState<Record<string, any | null>>({})
+  const [latestAnalysis, setLatestAnalysis] = useState<{ name: string; date: string } | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -50,7 +32,7 @@ export default function WorkspaceDashboard() {
       try {
         // Check files
         const files = await fetchWorkspaceFiles(activeWorkspace.id).catch(() => [])
-        setHasFiles(files.length > 0)
+        setFilesCount(files.length)
 
         // Check snapshot
         try {
@@ -63,6 +45,27 @@ export default function WorkspaceDashboard() {
         // Check run statuses
         const statuses = await fetchAllRunStatuses(activeWorkspace.id)
         setRunStatuses(statuses)
+
+        // Find latest run
+        const runsList = Object.values(statuses).filter(Boolean) as any[]
+        if (runsList.length > 0) {
+          runsList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          const latest = runsList[0]
+          const matchingType = ANALYSIS_RUN_TYPES.find(t => t.key === latest.runType)
+          setLatestAnalysis({
+            name: matchingType ? matchingType.label : latest.runType,
+            date: new Date(latest.createdAt).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+            }) + ' ' + new Date(latest.createdAt).toLocaleTimeString('en-US', {
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true,
+            })
+          })
+        } else {
+          setLatestAnalysis(null)
+        }
       } catch (err) {
         console.warn('WorkspaceDashboard: failed to load state', err)
       } finally {
@@ -75,264 +78,181 @@ export default function WorkspaceDashboard() {
 
   if (!activeWorkspace) return null
 
-  const hasRun = (key: string) => {
-    const run = runStatuses[key]
-    return run && (run.status === 'completed' || run.status === 'success')
-  }
-
-  const steps: JourneyStep[] = [
-    {
-      id: 'upload',
-      label: 'Upload financial documents',
-      description: 'Upload P&L, balance sheet, cash flow, debt schedule, and receivables aging.',
-      route: '/platform/data-room',
-      icon: FolderOpen,
-      status: hasFiles ? 'completed' : 'not_started',
-      ctaLabel: hasFiles ? 'View Data Room' : 'Go to Data Room',
-    },
-    {
-      id: 'snapshot',
-      label: 'Build financial snapshot',
-      description: 'Parse uploaded records into a structured financial snapshot for analysis.',
-      route: '/platform/data-room',
-      icon: Database,
-      status: hasSnapshot
-        ? 'completed'
-        : hasFiles
-          ? 'ready'
-          : 'blocked',
-      blockedReason: !hasFiles ? 'Upload financial documents first.' : undefined,
-      ctaLabel: hasSnapshot ? 'Review Snapshot' : 'Build Snapshot',
-    },
-    {
-      id: 'financial_health',
-      label: 'Review financial health',
-      description: 'Analyze liquidity, leverage, coverage, receivables, and cashflow quality.',
-      route: '/platform/financial-health',
-      icon: HeartPulse,
-      status: hasRun('financial_health')
-        ? 'completed'
-        : hasSnapshot
-          ? 'ready'
-          : 'blocked',
-      blockedReason: !hasSnapshot ? 'Build a financial snapshot first.' : undefined,
-      ctaLabel: hasRun('financial_health') ? 'View Health' : 'Run Analysis',
-    },
-    {
-      id: 'valuation',
-      label: 'Run valuation',
-      description: 'Build indicative WACC, DCF, and enterprise value from financial forecasts.',
-      route: '/platform/valuation',
-      icon: BarChart3,
-      status: hasRun('valuation')
-        ? 'completed'
-        : hasSnapshot
-          ? 'ready'
-          : 'blocked',
-      blockedReason: !hasSnapshot ? 'Build a financial snapshot first.' : undefined,
-      ctaLabel: hasRun('valuation') ? 'View Valuation' : 'Run Valuation',
-    },
-    {
-      id: 'credit_readiness',
-      label: 'Credit readiness check',
-      description: 'See how your financial profile may appear before lender conversations.',
-      route: '/platform/credit-readiness',
-      icon: ShieldCheck,
-      status: hasRun('credit_score')
-        ? 'completed'
-        : hasSnapshot
-          ? 'ready'
-          : 'blocked',
-      blockedReason: !hasSnapshot ? 'Build a financial snapshot first.' : undefined,
-      ctaLabel: hasRun('credit_score') ? 'View Readiness' : 'Check Readiness',
-    },
-    {
-      id: 'funding_strategy',
-      label: 'Funding strategy',
-      description: 'Compare timing, channels, approval fit, loan structure, and stress scenarios.',
-      route: '/platform/funding-strategy',
-      icon: Landmark,
-      status: hasRun('funding_strategy')
-        ? 'completed'
-        : hasSnapshot
-          ? 'ready'
-          : 'blocked',
-      blockedReason: !hasSnapshot ? 'Build a financial snapshot first.' : undefined,
-      ctaLabel: hasRun('funding_strategy') ? 'View Strategy' : 'Explore Funding',
-    },
-    {
-      id: 'advisory_blueprint',
-      label: 'Generate advisory blueprint',
-      description: 'Consolidate all analyses into an advisor-ready financing readiness brief.',
-      route: '/platform/advisory-blueprint',
-      icon: ScrollText,
-      status: hasRun('advisory_blueprint')
-        ? 'completed'
-        : hasSnapshot
-          ? 'ready'
-          : 'blocked',
-      blockedReason: !hasSnapshot ? 'Build a financial snapshot first.' : undefined,
-      ctaLabel: hasRun('advisory_blueprint') ? 'View Blueprint' : 'Generate Blueprint',
-    },
-    {
-      id: 'ai_cfo',
-      label: 'Ask AI CFO',
-      description: 'Ask questions across your financial records, market context, and funding strategy.',
-      route: '/platform/ai-cfo',
-      icon: BotMessageSquare,
-      status: hasSnapshot ? 'ready' : 'blocked',
-      blockedReason: !hasSnapshot
-        ? 'Build a financial snapshot first.'
-        : undefined,
-      ctaLabel: 'Open AI CFO',
-    },
-    {
-      id: 'reports',
-      label: 'Export advisor report',
-      description: 'Generate CFO snapshots, funding-readiness summaries, and lender-facing documents.',
-      route: '/platform/reports',
-      icon: FileText,
-      status: hasSnapshot ? 'ready' : 'blocked',
-      blockedReason: !hasSnapshot ? 'Build a financial snapshot first.' : undefined,
-      ctaLabel: 'Generate Report',
-    },
-  ]
-
-  const completedCount = steps.filter((s) => s.status === 'completed').length
-
   if (loading) {
     return (
       <section className="rounded-[32px] border border-white/60 bg-white/40 p-6 backdrop-blur-md shadow-sm sm:p-8">
         <div className="flex items-center justify-center gap-3 py-8">
           <Loader2 size={20} className="animate-spin text-softform-teal-deep" />
-          <span className="text-sm text-softform-text-muted">
-            Loading workspace progress…
+          <span className="text-sm text-softform-text-secondary font-medium">
+            Loading workspace dashboard context…
           </span>
         </div>
       </section>
     )
   }
 
+  const coreRunTypes = ANALYSIS_RUN_TYPES.filter((t) => t.isCore)
+  const completedCoreCount = coreRunTypes.filter((t) => {
+    const run = runStatuses[t.key]
+    return run && (run.status === 'completed' || run.status === 'success')
+  }).length
+
+  const isValuationReady = runStatuses['valuation']?.status === 'completed' || runStatuses['valuation']?.status === 'success'
+
   return (
-    <section className="rounded-[32px] border border-white/60 bg-white/40 p-6 backdrop-blur-md shadow-sm sm:p-8">
-      {/* Header */}
-      <div className="flex flex-col gap-3 border-b border-softform-navy-950/5 pb-5 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-softform-navy-950">
-            Workspace Journey
-          </h2>
-          <p className="mt-1 text-xs text-softform-text-muted">
-            Follow these steps to move from uploaded records to a complete advisory output.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="h-2 flex-1 min-w-[80px] rounded-full bg-softform-navy-950/5 sm:w-32 sm:flex-none">
-            <div
-              className="h-full rounded-full bg-softform-teal-deep transition-all duration-500"
-              style={{ width: `${(completedCount / steps.length) * 100}%` }}
-            />
-          </div>
-          <span className="text-xs font-semibold text-softform-text-muted tabular-finance">
-            {completedCount}/{steps.length}
-          </span>
-        </div>
+    <section className="space-y-6">
+      <div className="flex flex-col gap-2 border-b border-softform-navy-950/5 pb-4">
+        <h2 className="text-lg font-semibold text-softform-navy-950 dark:text-slate-100">
+          Workspace Dashboard
+        </h2>
+        <p className="text-xs text-softform-text-secondary">
+          Track the ingestion pipelines, diagnostic analyses, and AI readiness markers of your active workspace.
+        </p>
       </div>
 
-      {/* Step List */}
-      <div className="mt-5 space-y-2">
-        {steps.map((step, index) => {
-          const Icon = step.icon
-
-          return (
-            <div
-              key={step.id}
-              className={`group flex items-start gap-4 rounded-2xl border px-5 py-4 transition-all duration-200 ${
-                step.status === 'completed'
-                  ? 'border-softform-teal-deep/15 bg-softform-mist-100/30'
-                  : step.status === 'blocked'
-                    ? 'border-softform-navy-950/5 bg-white/20 opacity-60'
-                    : 'border-white/70 bg-white/50 hover:bg-white/70 hover:shadow-sm'
-              }`}
-            >
-              {/* Step number + status icon */}
-              <div className="flex flex-col items-center gap-1.5 pt-0.5">
-                <div
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-xs font-bold ${
-                    step.status === 'completed'
-                      ? 'bg-softform-teal-deep/10 text-softform-teal-deep'
-                      : step.status === 'blocked'
-                        ? 'bg-softform-navy-950/5 text-softform-text-muted'
-                        : 'bg-softform-mist-100 text-softform-navy-950'
-                  }`}
-                >
-                  {step.status === 'completed' ? (
-                    <CheckCircle2 size={16} />
-                  ) : step.status === 'blocked' ? (
-                    <Lock size={14} />
-                  ) : (
-                    <span>{index + 1}</span>
-                  )}
-                </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        {/* 1. Uploaded Files */}
+        <Link 
+          to="/platform/data-room" 
+          className="softform-card hover-lift p-5 rounded-[22px] flex flex-col justify-between border border-white/60 dark:border-slate-800/60 min-h-[180px]"
+        >
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-2 rounded-xl bg-slate-100/60 text-slate-650 dark:bg-slate-800/60 dark:text-slate-400">
+                <FileText size={20} />
               </div>
-
-              {/* Content */}
-              <div className="min-w-0 flex-1">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <Icon
-                        size={14}
-                        className={
-                          step.status === 'completed'
-                            ? 'text-softform-teal-deep'
-                            : 'text-softform-text-muted'
-                        }
-                      />
-                      <span
-                        className={`text-sm font-semibold ${
-                          step.status === 'completed'
-                            ? 'text-softform-teal-deep'
-                            : 'text-softform-navy-950'
-                        }`}
-                      >
-                        {step.label}
-                      </span>
-                      {step.status === 'completed' && (
-                        <span className="rounded-full bg-softform-teal-deep/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-softform-teal-deep">
-                          Done
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-1 text-xs leading-relaxed text-softform-text-secondary">
-                      {step.description}
-                    </p>
-                    {step.status === 'blocked' && step.blockedReason && (
-                      <p className="mt-1.5 flex items-center gap-1 text-[11px] font-medium text-softform-amber-500">
-                        <AlertTriangle size={11} />
-                        {step.blockedReason}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* CTA */}
-                  {step.status !== 'blocked' && (
-                    <Link
-                      to={step.route}
-                      className={`shrink-0 inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all ${
-                        step.status === 'completed'
-                          ? 'border border-softform-teal-deep/20 bg-white/60 text-softform-teal-deep hover:bg-white'
-                          : 'bg-softform-navy-900 text-white hover:bg-softform-navy-800 shadow-sm'
-                      }`}
-                    >
-                      {step.ctaLabel}
-                      <ArrowRight size={12} />
-                    </Link>
-                  )}
-                </div>
-              </div>
+              <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                Records
+              </span>
             </div>
-          )
-        })}
+            <h3 className="text-[10px] font-bold text-softform-text-secondary uppercase tracking-wider">
+              Uploaded Records
+            </h3>
+            <p className="text-lg font-bold text-softform-navy-950 dark:text-slate-100 mt-1">
+              {filesCount !== null ? `${filesCount} Files` : '0 Files'}
+            </p>
+          </div>
+          <div className="mt-3 flex items-center justify-between text-[10px] font-semibold text-softform-text-secondary dark:text-slate-400">
+            <span className="truncate max-w-[130px]">P&L, balance sheets, TBs</span>
+            <ArrowRight size={10} />
+          </div>
+        </Link>
+
+        {/* 2. Snapshot Status */}
+        <Link 
+          to="/platform/data-room" 
+          className="softform-card hover-lift p-5 rounded-[22px] flex flex-col justify-between border border-white/60 dark:border-slate-800/60 min-h-[180px]"
+        >
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-2 rounded-xl bg-slate-100/60 text-slate-650 dark:bg-slate-800/60 dark:text-slate-400">
+                <Database size={20} />
+              </div>
+              <StatusChip variant={hasSnapshot ? 'signal' : 'caution'}>
+                {hasSnapshot ? 'Active' : 'Missing'}
+              </StatusChip>
+            </div>
+            <h3 className="text-[10px] font-bold text-softform-text-secondary uppercase tracking-wider">
+              Financial Snapshot
+            </h3>
+            <p className="text-lg font-bold text-softform-navy-950 dark:text-slate-100 mt-1">
+              {hasSnapshot ? 'Ingested' : 'Not Ingested'}
+            </p>
+          </div>
+          <div className="mt-3 flex items-center justify-between text-[10px] font-semibold text-softform-text-secondary dark:text-slate-400">
+            <span className="truncate max-w-[130px]">
+              {hasSnapshot ? 'Active balance sheet ready' : 'Needs ingestion run'}
+            </span>
+            <ArrowRight size={10} />
+          </div>
+        </Link>
+
+        {/* 3. Valuation Status */}
+        <Link 
+          to="/platform/valuation" 
+          className="softform-card hover-lift p-5 rounded-[22px] flex flex-col justify-between border border-white/60 dark:border-slate-800/60 min-h-[180px]"
+        >
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-2 rounded-xl bg-slate-100/60 text-slate-650 dark:bg-slate-800/60 dark:text-slate-400">
+                <BarChart3 size={20} />
+              </div>
+              <StatusChip variant={isValuationReady ? 'signal' : 'neutral'}>
+                {isValuationReady ? 'Ready' : 'Pending'}
+              </StatusChip>
+            </div>
+            <h3 className="text-[10px] font-bold text-softform-text-secondary uppercase tracking-wider">
+              Indicative Valuation
+            </h3>
+            <p className="text-lg font-bold text-softform-navy-950 dark:text-slate-100 mt-1">
+              {isValuationReady ? 'Calculated' : 'Pending'}
+            </p>
+          </div>
+          <div className="mt-3 flex items-center justify-between text-[10px] font-semibold text-softform-text-secondary dark:text-slate-400">
+            <span className="truncate max-w-[130px]">
+              {isValuationReady ? 'WACC & DCF ready' : 'Requires calculation run'}
+            </span>
+            <ArrowRight size={10} />
+          </div>
+        </Link>
+
+        {/* 4. Latest Analysis */}
+        <Link 
+          to="/platform/financial-health" 
+          className="softform-card hover-lift p-5 rounded-[22px] flex flex-col justify-between border border-white/60 dark:border-slate-800/60 min-h-[180px]"
+        >
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-2 rounded-xl bg-slate-100/60 text-slate-650 dark:bg-slate-800/60 dark:text-slate-400">
+                <HeartPulse size={20} />
+              </div>
+              <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                Diagnostic
+              </span>
+            </div>
+            <h3 className="text-[10px] font-bold text-softform-text-secondary uppercase tracking-wider">
+              Latest Diagnostic
+            </h3>
+            <p className="text-lg font-bold text-softform-navy-950 dark:text-slate-100 mt-1 truncate">
+              {latestAnalysis ? latestAnalysis.name : 'None'}
+            </p>
+          </div>
+          <div className="mt-3 flex items-center justify-between text-[10px] font-semibold text-softform-text-secondary dark:text-slate-400">
+            <span className="truncate max-w-[130px]">
+              {latestAnalysis ? latestAnalysis.date : 'No runs compiled'}
+            </span>
+            <ArrowRight size={10} />
+          </div>
+        </Link>
+
+        {/* 5. AI CFO Readiness (Active Dark Card) */}
+        <Link 
+          to="/platform/ai-cfo" 
+          className="softform-navy-card hover-lift p-5 rounded-[22px] flex flex-col justify-between min-h-[180px] text-white"
+        >
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-2 rounded-xl bg-white/10 text-white">
+                <BotMessageSquare size={20} />
+              </div>
+              <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] bg-softform-teal-500/20 text-softform-aqua-300 border-softform-teal-500/40 animate-pulse">
+                {completedCoreCount === coreRunTypes.length ? 'Ready' : 'Pending'}
+              </span>
+            </div>
+            <h3 className="text-[10px] font-bold text-slate-200 uppercase tracking-wider">
+              AI CFO Context
+            </h3>
+            <p className="text-lg font-bold text-white mt-1">
+              {completedCoreCount === coreRunTypes.length ? 'Fully Prepared' : `${completedCoreCount}/${coreRunTypes.length} Core Runs`}
+            </p>
+          </div>
+          <div className="mt-3 flex items-center justify-between text-[10px] font-semibold text-slate-200">
+            <span className="truncate max-w-[130px]">
+              {completedCoreCount === coreRunTypes.length ? 'Context is fully ready' : 'Execute core runs first'}
+            </span>
+            <ArrowRight size={10} className="text-slate-200" />
+          </div>
+        </Link>
       </div>
     </section>
   )
