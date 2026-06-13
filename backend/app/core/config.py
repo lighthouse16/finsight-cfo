@@ -82,6 +82,7 @@ class Settings(BaseSettings):
             return bool(self.CHINADATA_API_KEY)
         return False
 
+    FRONTEND_ORIGINS: str = ""
     CORS_ALLOW_ORIGINS: str = (
         "http://localhost:5173,http://127.0.0.1:5173,"
         "http://localhost:5174,http://127.0.0.1:5174,"
@@ -217,9 +218,10 @@ class Settings(BaseSettings):
 
     @property
     def parsed_cors_origins(self) -> list[str]:
-        if not self.CORS_ALLOW_ORIGINS:
+        origins = self.FRONTEND_ORIGINS or self.CORS_ALLOW_ORIGINS
+        if not origins:
             return []
-        return [origin.strip() for origin in self.CORS_ALLOW_ORIGINS.split(",") if origin.strip()]
+        return [origin.strip() for origin in origins.split(",") if origin.strip()]
 
     class Config:
         env_file = ".env"

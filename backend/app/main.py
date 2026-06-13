@@ -38,7 +38,7 @@ if settings.APP_MODE == "production":
 
 app = FastAPI(title="FinSight CFO API", lifespan=lifespan, dependencies=global_dependencies)
 
-# Enable CORS for local frontend
+# Enable CORS for configured frontend origins.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.parsed_cors_origins,
