@@ -295,16 +295,16 @@ export default function OverviewPage() {
       </section>
 
       {/* Workspace Readiness Panel */}
-      <section className="bg-white/40 dark:bg-slate-900/40 border border-white/60 dark:border-slate-800/60 rounded-[32px] p-6 sm:p-8 backdrop-blur-md shadow-sm space-y-5">
+      <section className="softform-panel rounded-[32px] p-6 sm:p-8 space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-softform-navy-950/5 pb-4 gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-softform-navy-950">Workspace Ingestion & Analysis Readiness</h2>
-            <p className="text-xs text-softform-text-muted mt-1">
+            <h2 className="softform-section-header text-lg font-semibold text-softform-navy-950">Workspace Ingestion & Analysis Readiness</h2>
+            <p className="text-xs text-softform-text-muted mt-1 ml-3.5">
               Monitor active company records, statements, and calculated outputs.
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Status:</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider">Status:</span>
             {hasSnapshot ? (
               <StatusChip variant="signal">Snapshot Ingested</StatusChip>
             ) : (
@@ -315,38 +315,57 @@ export default function OverviewPage() {
 
         <div className="grid gap-5 md:grid-cols-3">
           {/* Col 1: Workspace info */}
-          <div className="bg-white/45 dark:bg-slate-800/10 border border-white/70 dark:border-slate-800/30 rounded-2xl p-5 space-y-2">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-softform-text-muted">Active Company Workspace</span>
-            <p className="text-base font-bold text-softform-navy-950 leading-snug">
-              {workspaceName || 'No Active Workspace'}
-            </p>
-            {hasSnapshot && (
-              <p className="text-xs text-softform-teal-deep font-semibold">
+          <div className="softform-metric-card rounded-[22px] p-5 space-y-2 flex flex-col justify-between">
+            <div className="space-y-2">
+              <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted block">Active Company Workspace</span>
+              <p className="text-base font-bold text-softform-navy-950 leading-snug">
+                {workspaceName || 'No Active Workspace'}
+              </p>
+            </div>
+            {hasSnapshot ? (
+              <p className="text-xs text-softform-teal-deep font-semibold flex items-center gap-1.5 mt-auto">
+                <span className="h-1.5 w-1.5 rounded-full bg-softform-teal-deep shrink-0 animate-pulse" />
                 Active financial snapshot is compiled.
+              </p>
+            ) : (
+              <p className="text-xs text-softform-text-muted font-medium flex items-center gap-1.5 mt-auto">
+                <span className="h-1.5 w-1.5 rounded-full bg-slate-400 shrink-0" />
+                No compiled snapshot found.
               </p>
             )}
           </div>
 
           {/* Col 2: Runs Progress */}
-          <div className="bg-white/45 dark:bg-slate-800/10 border border-white/70 dark:border-slate-800/30 rounded-2xl p-5 space-y-2 flex flex-col justify-between">
-            <div>
-              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-softform-text-muted">Core Runs Completed</span>
-              <p className="text-2xl font-bold text-softform-navy-950 mt-1 tabular-finance">
-                {ANALYSIS_RUN_TYPES.filter(t => t.isCore).filter(t => runStatuses[t.key]).length} <span className="text-sm font-medium text-softform-text-muted">/ 6 Runs</span>
+          <div className="softform-metric-card rounded-[22px] p-5 space-y-2 flex flex-col justify-between">
+            <div className="space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted block">Core Runs Completed</span>
+              <p className="text-3xl font-extrabold text-softform-navy-950 mt-1 tabular-finance">
+                {ANALYSIS_RUN_TYPES.filter(t => t.isCore).filter(t => runStatuses[t.key]).length}{' '}
+                <span className="text-sm font-semibold text-softform-text-muted">/ 6 Runs</span>
               </p>
             </div>
-            {hasSnapshot && ANALYSIS_RUN_TYPES.filter(t => t.isCore).filter(t => !runStatuses[t.key]).length > 0 && (
-              <span className="text-xs text-softform-amber-500 font-semibold">
-                {ANALYSIS_RUN_TYPES.filter(t => t.isCore).filter(t => !runStatuses[t.key]).length} core calculations are missing or outdated.
-              </span>
+            {hasSnapshot && (
+              <div className="mt-auto">
+                {ANALYSIS_RUN_TYPES.filter(t => t.isCore).filter(t => !runStatuses[t.key]).length > 0 ? (
+                  <p className="text-xs text-softform-amber-500 font-semibold flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-softform-amber-500 shrink-0 animate-pulse" />
+                    {ANALYSIS_RUN_TYPES.filter(t => t.isCore).filter(t => !runStatuses[t.key]).length} calculations pending.
+                  </p>
+                ) : (
+                  <p className="text-xs text-softform-teal-deep font-semibold flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-softform-teal-deep shrink-0" />
+                    All calculations up to date.
+                  </p>
+                )}
+              </div>
             )}
           </div>
 
           {/* Col 3: Next Recommendation & Action */}
-          <div className="bg-white/45 dark:bg-slate-800/10 border border-white/70 dark:border-slate-800/30 rounded-2xl p-5 space-y-3 flex flex-col justify-between">
-            <div>
-              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-softform-text-muted">Recommended Action</span>
-              <p className="text-xs text-softform-text-secondary mt-1 leading-relaxed">
+          <div className="softform-metric-card rounded-[22px] p-5 space-y-3 flex flex-col justify-between hover-lift">
+            <div className="space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted block">Recommended Action</span>
+              <p className="text-xs text-softform-text-secondary mt-1 leading-relaxed font-medium">
                 {!hasSnapshot 
                   ? 'First select or create a workspace and upload financials in the Data Room.' 
                   : ANALYSIS_RUN_TYPES.filter(t => t.isCore).filter(t => !runStatuses[t.key]).length > 0 
@@ -359,7 +378,7 @@ export default function OverviewPage() {
               {!hasSnapshot ? (
                 <Link
                   to="/platform/data-room"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 text-xs font-semibold rounded-full shadow-sm transition-colors"
+                  className="inline-flex items-center gap-1.5 px-4.5 py-2.5 bg-softform-navy-900 hover:bg-softform-navy-800 text-white text-xs font-semibold rounded-xl shadow-sm transition duration-200"
                 >
                   <span>Go to Data Room</span>
                   <ArrowRight size={12} />
@@ -368,19 +387,24 @@ export default function OverviewPage() {
                 <button
                   onClick={handleRunAllMissing}
                   disabled={runningAll}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 text-xs font-semibold rounded-full shadow-sm disabled:opacity-50 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-4.5 py-2.5 bg-softform-navy-900 hover:bg-softform-navy-800 text-white text-xs font-semibold rounded-xl shadow-sm transition duration-200 disabled:opacity-50"
                 >
                   {runningAll ? (
-                    <Loader2 size={12} className="animate-spin text-softform-teal-deep dark:text-softform-aqua-300" />
+                    <>
+                      <Loader2 size={12} className="animate-spin text-white" />
+                      <span>{runningAllProgress || 'Executing...'}</span>
+                    </>
                   ) : (
-                    <Play size={12} fill="currentColor" className="ml-0.5" />
+                    <>
+                      <Play size={12} fill="currentColor" className="ml-0.5" />
+                      <span>Run Missing Analyses</span>
+                    </>
                   )}
-                  <span>{runningAll ? runningAllProgress : 'Run Missing Analyses'}</span>
                 </button>
               ) : (
                 <Link
                   to="/platform/reports"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-softform-teal-deep hover:bg-softform-teal-deep/90 text-white text-xs font-semibold rounded-full shadow-sm transition-colors"
+                  className="inline-flex items-center gap-1.5 px-4.5 py-2.5 bg-softform-teal-deep hover:bg-softform-teal-deep/90 text-white text-xs font-semibold rounded-xl shadow-sm transition duration-200"
                 >
                   <span>View Reports</span>
                   <ArrowRight size={12} />

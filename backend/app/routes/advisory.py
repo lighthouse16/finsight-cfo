@@ -462,6 +462,8 @@ def post_advisory_chat(
     """
     ws_id = request.workspace_id or x_workspace_id
 
+    context_warnings: list[str] = []
+
     # Gather workspace context if available
     workspace_data = None
     if ws_id:
@@ -469,8 +471,10 @@ def post_advisory_chat(
             analysis = get_demo_analysis(x_workspace_id=x_workspace_id, workspace_id=ws_id)
             if analysis and not (isinstance(analysis, dict) and analysis.get("status") == "insufficient_data"):
                 workspace_data = _build_chat_workspace_data(analysis, ws_id)
-        except Exception:
-            pass  # continue without workspace data
+        except Exception as exc:
+            context_warnings.append(
+                f"Workspace context could not be loaded for workspace '{ws_id}': {type(exc).__name__}: {exc}"
+            )
 
     # --- RAG: retrieve relevant document excerpts ---
     if ws_id:
@@ -514,7 +518,7 @@ def post_advisory_chat(
             for s in resp.sources
         ],
         disclaimer=resp.disclaimer,
-        warnings=resp.warnings,
+        warnings=[*context_warnings, *resp.warnings],
     )
 
 
@@ -539,6 +543,8 @@ def _build_chat_workspace_data(
     if snapshot and snapshot.income_statement:
         inc = snapshot.income_statement
         data["financial_summary"] = {
+            "period_label": data.get("period_label"),
+            "currency": data.get("currency"),
             "revenue": inc.revenue,
             "gross_profit": inc.gross_profit,
             "ebitda": inc.ebitda,

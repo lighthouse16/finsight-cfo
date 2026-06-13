@@ -131,7 +131,7 @@ export default function TopCommandBar({ onMenuToggle }: TopCommandBarProps) {
                 }} 
               />
               
-              <div className="absolute left-0 mt-2 z-50 w-72 origin-top-left rounded-2xl border border-white/80 bg-white/95 p-3 shadow-[0_20px_50px_rgba(8,17,31,0.15)] backdrop-blur-md transition-all duration-200 space-y-3">
+              <div className="absolute left-0 top-full mt-2 z-50 w-72 origin-top-left rounded-2xl border border-white/80 bg-white/95 p-3 shadow-[0_20px_50px_rgba(8,17,31,0.15)] backdrop-blur-md transition-all duration-200 space-y-3">
                 {/* Active Workspace Section */}
                 {activeWorkspace && (
                   <div className="space-y-1">
@@ -284,7 +284,7 @@ export default function TopCommandBar({ onMenuToggle }: TopCommandBarProps) {
           <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-softform-emerald-soft ring-2 ring-white" aria-hidden="true" />
           
           {isUserMenuOpen && (
-            <div className="absolute right-0 mt-2 z-50 w-48 origin-top-right rounded-2xl border border-white/80 bg-white/95 p-2 shadow-[0_20px_50px_rgba(8,17,31,0.15)] backdrop-blur-md transition-all duration-200">
+            <div className="absolute right-0 top-full mt-2 z-50 w-48 origin-top-right rounded-2xl border border-white/80 bg-white/95 p-2 shadow-[0_20px_50px_rgba(8,17,31,0.15)] backdrop-blur-md transition-all duration-200">
               <div className="px-3 pb-2 pt-2 border-b border-softform-navy-950/10 mb-1">
                 <div className="text-[10px] font-bold uppercase tracking-wider text-softform-navy-900/40">Logged in as</div>
                 <div className="text-sm font-semibold text-softform-navy-950 truncate capitalize">{userRole}</div>

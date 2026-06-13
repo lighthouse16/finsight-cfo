@@ -207,7 +207,7 @@ export default function WorkspaceSelector() {
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute left-0 mt-2 w-72 rounded-[22px] border border-white/80 bg-white/95 p-3 shadow-[0_20px_50px_rgba(8,17,31,0.15)] backdrop-blur-xl z-50">
+        <div className="absolute left-0 top-full mt-2 w-72 rounded-[22px] border border-white/80 bg-white/95 p-3 shadow-[0_20px_50px_rgba(8,17,31,0.15)] backdrop-blur-xl z-50">
           {!isCreating ? (
             <div className="space-y-2">
               <div className="flex items-center justify-between border-b border-softform-navy-950/5 pb-2 px-1">
