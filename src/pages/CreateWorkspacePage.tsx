@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Building2,
   Globe,
@@ -11,6 +11,7 @@ import {
   ArrowRight,
   Sparkles,
   FlaskConical,
+  ArrowLeft,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useWorkspace } from '../context/workspaceContext'
@@ -59,7 +60,13 @@ const REGION_OPTIONS = [
 
 export default function CreateWorkspacePage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { createWorkspace, refreshWorkspaces } = useWorkspace()
+
+  const initialFlow = searchParams.get('flow')
+  const [viewMode, setViewMode] = useState<'choice' | 'scratch'>(
+    initialFlow === 'scratch' ? 'scratch' : 'choice'
+  )
 
   const [companyName, setCompanyName] = useState('')
   const [industry, setIndustry] = useState('')
@@ -124,8 +131,117 @@ export default function CreateWorkspacePage() {
 
   const isDisabled = isSubmitting || isLoadingDemo
 
+  if (viewMode === 'choice') {
+    return (
+      <div className="flex min-h-dvh items-center justify-center px-4 py-12 bg-[var(--softform-page-bg)] softform-page">
+        <motion.div
+          className="w-full max-w-4xl"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        >
+          {/* Header */}
+          <div className="mb-12 text-center space-y-3">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[linear-gradient(145deg,#0d1726,#1c324b)] text-sm font-bold text-white shadow-[0_12px_36px_rgba(8,17,31,0.28)]">
+              <Sparkles size={22} className="text-softform-teal-400" />
+            </div>
+            <h1 className="text-3xl font-bold tracking-tight text-softform-navy-950 sm:text-4xl">
+              Welcome to FinSight CFO
+            </h1>
+            <p className="mx-auto max-w-lg text-sm text-softform-text-secondary">
+              Select how you would like to initialize your workspace to begin analyzing financial performance.
+            </p>
+          </div>
+
+          {/* Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Card A: Start from Scratch */}
+            <div className="softform-panel rounded-[32px] p-8 shadow-floating-panel hover:shadow-floating-panel-hover transition-all duration-300 flex flex-col justify-between border border-white/80 bg-white/70 backdrop-blur-md relative overflow-hidden group min-h-[300px]">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-softform-teal-500/5 rounded-full blur-2xl pointer-events-none group-hover:bg-softform-teal-500/10 transition-colors" />
+              <div className="space-y-6">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-softform-teal-50 text-softform-teal-deep shadow-sm">
+                  <Building2 size={20} />
+                </div>
+                <div className="space-y-2">
+                  <h2 className="text-xl font-bold text-softform-navy-950">
+                    Start from scratch
+                  </h2>
+                  <p className="text-sm leading-relaxed text-softform-text-secondary">
+                    Create a clean workspace and upload your own company records.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-8">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('scratch')}
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(145deg,#0d1726,#1c324b)] px-4 py-3.5 text-sm font-bold text-white shadow-[0_12px_30px_rgba(8,17,31,0.18)] hover:-translate-y-0.5 transition-all duration-200"
+                >
+                  Create company workspace
+                  <ArrowRight size={16} />
+                </button>
+              </div>
+            </div>
+
+            {/* Card B: Explore with Mock Data */}
+            <div className="softform-panel rounded-[32px] p-8 shadow-floating-panel hover:shadow-floating-panel-hover transition-all duration-300 flex flex-col justify-between border border-white/80 bg-white/70 backdrop-blur-md relative overflow-hidden group min-h-[300px]">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-softform-amber-500/5 rounded-full blur-2xl pointer-events-none group-hover:bg-softform-amber-500/10 transition-colors" />
+              <div className="space-y-6">
+                <div className="flex justify-between items-start">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-softform-amber-50 text-softform-amber-500 shadow-sm">
+                    <FlaskConical size={20} />
+                  </div>
+                  <span className="rounded-full bg-softform-amber-100 px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-softform-amber-700 border border-softform-amber-200/50">
+                    Synthetic Demo Data
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  <h2 className="text-xl font-bold text-softform-navy-950">
+                    Explore with mock data
+                  </h2>
+                  <p className="text-sm leading-relaxed text-softform-text-secondary">
+                    Use synthetic sample data to review the full product flow quickly.
+                  </p>
+                  <p className="text-xs text-softform-text-muted">
+                    Sample company: Novus Retail Solutions Ltd
+                  </p>
+                </div>
+              </div>
+              <div className="mt-8">
+                <button
+                  type="button"
+                  onClick={handleLoadDemo}
+                  disabled={isLoadingDemo}
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-softform-navy-950/10 bg-white/80 px-4 py-3.5 text-sm font-semibold text-softform-navy-950 shadow-sm hover:bg-white transition-all hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isLoadingDemo ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin text-softform-navy-950" />
+                      Opening sample company…
+                    </>
+                  ) : (
+                    <>
+                      Open sample company
+                      <ArrowRight size={16} className="text-softform-text-secondary" />
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {formError && (
+            <div className="mt-6 mx-auto max-w-md rounded-xl bg-red-50/60 px-4 py-2.5 text-center text-xs font-semibold text-red-600 ring-1 ring-red-200/50">
+              {formError}
+            </div>
+          )}
+        </motion.div>
+      </div>
+    )
+  }
+
   return (
-    <div className="flex min-h-dvh items-center justify-center px-4 py-12 softform-page">
+    <div className="flex min-h-dvh items-center justify-center px-4 py-12 bg-[var(--softform-page-bg)] softform-page">
       <motion.div
         className="w-full max-w-xl"
         initial={{ opacity: 0, y: 20 }}
@@ -133,16 +249,24 @@ export default function CreateWorkspacePage() {
         transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
       >
         {/* Header */}
-        <div className="mb-8 text-center">
+        <div className="mb-8 text-center relative">
+          <button
+            type="button"
+            onClick={() => setViewMode('choice')}
+            className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-xs font-semibold text-softform-text-secondary hover:text-softform-navy-950 transition-colors"
+          >
+            <ArrowLeft size={14} />
+            Back to choices
+          </button>
+          
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[linear-gradient(145deg,#0d1726,#1c324b)] text-sm font-bold text-white shadow-[0_12px_36px_rgba(8,17,31,0.28)]">
             <Sparkles size={22} />
           </div>
           <h1 className="text-2xl font-bold tracking-[-0.035em] text-softform-navy-950 sm:text-3xl">
-            Create your workspace
+            Start from scratch
           </h1>
           <p className="mt-2 text-sm leading-relaxed text-softform-text-secondary">
-            Set up your company's financial intelligence workspace to begin uploading
-            records, running analysis, and generating advisory output.
+            Create a clean workspace and upload your own company records.
           </p>
         </div>
 
@@ -283,48 +407,16 @@ export default function CreateWorkspacePage() {
               {isSubmitting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Creating workspace…
+                  Creating clean workspace…
                 </>
               ) : (
                 <>
-                  Create Workspace
+                  Create company workspace
                   <ArrowRight size={16} />
                 </>
               )}
             </button>
           </form>
-
-          {/* Demo divider */}
-          <div className="mt-6 flex items-center gap-3">
-            <div className="h-px flex-1 bg-softform-navy-950/8" />
-            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-softform-text-muted">
-              or explore with demo data
-            </span>
-            <div className="h-px flex-1 bg-softform-navy-950/8" />
-          </div>
-
-          {/* Demo CTA */}
-          <button
-            type="button"
-            onClick={handleLoadDemo}
-            disabled={isDisabled}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-softform-navy-950/10 bg-white/60 px-4 py-3 text-sm font-semibold text-softform-navy-950 shadow-sm transition-all hover:bg-white/80 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isLoadingDemo ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Loading demo workspace…
-              </>
-            ) : (
-              <>
-                <FlaskConical size={14} className="text-softform-amber-500" />
-                Load Sample Company
-                <span className="ml-1 rounded-full bg-softform-amber-200/60 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-softform-amber-500">
-                  Synthetic data
-                </span>
-              </>
-            )}
-          </button>
         </div>
 
         {/* Footer note */}

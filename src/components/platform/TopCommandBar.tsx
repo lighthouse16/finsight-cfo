@@ -1,17 +1,18 @@
 import { useState, useEffect, useRef } from 'react'
-import { Menu, Search, Bell, ChevronDown, Plus, Building2, Check, Loader2 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Menu, Search, Bell, ChevronDown, Plus, Building2, Check, Loader2, FlaskConical } from 'lucide-react'
 import { useWorkspace } from '../../context/workspaceContext'
+import { API_BASE_URL } from '../../lib/apiBase'
 
 type TopCommandBarProps = {
   onMenuToggle: () => void
 }
 
 export default function TopCommandBar({ onMenuToggle }: TopCommandBarProps) {
-  const { workspaces, activeWorkspace, selectWorkspace, createWorkspace } = useWorkspace()
+  const navigate = useNavigate()
+  const { workspaces, activeWorkspace, selectWorkspace, refreshWorkspaces } = useWorkspace()
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
-  const [isCreateOpen, setIsCreateOpen] = useState(false)
-  const [newCompanyName, setNewCompanyName] = useState('')
-  const [isCreating, setIsCreating] = useState(false)
+  const [isLoadingDemo, setIsLoadingDemo] = useState(false)
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const userRole = localStorage.getItem('active_user_role') || 'User'
   const userMenuRef = useRef<HTMLDivElement>(null)
@@ -38,24 +39,54 @@ export default function TopCommandBar({ onMenuToggle }: TopCommandBarProps) {
     setIsDropdownOpen(false)
   }
 
-  const handleCreateWorkspace = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const name = newCompanyName.trim()
-    if (!name) return
-
-    setIsCreating(true)
+  const handleLoadDemo = async () => {
+    setIsLoadingDemo(true)
     try {
-      await createWorkspace(name)
-      setNewCompanyName('')
-      setIsCreateOpen(false)
+      const res = await fetch(`${API_BASE_URL}/api/workspaces/reset-sample`, {
+        method: 'POST',
+      })
+      if (!res.ok) {
+        throw new Error('Failed to load demo workspace')
+      }
+      localStorage.setItem('active_workspace_id', 'workspace_sample_novus')
+      window.dispatchEvent(new Event('workspaceChanged'))
+      await refreshWorkspaces()
       setIsDropdownOpen(false)
+      navigate('/platform/overview')
     } catch (err) {
-      console.error('Error creating workspace', err)
-      alert('Error connecting to backend')
+      console.error('Error resetting sample workspace:', err)
+      alert('Failed to load demo workspace')
     } finally {
-      setIsCreating(false)
+      setIsLoadingDemo(false)
     }
   }
+
+  // De-duplicate workspaces by ID
+  const uniqueWorkspaces = workspaces.filter(
+    (ws, idx, self) => self.findIndex((w) => w.id === ws.id) === idx
+  )
+
+  // Demo workspace helper
+  const demoWorkspace = uniqueWorkspaces.find((w) => w.id === 'workspace_sample_novus')
+
+  // Real workspaces (non-demo)
+  const realWorkspaces = uniqueWorkspaces.filter((w) => w.id !== 'workspace_sample_novus')
+
+  // Filter out duplicate "Finsight Enterprise" display names
+  const seenNames = new Set<string>()
+  const processedReal = realWorkspaces.filter((w) => {
+    const normName = w.companyName.toLowerCase().trim()
+    if (normName === 'finsight enterprise' && seenNames.has(normName)) {
+      return false
+    }
+    seenNames.add(normName)
+    return true
+  })
+
+  // Sort real workspaces by creation date (newest first)
+  const sortedReal = [...processedReal].sort(
+    (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+  )
 
   return (
     <header className="sticky top-0 z-30 px-4 pb-2 pt-4 sm:px-6">
@@ -70,8 +101,8 @@ export default function TopCommandBar({ onMenuToggle }: TopCommandBarProps) {
           <Menu size={20} />
         </button>
 
-        {/* Workspace Selector Dropdown */}
-        <div className="relative shrink-0 select-none z-50">
+        {/* Workspace Selector */}
+        <div className="relative shrink-0 select-none z-50 flex items-center gap-2">
           <button
             type="button"
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -84,6 +115,12 @@ export default function TopCommandBar({ onMenuToggle }: TopCommandBarProps) {
             <ChevronDown size={14} className={`text-softform-navy-500 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
           </button>
 
+          {activeWorkspace?.id === 'workspace_sample_novus' && (
+            <span className="inline-flex items-center rounded-full bg-softform-amber-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-softform-amber-700 border border-softform-amber-200/50 shadow-sm animate-pulse">
+              Synthetic Demo Data
+            </span>
+          )}
+
           {isDropdownOpen && (
             <>
               {/* Overlay to close */}
@@ -91,75 +128,97 @@ export default function TopCommandBar({ onMenuToggle }: TopCommandBarProps) {
                 className="fixed inset-0 z-40" 
                 onClick={() => {
                   setIsDropdownOpen(false)
-                  setIsCreateOpen(false)
                 }} 
               />
               
-              <div className="absolute left-0 mt-2 z-50 w-64 origin-top-left rounded-2xl border border-white/80 bg-white/95 p-2.5 shadow-[0_20px_50px_rgba(8,17,31,0.15)] backdrop-blur-md transition-all duration-200">
-                <div className="px-2 pb-1.5 pt-1 text-[10px] font-bold uppercase tracking-wider text-softform-navy-900/40">
-                  Select Workspace
-                </div>
-                
-                <div className="max-h-40 overflow-y-auto custom-scrollbar space-y-0.5">
-                  {workspaces.map((w) => (
+              <div className="absolute left-0 mt-2 z-50 w-72 origin-top-left rounded-2xl border border-white/80 bg-white/95 p-3 shadow-[0_20px_50px_rgba(8,17,31,0.15)] backdrop-blur-md transition-all duration-200 space-y-3">
+                {/* Active Workspace Section */}
+                {activeWorkspace && (
+                  <div className="space-y-1">
+                    <div className="px-2 text-[10px] font-bold uppercase tracking-wider text-softform-navy-900/40">
+                      Active Workspace
+                    </div>
+                    <div className="flex w-full items-center justify-between rounded-xl bg-softform-navy-900 px-3 py-2 text-left text-xs text-white font-medium shadow-sm">
+                      <span className="truncate">{activeWorkspace.companyName}</span>
+                      <Check size={14} className="shrink-0 text-softform-teal-400" />
+                    </div>
+                  </div>
+                )}
+
+                {/* Real Workspaces Section */}
+                {sortedReal.length > 0 && (
+                  <div className="space-y-1">
+                    <div className="px-2 pt-1 text-[10px] font-bold uppercase tracking-wider text-softform-navy-900/40">
+                      Company workspaces
+                    </div>
+                    <div className="max-h-36 overflow-y-auto custom-scrollbar space-y-0.5">
+                      {sortedReal.map((w) => {
+                        const isActive = activeWorkspace?.id === w.id
+                        if (isActive) return null // Already shown at top
+                        return (
+                          <button
+                            key={w.id}
+                            type="button"
+                            onClick={() => handleSelectWorkspace(w.id)}
+                            className="flex w-full items-center justify-between rounded-xl px-2.5 py-1.5 text-left text-xs text-softform-navy-950 hover:bg-black/5 transition-colors"
+                          >
+                            <span className="truncate">{w.companyName}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Demo Workspace Section */}
+                {demoWorkspace && activeWorkspace?.id !== demoWorkspace.id && (
+                  <div className="space-y-1">
+                    <div className="px-2 pt-1 text-[10px] font-bold uppercase tracking-wider text-softform-navy-900/40">
+                      Demo workspace
+                    </div>
                     <button
-                      key={w.id}
-                      onClick={() => handleSelectWorkspace(w.id)}
-                      className={`flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-left text-xs transition-colors ${
-                        activeWorkspace?.id === w.id
-                          ? 'bg-softform-navy-900 text-white font-medium'
-                          : 'text-softform-navy-950 hover:bg-black/5'
-                      }`}
+                      type="button"
+                      onClick={() => handleSelectWorkspace(demoWorkspace.id)}
+                      className="flex w-full items-center justify-between rounded-xl px-2.5 py-1.5 text-left text-xs text-softform-navy-950 hover:bg-black/5 transition-colors"
                     >
-                      <span className="truncate">{w.companyName}</span>
-                      {activeWorkspace?.id === w.id && <Check size={14} className="shrink-0" />}
+                      <span className="truncate">{demoWorkspace.companyName}</span>
+                      <span className="shrink-0 rounded-full bg-softform-amber-100 px-2 py-0.2 text-[8px] font-bold uppercase tracking-wider text-softform-amber-700 border border-softform-amber-200/50 scale-90">
+                        Synthetic Demo Data
+                      </span>
                     </button>
-                  ))}
-                </div>
+                  </div>
+                )}
 
-                <div className="my-1.5 border-t border-softform-navy-950/5" />
+                <div className="border-t border-softform-navy-950/5 my-1" />
 
-                {!isCreateOpen ? (
+                {/* Actions Section */}
+                <div className="space-y-0.5">
                   <button
                     type="button"
-                    onClick={() => setIsCreateOpen(true)}
+                    onClick={() => {
+                      setIsDropdownOpen(false)
+                      navigate('/create-workspace?flow=scratch')
+                    }}
                     className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-xs font-semibold text-softform-teal-600 hover:bg-softform-teal-50/50 hover:text-softform-teal-700 transition-colors"
                   >
                     <Plus size={14} />
-                    New Company Workspace
+                    Start from scratch
                   </button>
-                ) : (
-                  <form onSubmit={handleCreateWorkspace} className="space-y-2 p-1 pt-0.5">
-                    <input
-                      type="text"
-                      placeholder="Company Name"
-                      value={newCompanyName}
-                      onChange={(e) => setNewCompanyName(e.target.value)}
-                      required
-                      className="w-full rounded-xl border border-softform-navy-950/10 bg-white px-2.5 py-1.5 text-xs text-softform-navy-950 placeholder:text-softform-navy-950/30 focus:border-softform-teal-500 focus:outline-none"
-                    />
-                    <div className="flex gap-1.5">
-                      <button
-                        type="submit"
-                        disabled={isCreating}
-                        className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-softform-teal-600 py-1.5 text-xs font-semibold text-white hover:bg-softform-teal-700 disabled:opacity-50"
-                      >
-                        {isCreating ? (
-                          <Loader2 size={12} className="animate-spin" />
-                        ) : (
-                          'Create'
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setIsCreateOpen(false)}
-                        className="rounded-xl border border-softform-navy-950/10 px-2.5 py-1.5 text-xs font-semibold text-softform-navy-700 hover:bg-black/5"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </form>
-                )}
+
+                  <button
+                    type="button"
+                    onClick={handleLoadDemo}
+                    disabled={isLoadingDemo}
+                    className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-xs font-semibold text-softform-amber-600 hover:bg-softform-amber-50/50 hover:text-softform-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isLoadingDemo ? (
+                      <Loader2 size={14} className="animate-spin text-softform-amber-600" />
+                    ) : (
+                      <FlaskConical size={14} />
+                    )}
+                    Explore with mock data
+                  </button>
+                </div>
               </div>
             </>
           )}

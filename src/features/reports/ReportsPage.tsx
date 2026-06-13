@@ -31,6 +31,7 @@ import {
   fetchBackendConfig,
 } from '../../lib/workspaceRunHelpers'
 import { API_BASE_URL } from '../../lib/apiBase'
+import { useWorkspace } from '../../context/workspaceContext'
 import { getFinancialHealthAnalysis } from '../financial-health/financialHealthApi'
 import {
   createReportGenerationJob,
@@ -169,6 +170,7 @@ const runLabels: Record<string, string> = {
 }
 
 export default function ReportsPage() {
+  const { activeWorkspace } = useWorkspace()
   const [state, setState] = useState<ReportState>({
     financial: null,
     credit: null,
@@ -1209,7 +1211,13 @@ export default function ReportsPage() {
       <PageHeader
         title="Reports"
         subtitle="CFO snapshot and lender-facing brief generated from the active workspace context."
-        chip={<StatusChip variant={isPreview ? 'signal' : 'neutral'}>{isPreview ? 'Workspace preview' : 'Workspace report'}</StatusChip>}
+        chip={
+          activeWorkspace?.id === 'workspace_sample_novus' ? (
+            <StatusChip variant="caution">Synthetic Demo Data</StatusChip>
+          ) : (
+            <StatusChip variant={isPreview ? 'signal' : 'neutral'}>{isPreview ? 'Workspace preview' : 'Workspace report'}</StatusChip>
+          )
+        }
       />
       {renderAdvisorReportSection()}
         {renderReportJobsSection()}
@@ -1230,8 +1238,13 @@ export default function ReportsPage() {
         <div className="relative grid gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
           <div className="space-y-4">
             <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-softform-aqua-300 animate-pulse">CFO report package</span>
-            <h2 className="text-3xl font-semibold text-white tracking-tight">
-              {snapshot?.companyName ?? 'Workspace Company'} · {snapshot?.reportingPeriod ?? reportDate()}
+            <h2 className="text-3xl font-semibold text-white tracking-tight flex items-center gap-2 flex-wrap">
+              <span>{snapshot?.companyName ?? 'Workspace Company'} · {snapshot?.reportingPeriod ?? reportDate()}</span>
+              {activeWorkspace?.id === 'workspace_sample_novus' && (
+                <span className="rounded-full bg-softform-amber-500/20 text-softform-amber-300 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider">
+                  Synthetic Demo Data
+                </span>
+              )}
             </h2>
             <p className="text-sm leading-relaxed text-white/80 max-w-3xl">
               This page consolidates the current analysis into a board-style CFO snapshot and lender-facing summary. Content is context-only and should be reviewed before external use.

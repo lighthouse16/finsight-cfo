@@ -19,6 +19,7 @@ import { WorkspaceProvider, useWorkspace } from '../context/workspaceContext'
 
 const LoginPage = lazy(() => import('../pages/LoginPage'))
 const SignupPage = lazy(() => import('../pages/SignupPage'))
+const CreateWorkspacePage = lazy(() => import('../pages/CreateWorkspacePage'))
 const PlatformPlaceholderPage = lazy(
   () => import('../pages/PlatformPlaceholderPage'),
 )
@@ -306,6 +307,15 @@ export default function AppRouter() {
               <RouteWithAuthRedirect>
                 <SignupPage />
               </RouteWithAuthRedirect>,
+              'Loading workspace setup...',
+            )}
+          />
+
+          {/* Create workspace page */}
+          <Route
+            path="/create-workspace"
+            element={withPageFallback(
+              <CreateWorkspacePage />,
               'Loading workspace setup...',
             )}
           />

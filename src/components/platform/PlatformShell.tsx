@@ -4,7 +4,6 @@ import SidebarNav from './SidebarNav'
 import TopCommandBar from './TopCommandBar'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useWorkspace } from '../../context/workspaceContext'
-import CreateWorkspacePage from '../../pages/CreateWorkspacePage'
 import PageLoadingSkeleton from './PageLoadingSkeleton'
 
 const SIDEBAR_COLLAPSED_KEY = 'finsight-sidebar-collapsed'
@@ -29,7 +28,7 @@ function writeCollapsedToStorage(value: boolean): void {
 function PlatformShellContent() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { workspaces, isLoading, backendConfig } = useWorkspace()
+  const { activeWorkspace, isLoading, backendConfig } = useWorkspace()
   // Mobile drawer state
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
@@ -47,6 +46,13 @@ function PlatformShellContent() {
       }
     }
   }, [isLoading, backendConfig, navigate])
+
+  // Redirect to create-workspace if no active workspace is selected
+  useEffect(() => {
+    if (!isLoading && !activeWorkspace) {
+      navigate('/create-workspace', { replace: true })
+    }
+  }, [isLoading, activeWorkspace, navigate])
 
   // Sync collapsed state to localStorage whenever it changes
   useEffect(() => {
@@ -73,9 +79,7 @@ function PlatformShellContent() {
     )
   }
 
-  if (workspaces.length === 0) {
-    return <CreateWorkspacePage />
-  }
+  // redirection handled by useEffect hook above
 
   return (
     <div className="flex h-dvh overflow-hidden bg-[var(--softform-page-bg)] bg-fixed">

@@ -33,6 +33,7 @@ import {
   fetchBackendConfig,
 } from '../../lib/workspaceRunHelpers'
 import { API_BASE_URL } from '../../lib/apiBase'
+import { useWorkspace } from '../../context/workspaceContext'
 
 type AiMessage = {
   id: string
@@ -142,6 +143,7 @@ const renderMarkdown = (text: string, isUser: boolean = false) => {
 };
 
 export default function AiCfoPage() {
+  const { activeWorkspace } = useWorkspace()
   const [context, setContext] = useState<AiContext>({ financial: null, credit: null, funding: null, macro: null, blueprint: null })
   const [messages, setMessages] = useState<AiMessage[]>([])
   const [input, setInput] = useState('')
@@ -551,7 +553,13 @@ export default function AiCfoPage() {
       <PageHeader
         title="AI CFO"
         subtitle="Ask questions across the current financial, valuation, readiness, funding, market, and advisory context."
-        chip={<StatusChip variant={isReady ? 'signal' : 'neutral'}>{isReady ? 'Context ready' : 'Context incomplete'}</StatusChip>}
+        chip={
+          activeWorkspace?.id === 'workspace_sample_novus' ? (
+            <StatusChip variant="caution">Synthetic Demo Data</StatusChip>
+          ) : (
+            <StatusChip variant={isReady ? 'signal' : 'neutral'}>{isReady ? 'Context ready' : 'Context incomplete'}</StatusChip>
+          )
+        }
       />
 
       {/* Show context warning banner in dev/local mode if not ready */}
@@ -563,8 +571,13 @@ export default function AiCfoPage() {
         <div className="relative grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
           <div className="space-y-4">
             <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-softform-aqua-300 animate-pulse">Digital CFO assistant</span>
-            <h2 className="text-3xl font-semibold text-white tracking-tight">
-              {financial?.snapshot.companyName ?? 'Workspace Company'} · ask your CFO workspace
+            <h2 className="text-3xl font-semibold text-white tracking-tight flex items-center gap-2 flex-wrap">
+              <span>{financial?.snapshot.companyName ?? 'Workspace Company'} · ask your CFO workspace</span>
+              {activeWorkspace?.id === 'workspace_sample_novus' && (
+                <span className="rounded-full bg-softform-amber-500/20 text-softform-amber-300 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider">
+                  Synthetic Demo Data
+                </span>
+              )}
             </h2>
             <p className="text-sm leading-relaxed text-white/80 max-w-3xl">
               Ask questions across financial health, valuation, credit readiness, funding strategy, macro risks, and the advisory blueprint. Responses are powered by the configured advisory engine with visible sources.

@@ -36,15 +36,15 @@ docker compose down -v
 
 ## 2. Exact Demo Sequence & Expected Screens
 
-**Step 1: Start App**
-- **Action:** Open `http://localhost:5173`.
-- **Expected Screen:** The Overview dashboard appears or prompts for workspace selection.
-- **Talking Point:** "Welcome to FinSight CFO, a streamlined financial intelligence platform for SMEs to securely analyze their health and readiness for financing."
+**Step 1: Choose Entry Path**
+- **Action:** Open `http://localhost:5173`. If no active workspace is selected, you land on the choice screen.
+- **Expected Screen:** The Two-Card Choice Screen showing "Start from scratch" and "Explore with mock data" options.
+- **Talking Point:** "Welcome to FinSight CFO. When opening the app for the first time, users choose between starting with a clean workspace or exploring the system immediately using synthetic mock data."
 
-**Step 2: Select Workspace**
-- **Action:** Click the top workspace dropdown and select the sample company.
-- **Expected Screen:** The context updates globally.
-- **Talking Point:** "We isolate data into secure workspaces. We'll use a sample company today to demonstrate the analytics engine."
+**Step 2: Initialize Demo Workspace**
+- **Action:** Click **Open sample company** under the **Explore with mock data** card.
+- **Expected Screen:** The page loads the canonical demo workspace `workspace_sample_novus` and redirects you to the Overview dashboard, showing a "Synthetic Demo Data" badge.
+- **Talking Point:** "By selecting mock data, the platform instantly sets up a pre-configured sample company (Novus Retail Solutions Ltd) with pre-loaded, synthetic statements, meaning we can review the analytics suite without manual upload wait times."
 
 **Step 3: Review Financial Data**
 - **Action:** Navigate to the **Data Room**.
